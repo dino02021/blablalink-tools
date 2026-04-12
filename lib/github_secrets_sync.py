@@ -19,6 +19,7 @@ from .constants import (
     NIKKE_CHECKLIST_NAME_CODES_FILE,
     NIKKES_INFO_FILE,
     SESSIONS_FILE,
+    UNION_ACCOUNT_MAP_FILE,
 )
 from .log import log_exc, log_msg
 
@@ -31,6 +32,7 @@ SECRET_FILE_MAP: Dict[Path, str] = {
     MEMBERS_ID_FILE.resolve(): "BLABLALINK_MEMBERS_JSON",
     NIKKES_INFO_FILE.resolve(): "BLABLALINK_NIKKES_INFO_JSON",
     NIKKE_CHECKLIST_NAME_CODES_FILE.resolve(): "BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON",
+    UNION_ACCOUNT_MAP_FILE.resolve(): "BLABLALINK_UNION_ACCOUNT_MAP_JSON",
 }
 
 _watcher_lock = threading.Lock()

@@ -30,6 +30,7 @@ Required secrets:
 - `BLABLALINK_MEMBERS_JSON`
 - `BLABLALINK_NIKKES_INFO_JSON`
 - `BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON`
+- `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
 - `BLABLALINK_DEFAULT_ACCOUNT`
 
 Available workflows:
@@ -50,16 +51,20 @@ Each secret is written back to the same file layout that the local app already u
   Restored to `$HOME/Documents/BlablalinkToolSettings/service_account.json`
 - `BLABLALINK_MEMBERS_JSON`
   Restored to `$HOME/Documents/BlablalinkToolSettings/members_id.json`
+- `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
+  Restored to `$HOME/Documents/BlablalinkToolSettings/union_account_map.json`
 - `BLABLALINK_NIKKES_INFO_JSON`
   Restored to `data/nikkes_info.json`
 - `BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON`
   Restored to `data/nikke_checklist_name_codes.json`
 - `BLABLALINK_DEFAULT_ACCOUNT`
-  Default account slug used by workflows when `workflow_dispatch` does not override `account`
+  Default account slug used by non-union workflows when `workflow_dispatch` does not override `account`
 
 All JSON secrets must contain the full original file content, not base64 and not partial fragments.
 
 For `google_sheets_id.json`, `UnionRaid` entries can include `union_id`. When `union_raid_upload` does not receive an explicit `sheet_id`, it resolves the target sheet by matching the downloaded union raid data's `union_id`.
+
+For `union_account_map.json`, each item maps a `union_id` to the login account `username` that should download and upload that union's data. When `union_raid_pipeline` does not receive an explicit `account`, it runs download once for each unique mapped `username`, then upload resolves each downloaded file's `union_id` back to the mapped account.
 
 Example:
 
@@ -78,6 +83,21 @@ Example:
 ]
 ```
 
+`union_account_map.json` example:
+
+```json
+[
+  {
+    "union_id": "5010",
+    "username": "account_a@gmail.com"
+  },
+  {
+    "union_id": "3097",
+    "username": "account_b@gmail.com"
+  }
+]
+```
+
 ## Manual workflow usage
 
 ### union_raid_pipeline
@@ -87,7 +107,7 @@ Example:
 - `mode`
   `download` or `full`
 - `account`
-  Optional. Overrides `BLABLALINK_DEFAULT_ACCOUNT`
+  Optional. If set, only that account runs. If empty, the workflow runs once for each unique `username` in `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
 - `month`
   Required when `mode=full`
 
@@ -95,7 +115,7 @@ Recommended first test:
 
 1. Run `union_raid_pipeline`
 2. Set `mode=download`
-3. Leave `account` empty if `BLABLALINK_DEFAULT_ACCOUNT` is already correct
+3. Leave `account` empty if `BLABLALINK_UNION_ACCOUNT_MAP_JSON` already contains the union-to-account mapping
 4. Confirm the download job succeeds
 5. Run again with `mode=full` and a valid `month` such as `2026/04`
 
@@ -132,7 +152,7 @@ Recommended first test:
 
 1. Open the GitHub repo `Settings -> Secrets and variables -> Actions`
 2. Create every secret listed in `GitHub Actions runtime secrets`
-3. Verify the account slug in `BLABLALINK_DEFAULT_ACCOUNT` matches the key used in `sessions.json`
+3. Verify every `username` used in `BLABLALINK_UNION_ACCOUNT_MAP_JSON` exists in `sessions.json`
 4. Open `Actions` and enable workflows if GitHub asks for confirmation
 5. Run `union_raid_pipeline` in `download` mode first
 6. Run `nikke_pipeline` in `download` mode first

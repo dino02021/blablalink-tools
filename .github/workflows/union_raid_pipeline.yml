@@ -29,6 +29,7 @@ jobs:
       BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
       BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
       BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
+      BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
       BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
       BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
       BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
@@ -54,14 +55,69 @@ jobs:
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
+          printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
+      - name: Resolve union accounts
+        id: resolve_accounts
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          override = "${{ inputs.account }}".strip()
+          raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
+
+          if override:
+            accounts = [override]
+          else:
+            try:
+              items = json.loads(raw) if raw else []
+            except Exception:
+              items = []
+            accounts = []
+            seen = set()
+            for item in items:
+              if not isinstance(item, dict):
+                continue
+              username = str(item.get("username", "")).strip()
+              if not username or username in seen:
+                continue
+              seen.add(username)
+              accounts.append(username)
+
+          print(f"count={len(accounts)}")
+          print("accounts_json<<EOF")
+          print(json.dumps(accounts, ensure_ascii=False))
+          print("EOF")
+          PY
       - name: Run union raid download
         shell: bash
         run: |
-          ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          python -m lib.cli.run_job union-raid-download --account "$ACCOUNT"
+          UNION_ACCOUNTS='${{ steps.resolve_accounts.outputs.accounts_json }}'
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          accounts = json.loads(os.environ.get("UNION_ACCOUNTS", "[]") or "[]")
+          if not accounts:
+            default_account = os.environ.get("BLABLALINK_DEFAULT_ACCOUNT", "").strip()
+            if default_account:
+              accounts = [default_account]
+
+          if not accounts:
+            raise SystemExit("No union accounts resolved from inputs.account, BLABLALINK_UNION_ACCOUNT_MAP_JSON, or BLABLALINK_DEFAULT_ACCOUNT")
+
+          for account in accounts:
+            print(f"[union-download] account={account}")
+            subprocess.run(
+              [sys.executable, "-m", "lib.cli.run_job", "union-raid-download", "--account", account],
+              check=True,
+            )
+          PY
       - name: Detect union artifact path
         id: union_path
         run: |
@@ -86,6 +142,7 @@ jobs:
       BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
       BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
       BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
+      BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
       BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
       BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
       BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
@@ -111,6 +168,7 @@ jobs:
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
+          printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Detect union artifact path
@@ -132,6 +190,71 @@ jobs:
             echo "month is required for full mode" >&2
             exit 1
           fi
-          ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          python -m lib.cli.run_job union-raid-upload --account "$ACCOUNT" --month "${{ inputs.month }}"
+          UNION_MONTH="${{ inputs.month }}"
+          UNION_OVERRIDE_ACCOUNT="${{ inputs.account }}"
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          month = os.environ.get("UNION_MONTH", "").strip()
+          override = os.environ.get("UNION_OVERRIDE_ACCOUNT", "").strip()
+          raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
+
+          try:
+            items = json.loads(raw) if raw else []
+          except Exception:
+            items = []
+
+          union_to_account = {}
+          for item in items:
+            if not isinstance(item, dict):
+              continue
+            union_id = str(item.get("union_id", "")).strip()
+            username = str(item.get("username", "")).strip()
+            if union_id and username:
+              union_to_account[union_id] = username
+
+          from lib.constants import UNION_RAID_TEMP_FILE
+
+          data_files = sorted(
+            UNION_RAID_TEMP_FILE.parent.glob(f"{UNION_RAID_TEMP_FILE.stem}_*{UNION_RAID_TEMP_FILE.suffix}")
+          )
+          if not data_files:
+            raise SystemExit("No union raid data files found for upload")
+
+          ran_any = False
+          for data_path in data_files:
+            try:
+              payload = json.loads(data_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+              raise SystemExit(f"Failed to read union raid data file: {data_path} ({exc})")
+
+            union_id = str((payload or {}).get("union_id", "")).strip()
+            account = override or union_to_account.get(union_id, "")
+            if not account:
+              raise SystemExit(f"No mapped account for union_id={union_id or '-'} in BLABLALINK_UNION_ACCOUNT_MAP_JSON")
+
+            print(f"[union-upload] union_id={union_id} account={account} file={data_path.name}")
+            subprocess.run(
+              [
+                sys.executable,
+                "-m",
+                "lib.cli.run_job",
+                "union-raid-upload",
+                "--account",
+                account,
+                "--month",
+                month,
+                "--data-file",
+                str(data_path),
+              ],
+              check=True,
+            )
+            ran_any = True
+
+          if not ran_any:
+            raise SystemExit("No union raid uploads executed")
+          PY

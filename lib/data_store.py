@@ -12,6 +12,7 @@ from .constants import (
     UNION_RAID_TYPE,
     NIKKE_CHECKLIST_NAME_CODES_FILE,
     NIKKES_INFO_FILE,
+    UNION_ACCOUNT_MAP_FILE,
 )
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
@@ -113,6 +114,59 @@ def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
         payload = [{"type": stype, "sheets": grouped.get(stype, [])} for stype in ordered_types]
         write_text_and_sync_if_changed(
             GOOGLE_SHEETS_ID_FILE,
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+
+
+def load_union_account_map() -> List[Dict[str, str]]:
+    """讀取 union_account_map.json。"""
+    if not UNION_ACCOUNT_MAP_FILE.exists():
+        return []
+    try:
+        raw = json.loads(UNION_ACCOUNT_MAP_FILE.read_text(encoding="utf-8"))
+        if not isinstance(raw, list):
+            return []
+        cleaned: List[Dict[str, str]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            union_id = str(item.get("union_id", "")).strip()
+            username = str(item.get("username", "")).strip()
+            if not union_id or not username:
+                continue
+            cleaned.append(
+                {
+                    "union_id": union_id,
+                    "username": username,
+                },
+            )
+        return cleaned
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+
+
+def save_union_account_map(items: List[Dict[str, str]]) -> None:
+    """儲存 union_account_map.json。"""
+    try:
+        payload: List[Dict[str, str]] = []
+        for item in items:
+            union_id = str(item.get("union_id", "")).strip()
+            username = str(item.get("username", "")).strip()
+            if not union_id or not username:
+                continue
+            payload.append(
+                {
+                    "union_id": union_id,
+                    "username": username,
+                },
+            )
+        UNION_ACCOUNT_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        write_text_and_sync_if_changed(
+            UNION_ACCOUNT_MAP_FILE,
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )

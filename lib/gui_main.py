@@ -29,9 +29,16 @@ from .log import log_msg, log_exc
 from .github_secrets_sync import start_secret_file_watcher
 from .utils import load_accounts, save_accounts, load_session, run_with_session_context
 from .gui.ui_constants import DEFAULT_PAD
-from .data_store import load_members, load_sheets, save_sheets
+from .data_store import (
+    load_members,
+    load_sheets,
+    load_union_account_map,
+    save_sheets,
+    save_union_account_map,
+)
 from .gui.dialogs.accounts import choose_or_manage_accounts
 from .gui.dialogs.sheets import manage_sheet_types, manage_sheets
+from .gui.dialogs.union_account_map import manage_union_account_map
 from .gui.dialogs.union_raid_upload import open_upload_union_dialog
 from .gui.union_raid_download import start_download_union
 from .gui.nikke_download import start_download_nikke
@@ -72,6 +79,7 @@ class LoginApp:
         self.accounts = load_accounts()
         self.members = load_members()
         self.sheets, self.sheet_types = load_sheets()
+        self.union_account_map = load_union_account_map()
         self._selected_account_index = None
         self._selected_sheet_index = None
         self._is_logged_in = False
@@ -142,12 +150,14 @@ class LoginApp:
         btn_frame = ttk.Frame(form_frame, padding=(0, gap, 0, 0))
         btn_frame.grid(row=2, column=0, columnspan=2, sticky="e", pady=(gap, 0))
         btn_frame.columnconfigure(0, weight=1)
+        self.manage_cloud_account_btn = ttk.Button(btn_frame, text="管理雲端帳號", command=self._open_manage_cloud_accounts)
+        self.manage_cloud_account_btn.grid(row=0, column=0, padx=(0, gap))
         self.manage_sheet_btn = ttk.Button(btn_frame, text="管理試算表", command=self._open_manage_sheets)
-        self.manage_sheet_btn.grid(row=0, column=0, padx=(0, gap))
+        self.manage_sheet_btn.grid(row=0, column=1, padx=(0, gap))
         self.manage_btn = ttk.Button(btn_frame, text="選擇/管理帳號", command=self._open_manage_accounts)
-        self.manage_btn.grid(row=0, column=1, padx=(0, gap))
+        self.manage_btn.grid(row=0, column=2, padx=(0, gap))
         self.login_btn = ttk.Button(btn_frame, text="登入", command=self._on_login_clicked)
-        self.login_btn.grid(row=0, column=2)
+        self.login_btn.grid(row=0, column=3)
 
         info_frame = ttk.Frame(top, padding=(gap, gap, gap, gap))
         info_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(gap, gap), pady=(gap, gap))
@@ -156,15 +166,22 @@ class LoginApp:
         info_frame.columnconfigure(2, weight=1)  # 中間留彈性空間
         info_frame.columnconfigure(3, weight=0)
         info_frame.columnconfigure(4, weight=0)
+        info_frame.columnconfigure(5, weight=0)
         self.info_frame = info_frame
         self.download_union_btn = ttk.Button(info_frame, text="下載聯盟突襲資料", command=self._on_download_union)
         self.download_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.upload_sheet_btn = ttk.Button(info_frame, text="上傳聯盟突襲資料", command=self._on_upload_sheet)
         self.upload_sheet_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
+        self.manage_cloud_account_btn_logged = ttk.Button(
+            info_frame,
+            text="管理雲端帳號",
+            command=self._open_manage_cloud_accounts,
+        )
+        self.manage_cloud_account_btn_logged.grid(row=0, column=3, sticky="e", padx=(0, gap))
         self.manage_sheet_btn_logged = ttk.Button(info_frame, text="管理試算表", command=self._open_manage_sheets)
-        self.manage_sheet_btn_logged.grid(row=0, column=3, sticky="e", padx=(0, gap))
+        self.manage_sheet_btn_logged.grid(row=0, column=4, sticky="e", padx=(0, gap))
         self.logout_btn = ttk.Button(info_frame, text="登出", command=self._on_logout)
-        self.logout_btn.grid(row=0, column=4, sticky="e", padx=(0, 0))
+        self.logout_btn.grid(row=0, column=5, sticky="e", padx=(0, 0))
         self.union_status_var = tk.StringVar(value="")
         self.union_status_label = ttk.Label(info_frame, textvariable=self.union_status_var, foreground="green", anchor="w", justify="left")
         self.union_status_label.grid(row=3, column=0, columnspan=2, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
@@ -194,6 +211,7 @@ class LoginApp:
         self.nikke_status_label = ttk.Label(nikke_frame, textvariable=self.nikke_status_var, foreground="green", anchor="w", justify="left")
         self.nikke_status_label.grid(row=2, column=0, columnspan=2, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
         self.logout_btn.grid_remove()
+        self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
         self.download_union_btn.grid_remove()
         self.download_nikke_btn.grid_remove()
@@ -298,13 +316,14 @@ class LoginApp:
     def _reset_login_buttons(self):
         self.login_btn.config(state="normal")
         self.manage_btn.config(state="normal")
-        self.manage_sheet_btn.config(state="normal")
+        self.manage_cloud_account_btn.config(state="normal")
         self.manage_sheet_btn.config(state="normal")
 
     def _on_login_success(self):
         self.status_var.set("")
         self.manage_btn.grid_remove()
         self.login_btn.grid_remove()
+        self.manage_cloud_account_btn.grid_remove()
         self.info_frame.grid()
         self.logout_btn.grid()
         self.download_union_btn.grid()
@@ -314,6 +333,7 @@ class LoginApp:
         self.upload_nikke_btn.grid()
         self.upload_sync_btn.grid()
         self.upload_sheet_btn.grid()
+        self.manage_cloud_account_btn_logged.grid()
         self.manage_sheet_btn_logged.grid()
         self.manage_sheet_btn.grid_remove()
         self._set_nikke_status("", "green")
@@ -398,7 +418,13 @@ class LoginApp:
         updated_sheets, _ = manage_sheets(self.root, self._gap, self.sheets, self.sheet_types)
         if updated_sheets is not None:
             self.sheets = updated_sheets
-            save_sheets(self.sheets)
+            save_sheets(self.sheets, self.sheet_types)
+
+    def _open_manage_cloud_accounts(self) -> None:
+        updated_items = manage_union_account_map(self.root, self.union_account_map)
+        if updated_items is not None:
+            self.union_account_map = updated_items
+            save_union_account_map(self.union_account_map)
 
     def _on_logout(self) -> None:
         self._is_logged_in = False
@@ -413,6 +439,7 @@ class LoginApp:
         self.password_var.set("")
         self._apply_layout(is_logged_in=False)
         self.manage_btn.grid()
+        self.manage_cloud_account_btn.grid()
         self.manage_sheet_btn.grid()
         self.login_btn.grid()
         self._reset_login_buttons()
@@ -421,6 +448,7 @@ class LoginApp:
         self.nikke_frame.grid_remove()
         self.download_union_btn.grid_remove()
         self.upload_sheet_btn.grid_remove()
+        self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
         self.logout_btn.grid_remove()
         self.nikke_status_var.set("")
