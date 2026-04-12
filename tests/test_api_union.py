@@ -1,0 +1,123 @@
+﻿# -*- coding: utf-8 -*-
+"""針對 api 中較重的資料處理邏輯做單元測試（使用假 context，不打網路）。"""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from lib import api
+
+
+class FakeResponse:
+    def __init__(self, status: int, data):
+        self.status = status
+        self._data = data
+
+    async def json(self):
+        if isinstance(self._data, Exception):
+            raise self._data
+        return self._data
+
+
+class FakeRequest:
+    def __init__(self, mapping):
+        self.mapping = mapping
+
+    async def post(self, url, **kwargs):
+        return self.mapping[url]
+
+    async def get(self, url, **kwargs):
+        return self.mapping[url]
+
+
+class FakeContext:
+    def __init__(self, mapping):
+        self.request = FakeRequest(mapping)
+
+
+@pytest.mark.asyncio
+async def test_fetch_union_raid_data(tmp_path, monkeypatch):
+    # 準備輸出路徑改到 tmp
+    out_dir = tmp_path / "UnionRaid"
+    out_file = out_dir / "tmp.json"
+    monkeypatch.setattr(api, "UNION_RAID_TEMP_FILE", out_file)
+    monkeypatch.setattr(api, "DATA_DIR", tmp_path)
+
+    sample = {
+        "data": {
+            "participate_data": [
+                {
+                    "day": 1,
+                    "username": "A",
+                    "total_damage": 100,
+                    "level": 1,
+                    "step": 1,
+                    "is_final_hit": False,
+                    "squad_id": [{"tid": 123456, "lv": 10}, {"tid": 223456, "lv": 8}],
+                },
+                {
+                    "day": 2,
+                    "username": "A",
+                    "total_damage": 200,
+                    "level": 2,
+                    "step": 2,
+                    "is_final_hit": True,
+                    "squad_id": [{"tid": 323456, "lv": 9}],
+                },
+                {
+                    "day": 0,  # 會被過濾
+                    "username": "B",
+                    "squad_id": [],
+                },
+            ]
+        }
+    }
+    mapping = {api.UNION_RAID_URL: FakeResponse(200, sample)}
+    ctx = FakeContext(mapping)
+
+    ok = await api.fetch_union_raid_data(ctx, "gid", "intl", "area")
+    assert ok is True
+
+    # 確認檔案存在且結構正確（檔名會以 stem + union_id + 時間組合）
+    files = list(out_dir.glob("tmp_*json"))
+    assert files, "輸出檔案未建立"
+    content = json.loads(files[0].read_text(encoding="utf-8"))
+    assert content["union_id"] == "gid"
+    pdata = content["participate_data"]
+    assert len(pdata) == 1
+    assert pdata[0]["username"] == "A"
+    # data 倒序、lv 取最大、tid 取前 4 碼
+    assert len(pdata[0]["data"]) == 2
+    assert pdata[0]["data"][0]["squad_id"] == [3234]
+    assert pdata[0]["lv"] == 10
+
+
+@pytest.mark.asyncio
+async def test_fetch_nikkes_info(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "DATA_DIR", tmp_path)
+    target = tmp_path / "nikkes_info.json"
+    monkeypatch.setattr(api, "NIKKES_INFO_FILE", target)
+
+    sample = [
+        {
+            "id": 12345,
+            "class": "c",
+            "corporation": "corp",
+            "element_id": {"element": {"element": "fire"}},
+            "name_code": "nc",
+            "name_localkey": {"name": "nick"},
+            "original_rare": 3,
+            "shot_id": {"element": {"weapon_type": "gun"}},
+            "use_burst_skill": "Step1",
+        }
+    ]
+    mapping = {api.NIKKES_INFO_URL: FakeResponse(200, sample)}
+    ctx = FakeContext(mapping)
+
+    ok = await api.fetch_nikkes_info(ctx)
+    assert ok is True
+    data = json.loads(target.read_text(encoding="utf-8"))
+    assert data[0]["id"] == 1234  # 只取前 4 碼並轉 int
+    assert data[0]["element"] == "fire"
+    assert data[0]["weapon_type"] == "gun"

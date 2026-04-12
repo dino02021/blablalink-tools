@@ -1,0 +1,730 @@
+﻿# -*- coding: utf-8 -*-
+"""妮姬資料上傳對話框與流程。"""
+
+from __future__ import annotations
+
+import functools
+import json
+import subprocess
+import sys
+import threading
+import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Optional
+
+import tkinter as tk
+from tkinter import ttk
+
+from ..layout import (
+    close_dialog,
+    create_btn_between,
+    create_btn_frame,
+    create_btn_last,
+    create_dialog,
+    create_frame,
+    create_listbox,
+    create_msg_label,
+)
+from ...constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE, WEB_APP_URL
+from ...log import log_exc, log_msg
+
+@dataclass
+class NikkeUploadUi:
+    app: Any
+    dlg: tk.Toplevel
+    listbox: tk.Listbox
+    upload_btn: ttk.Button
+    upload_all_btn: ttk.Button
+    upload_status_var: tk.StringVar
+    upload_status_label: ttk.Label
+
+def open_upload_nikke_dialog(app) -> None:
+    """由主畫面呼叫：開啟上傳妮姬資料視窗。"""
+    dlg = create_dialog(app.root, "上傳妮姬資料", 360, 320)
+    frame = create_frame(dlg)
+
+    base = CHAR_DETAILS_DIR
+    base.mkdir(parents=True, exist_ok=True)
+    frame.rowconfigure(0, weight=1)
+    frame.columnconfigure(0, weight=1)
+    lb = create_listbox(frame, row=0, column=0, sticky="nsew")
+    lb.configure(selectmode="extended")
+    for p in sorted(base.glob("*.json")):
+        lb.insert("end", f" {p.name}")
+
+    btns = create_btn_frame(frame, row=1, column=0)
+    btns.columnconfigure(0, weight=1)
+    btns.columnconfigure(1, weight=0)
+
+    upload_status_var = tk.StringVar(value="")
+    upload_status_label = create_msg_label(frame, textvariable=upload_status_var, row=2, column=0, sticky="e")
+    upload_status_label.configure(foreground="green", anchor="e", justify="right")
+
+    ui = NikkeUploadUi(
+        app=app,
+        dlg=dlg,
+        listbox=lb,
+        upload_btn=None,
+        upload_all_btn=None,
+        upload_status_var=upload_status_var,
+        upload_status_label=upload_status_label,
+    )
+
+    upload_btn = create_btn_between(
+        btns,
+        text="選擇並上傳",
+        command=functools.partial(_start_upload_selected, ui),
+        row=0,
+        column=0,
+        sticky="we",
+    )
+    upload_all_btn = create_btn_last(
+        btns,
+        text="全部上傳",
+        command=functools.partial(_start_upload_all, ui),
+        row=0,
+        column=1,
+        sticky="e",
+    )
+    ui.upload_btn = upload_btn
+    ui.upload_all_btn = upload_all_btn
+
+    dlg.protocol("WM_DELETE_WINDOW", functools.partial(close_dialog, dlg))
+
+
+def _set_upload_status(ui: NikkeUploadUi, msg: str, color: str) -> None:
+    ui.upload_status_var.set(msg)
+    ui.upload_status_label.configure(foreground=color)
+    if msg.startswith("請選擇資料"):
+        ui.upload_status_label.configure(anchor="w", justify="left")
+        ui.upload_status_label.grid_configure(sticky="w")
+        return
+    if msg.startswith("上傳中"):
+        ui.upload_status_label.configure(anchor="e", justify="right")
+        ui.upload_status_label.grid_configure(sticky="e")
+
+def _start_upload_selected(ui: NikkeUploadUi) -> None:
+    files = _get_selected_files(ui)
+    if not files:
+        _set_upload_status(ui, "請選擇資料", "red")
+        return
+    _start_upload(ui, files)
+
+
+def _start_upload_all(ui: NikkeUploadUi) -> None:
+    files = _get_all_files(ui)
+    if not files:
+        _set_upload_status(ui, "沒有可上傳的資料", "red")
+        return
+    _start_upload(ui, files)
+
+
+def _start_upload(ui: NikkeUploadUi, files: List[str]) -> None:
+    _set_upload_status(ui, "上傳中...", "green")
+    ui.upload_btn.config(state="disabled")
+    ui.upload_all_btn.config(state="disabled")
+    threading.Thread(target=_upload_worker, args=(ui, files), daemon=True).start()
+
+
+def _upload_worker(ui: NikkeUploadUi, files: List[str]) -> None:
+    ok = False
+    msg = ""
+    total_count = len(files)
+    ok_count = 0
+    try:
+        sheets = [s for s in ui.app.sheets if s.get("type") == CHAR_DETAILS_TYPE]
+        if not sheets:
+            msg = "未找到 CharacterDetails 試算表"
+            return
+        sheet_id = sheets[0].get("sheet_id")
+        if not sheet_id:
+            msg = "試算表 ID 無效"
+            return
+
+        try:
+            from ...google_sheets.auth import get_gspread_client
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            msg = "Google Sheets 操作失敗"
+            return
+
+        cli = get_gspread_client()
+        sh = cli.open_by_key(sheet_id)
+
+        worksheets = sh.worksheets()
+        main_sheets = _collect_character_sheets(worksheets)
+        if not main_sheets:
+            msg = "未找到角色練度工作表"
+            return
+        change_sheet = _find_change_sheet(worksheets)
+        change_nick_to_row, change_header_pos = _load_change_headers(change_sheet)
+
+        nick_to_row, header_pos = _load_sheet_headers(main_sheets)
+        if not nick_to_row:
+            msg = "讀取名單失敗"
+            return
+
+        combined_updates: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
+        combined_changes: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
+        pending: List[Tuple[Any, int, int, List[Any], str, str]] = []
+        for fname in files:
+            data_file = CHAR_DETAILS_DIR / fname
+            if not data_file.exists():
+                msg = f"資料不存在: {fname}"
+                continue
+            try:
+                obj = json.loads(data_file.read_text(encoding="utf-8"))
+            except Exception:
+                msg = f"讀取失敗: {fname}"
+                continue
+            nickname = obj.get("nickname", "")
+            details = obj.get("character_details", [])
+            if not nickname or not isinstance(details, list):
+                msg = f"資料格式錯誤: {fname}"
+                continue
+
+            updates_by_ws, changes_by_ws = _build_updates(
+                details,
+                nickname,
+                main_sheets,
+                nick_to_row,
+                header_pos,
+                change_sheet,
+                change_nick_to_row,
+                change_header_pos,
+            )
+            for ws, items in updates_by_ws.items():
+                combined_updates.setdefault(ws, []).extend(items)
+            pending.extend(changes_by_ws)
+            if updates_by_ws:
+                ok_count += 1
+
+        _populate_change_updates(
+            pending,
+            combined_changes,
+            change_sheet,
+            change_nick_to_row,
+            change_header_pos,
+        )
+        ok, notify_items = _apply_updates(combined_updates)
+        if change_sheet and combined_changes:
+            change_ok, change_notify_items = _apply_updates(combined_changes)
+            ok = ok or change_ok
+            notify_items.extend(change_notify_items)
+        if notify_items:
+            _notify_web_app_batch(notify_items)
+        if not ok:
+            msg = msg or "沒有任何資料可上傳"
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        msg = str(exc)
+    finally:
+        ui.app.root.after(0, functools.partial(_finish_upload, ui, ok, ok_count, total_count, msg))
+
+
+def _finish_upload(ui: NikkeUploadUi, ok: bool, ok_count: int, total_count: int, msg: str) -> None:
+    if ok:
+        _set_upload_status(ui, f"上傳成功 ({ok_count}/{total_count})", "green")
+        ui.app.nikke_status_var.set(f"上傳成功 ({ok_count}/{total_count})")
+        close_dialog(ui.dlg)
+        return
+    _set_upload_status(ui, f"上傳失敗：{msg or '未知錯誤'}", "red")
+    ui.upload_btn.config(state="normal")
+    ui.upload_all_btn.config(state="normal")
+
+
+def _collect_character_sheets(worksheets) -> List[Any]:
+    main_sheets = []
+    for ws in worksheets:
+        title = ws.title
+        if title.startswith("角色練度_變化"):
+            continue
+        if title.startswith("角色練度"):
+            main_sheets.append(ws)
+    return main_sheets
+
+
+def _find_change_sheet(worksheets) -> Any | None:
+    for ws in worksheets:
+        if ws.title == "角色練度_變化":
+            return ws
+    return None
+
+
+def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[int]]]:
+    if change_sheet is None:
+        return {}, {}
+    try:
+        nick_col = change_sheet.col_values(1)
+        nick_to_row = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        nick_to_row = {}
+    try:
+        hdrs = change_sheet.row_values(2)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        hdrs = []
+    pos_map: Dict[str, List[int]] = {}
+    for idx, h in enumerate(hdrs, start=1):
+        name = h.strip()
+        if not name:
+            continue
+        pos_map.setdefault(name, []).append(idx)
+    return nick_to_row, pos_map
+
+
+def _load_sheet_headers(main_sheets) -> Tuple[Dict[str, int], Dict[Any, Dict[str, List[int]]]]:
+    try:
+        nick_col = main_sheets[0].col_values(1)
+        nick_to_row = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return {}, {}
+
+    header_pos: Dict[Any, Dict[str, List[int]]] = {}
+    for ws in main_sheets:
+        try:
+            hdrs = ws.row_values(1)
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            hdrs = []
+        pos_map: Dict[str, List[int]] = {}
+        for idx, h in enumerate(hdrs, start=1):
+            name = h.strip()
+            if not name:
+                continue
+            pos_map.setdefault(name, []).append(idx)
+        header_pos[ws] = pos_map
+    return nick_to_row, header_pos
+
+
+def _build_updates(
+    details: List[dict],
+    nickname: str,
+    main_sheets,
+    nick_to_row: Dict[str, int],
+    header_pos: Dict[Any, Dict[str, List[int]]],
+    change_sheet: Any | None,
+    change_nick_to_row: Dict[str, int],
+    change_header_pos: Dict[str, List[int]],
+) -> Tuple[Dict[Any, List[Tuple[int, int, List[Any]]]], List[Tuple[Any, int, int, List[Any], str, str]]]:
+    updates_by_ws: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
+    pending_changes: List[Tuple[Any, int, int, List[Any], str, str]] = []
+    for detail in details:
+        name = detail.get("name")
+        if not name:
+            continue
+        row_idx = nick_to_row.get(nickname)
+        if not row_idx:
+            continue
+        for ws in main_sheets:
+            start_cols = header_pos.get(ws, {}).get(name, [])
+            if not start_cols:
+                continue
+            vals = _build_row_values(detail)
+            for start_col in start_cols:
+                updates_by_ws.setdefault(ws, []).append((row_idx, start_col, vals))
+                if change_sheet:
+                    pending_changes.append((ws, row_idx, start_col, vals, nickname, name))
+
+    return updates_by_ws, pending_changes
+
+
+def _populate_change_updates(
+    pending: List[Tuple[Any, int, int, List[Any], str, str]],
+    combined_changes: Dict[Any, List[Tuple[int, int, List[Any]]]],
+    change_sheet: Any | None,
+    change_nick_to_row: Dict[str, int],
+    change_header_pos: Dict[str, List[int]],
+) -> None:
+    if not change_sheet or not pending:
+        return
+    try:
+        from gspread.utils import rowcol_to_a1  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return
+
+    pending_by_ws: Dict[Any, List[Tuple[int, int, List[Any], str, str]]] = {}
+    for ws, row_idx, start_col, vals, nickname, name in pending:
+        pending_by_ws.setdefault(ws, []).append((row_idx, start_col, vals, nickname, name))
+
+    for ws, items in pending_by_ws.items():
+        ranges: List[str] = []
+        change_ranges: List[str] = []
+        for row_idx, start_col, vals, nickname, name in items:
+            end_col = start_col + len(vals) - 1
+            ranges.append(f"{rowcol_to_a1(row_idx, start_col)}:{rowcol_to_a1(row_idx, end_col)}")
+            change_row = change_nick_to_row.get(nickname)
+            change_cols = change_header_pos.get(name, [])
+            if not change_row or not change_cols:
+                continue
+            for change_col in change_cols:
+                change_ranges.append(
+                    f"{rowcol_to_a1(change_row, change_col)}:"
+                    f"{rowcol_to_a1(change_row, change_col + len(vals) - 1)}"
+                )
+        try:
+            values = _batch_get_ranges(ws, ranges, 80)
+        except Exception as exc:  # noqa: BLE001
+            log_msg(f"nikke_upload change read failed ws={ws.title} count={len(ranges)}")
+            log_exc(exc)
+            continue
+        change_values: List[List[List[str]]] = []
+        if change_ranges:
+            try:
+                change_values = _batch_get_ranges(change_sheet, change_ranges, 80)
+            except Exception as exc:  # noqa: BLE001
+                log_msg(f"nikke_upload change read failed ws={change_sheet.title} count={len(change_ranges)}")
+                log_exc(exc)
+                change_values = []
+        for (row_idx, start_col, vals, nickname, name), old_block in zip(items, values):
+            old_vals = old_block[0] if old_block else []
+            diffs = _build_diff_values_from_slice(old_vals, vals)
+            if not any(diffs):
+                continue
+            change_row = change_nick_to_row.get(nickname)
+            change_cols = change_header_pos.get(name, [])
+            if not change_row or not change_cols:
+                continue
+            for change_col in change_cols:
+                existing_vals = _get_change_existing(change_values, change_ranges, change_row, change_col, len(vals))
+                merged = _merge_change_values(existing_vals, diffs)
+                if not any(merged):
+                    continue
+                combined_changes.setdefault(change_sheet, []).append((change_row, change_col, merged))
+
+
+def _get_change_existing(
+    change_values: List[List[List[str]]],
+    change_ranges: List[str],
+    row_idx: int,
+    col_idx: int,
+    length: int,
+) -> List[str]:
+    if not change_ranges or not change_values:
+        return []
+    try:
+        from gspread.utils import rowcol_to_a1  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+    rng = f"{rowcol_to_a1(row_idx, col_idx)}:{rowcol_to_a1(row_idx, col_idx + length - 1)}"
+    try:
+        pos = change_ranges.index(rng)
+    except ValueError:
+        return []
+    block = change_values[pos] if pos < len(change_values) else []
+    return block[0] if block else []
+
+
+def _batch_get_ranges(sheet: Any, ranges: List[str], chunk_size: int) -> List[List[List[str]]]:
+    if not ranges:
+        return []
+    out: List[List[List[str]]] = []
+    total = len(ranges)
+    for idx in range(0, total, chunk_size):
+        chunk = ranges[idx : idx + chunk_size]
+        out.extend(sheet.batch_get(chunk))
+    return out
+
+
+def _merge_change_values(existing: List[str], diffs: List[Any]) -> List[Any]:
+    out: List[Any] = []
+    for idx, diff in enumerate(diffs):
+        if diff == "":
+            out.append("")
+            continue
+        base_val = existing[idx] if idx < len(existing) else ""
+        merged = _add_change_values(base_val, diff)
+        out.append(merged)
+    return out
+
+
+def _add_change_values(existing: Any, diff: Any) -> str:
+    diff_num = _parse_change_number(diff)
+    if diff_num is None:
+        return str(diff)
+    base_num = _parse_change_number(existing)
+    if base_num is None:
+        return _format_change_number(diff_num)
+    return _format_change_number(base_num + diff_num)
+
+
+def _parse_change_number(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if text == "":
+        return None
+    if text.startswith("+"):
+        text = text[1:]
+    try:
+        return float(text)
+    except Exception:
+        return None
+
+
+def _format_change_number(value: float) -> str:
+    if value == 0:
+        return "+0"
+    if value.is_integer():
+        return f"{value:+.0f}"
+    return f"{value:+.2f}"
+
+
+def _build_diff_values(old_vals: List[str], start_col: int, new_vals: List[Any]) -> List[Any]:
+    diffs: List[Any] = []
+    for idx, new_val in enumerate(new_vals):
+        col_idx = start_col + idx
+        old_val = old_vals[col_idx - 1] if col_idx - 1 < len(old_vals) else ""
+        if old_val == "":
+            diffs.append("")
+            continue
+        if idx == _favorite_index():
+            diff_val = _calc_favorite_diff(old_val, new_val)
+        else:
+            diff_val = _calc_cell_diff(old_val, new_val)
+        diffs.append(diff_val)
+    return diffs
+
+
+def _build_diff_values_from_slice(old_vals: List[str], new_vals: List[Any]) -> List[Any]:
+    diffs: List[Any] = []
+    for idx, new_val in enumerate(new_vals):
+        old_val = old_vals[idx] if idx < len(old_vals) else ""
+        if old_val == "":
+            diffs.append("")
+            continue
+        if idx == _favorite_index():
+            diff_val = _calc_favorite_diff(old_val, new_val)
+        else:
+            diff_val = _calc_cell_diff(old_val, new_val)
+        diffs.append(diff_val)
+    return diffs
+
+
+def _favorite_index() -> int:
+    return 7
+
+
+def _calc_favorite_diff(old_val: Any, new_val: Any) -> str:
+    if old_val == new_val:
+        return ""
+    old_score = _parse_favorite_value(old_val)
+    new_score = _parse_favorite_value(new_val)
+    if old_score is None or new_score is None:
+        return _calc_cell_diff(old_val, new_val)
+    diff = new_score - old_score
+    if diff == 0:
+        return ""
+    return f"{diff:+d}"
+
+
+def _parse_favorite_value(val: Any) -> int | None:
+    if val is None:
+        return None
+    text = str(val).strip().upper()
+    if not text:
+        return None
+    if text == "N":
+        return -1
+    if text.startswith("SR"):
+        base = 15
+        rest = text[2:]
+    elif text.startswith("R"):
+        base = 0
+        rest = text[1:]
+    else:
+        return None
+    if rest == "":
+        lv = 0
+    else:
+        try:
+            lv = int(rest)
+        except Exception:
+            return None
+    return base + lv
+
+
+def _calc_cell_diff(old_val: Any, new_val: Any) -> str:
+    if old_val == new_val:
+        return ""
+    try:
+        old_num = _coerce_diff_value(old_val)
+        new_num = _coerce_diff_value(new_val)
+        if old_num is None or new_num is None:
+            return str(new_val)
+        diff = new_num - old_num
+        if diff == 0:
+            return ""
+        if diff.is_integer():
+            return f"{diff:+.0f}"
+        return f"{diff:+.2f}"
+    except Exception:
+        return str(new_val)
+
+
+def _coerce_diff_value(val: Any) -> Optional[float]:
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    text = str(val).strip().upper()
+    if text == "":
+        return None
+    mapping = {
+        "T9": -1,
+        "R0": 1,
+        "R1": 2,
+        "R2": 3,
+        "R3": 4,
+        "R4": 5,
+        "R5": 6,
+        "R6": 7,
+        "R7": 8,
+        "R8": 9,
+        "R9": 10,
+        "R10": 11,
+        "R11": 12,
+        "R12": 13,
+        "R13": 14,
+        "R14": 15,
+        "R15": 16,
+        "SR0": 17,
+        "SR1": 18,
+        "SR2": 19,
+        "SR3": 20,
+        "SR4": 21,
+        "SR5": 22,
+        "SR6": 23,
+        "SR7": 24,
+        "SR8": 25,
+        "SR9": 26,
+        "SR10": 27,
+        "SR11": 28,
+        "SR12": 29,
+        "SR13": 30,
+        "SR14": 31,
+        "SR15": 32,
+    }
+    if text in mapping:
+        return float(mapping[text])
+    try:
+        return float(text)
+    except Exception:
+        return None
+
+
+def _build_row_values(detail: dict) -> List[Any]:
+    vals: List[Any] = []
+    vals.append(detail.get("skill1_lv", ""))
+    vals.append(detail.get("skill2_lv", ""))
+    vals.append(detail.get("ulti_skill_lv", ""))
+    vals.append(_equip_val(detail.get("head_equip_tier", 0), detail.get("head_equip_lv", "")))
+    vals.append(_equip_val(detail.get("arm_equip_tier", 0), detail.get("arm_equip_lv", "")))
+    vals.append(_equip_val(detail.get("torso_equip_tier", 0), detail.get("torso_equip_lv", "")))
+    vals.append(_equip_val(detail.get("leg_equip_tier", 0), detail.get("leg_equip_lv", "")))
+
+    fav_type = detail.get("favorite_item_type", "")
+    fav_lv = detail.get("favorite_item_lv", "")
+    if str(fav_type).upper() == "N":
+        fav_display = str(fav_type)
+    else:
+        fav_display = f"{fav_type}{fav_lv}"
+    vals.append(fav_display)
+
+    funcs = detail.get("functions", []) or []
+    for idx_f in range(3):
+        fv = ""
+        if idx_f < len(funcs):
+            fv = funcs[idx_f].get("function_value", "")
+        vals.append(fv)
+    return vals
+
+
+def _equip_val(tier, lv):
+    if tier == 9:
+        return "T9"
+    return lv
+
+
+def _apply_updates(
+    updates_by_ws: Dict[Any, List[Tuple[int, int, List[Any]]]]
+) -> Tuple[bool, List[Dict[str, Any]]]:
+    try:
+        from gspread.utils import rowcol_to_a1  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False, []
+
+    any_written = False
+    notify_items: List[Dict[str, Any]] = []
+    for ws, items in updates_by_ws.items():
+        if not items:
+            continue
+        payload = []
+        for row_idx, start_col, vals in items:
+            end_col = start_col + len(vals) - 1
+            rng = f"{rowcol_to_a1(row_idx, start_col)}:{rowcol_to_a1(row_idx, end_col)}"
+            payload.append({"range": rng, "values": [vals]})
+        try:
+            if payload:
+                ws.batch_update(payload, value_input_option="RAW")
+                any_written = True
+                notify_items.append(
+                    {"sheet_name": ws.title, "ranges": [item["range"] for item in payload]}
+                )
+        except Exception as exc:  # noqa: BLE001
+            ranges = [item.get("range") for item in payload]
+            sample = [r for r in ranges if r][:5]
+            log_msg(
+                "nikke_upload batch_update failed ws="
+                f"{ws.title} count={len(payload)} sample_ranges={sample}"
+            )
+            log_exc(exc)
+    return any_written, notify_items
+
+
+def _notify_web_app_batch(items: List[Dict[str, Any]], kind: str = "training") -> None:
+    if not WEB_APP_URL or not items:
+        return
+    try:
+        payload_dir = CHAR_DETAILS_DIR.parent / "WebAppNotify"
+        payload_dir.mkdir(parents=True, exist_ok=True)
+        payload_path = payload_dir / f"notify_{uuid.uuid4().hex}.json"
+        payload = {
+            "url": WEB_APP_URL,
+            "payload": {"items": items},
+            "kind": kind,
+        }
+        payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        worker_path = Path(__file__).resolve().parents[2] / "webapp_notify_worker.py"
+        creationflags = 0
+        for attr in ("CREATE_NO_WINDOW", "DETACHED_PROCESS", "CREATE_NEW_PROCESS_GROUP"):
+            creationflags |= getattr(subprocess, attr, 0)
+        subprocess.Popen(
+            [sys.executable, str(worker_path), str(payload_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+            creationflags=creationflags,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+
+def _get_selected_files(ui: NikkeUploadUi) -> List[str]:
+    selected = []
+    for idx in ui.listbox.curselection():
+        selected.append(ui.listbox.get(idx).strip())
+    return selected
+
+
+def _get_all_files(ui: NikkeUploadUi) -> List[str]:
+    return [ui.listbox.get(i).strip() for i in range(ui.listbox.size())]

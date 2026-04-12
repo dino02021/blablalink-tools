@@ -1,0 +1,41 @@
+﻿# -*- coding: utf-8 -*-
+"""GUI 共用常數：集中管理 padding / 間距，方便套用對話框配置。"""
+from __future__ import annotations
+
+DEFAULT_PAD = 6
+
+# 框架與列表
+FRAME_PAD = DEFAULT_PAD  # 外層 Frame padding
+FRAME_GRID_PADX = DEFAULT_PAD
+FRAME_GRID_PADY = DEFAULT_PAD
+LIST_PADX = DEFAULT_PAD
+LIST_PADY = (DEFAULT_PAD // 2, DEFAULT_PAD // 2)
+
+# 按鈕框與 Grid 間距
+BTN_FRAME_PAD = (0, DEFAULT_PAD, 0, 0)
+BTN_GRID_PADX = DEFAULT_PAD
+BTN_GRID_PADY = (0, DEFAULT_PAD // 2)
+# 按鈕彼此間距（最後一顆維持 0）
+BTN_PADX_BETWEEN = (0, DEFAULT_PAD)
+BTN_PADX_LAST = (0, 0)
+
+# 訊息區
+MSG_PADX = (DEFAULT_PAD // 2, DEFAULT_PAD)
+MSG_PADY = (DEFAULT_PAD // 2, DEFAULT_PAD // 2)
+
+# 標籤 padding：統一用半格距離
+LABEL_PADX = (0, DEFAULT_PAD)
+LABEL_PADY = (DEFAULT_PAD // 2, DEFAULT_PAD // 2)
+
+# 輸入框與標籤專用 padding
+ENTRY_LABEL_PADX = (0, DEFAULT_PAD)
+ENTRY_LABEL_PADY = (DEFAULT_PAD // 2, DEFAULT_PAD // 2)
+ENTRY_PADX = (0, 0)
+ENTRY_PADY = (DEFAULT_PAD // 2, DEFAULT_PAD // 2)
+CB_PADX = ENTRY_PADX
+CB_PADY = ENTRY_PADY
+
+# 輸入框區塊（對齊 btn frame 的 grid 設定）
+ENTRY_FRAME_PAD = (0, DEFAULT_PAD, 0, 0)
+ENTRY_GRID_PADX = DEFAULT_PAD
+ENTRY_GRID_PADY = (0, DEFAULT_PAD // 2)

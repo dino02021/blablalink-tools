@@ -1,0 +1,18 @@
+node_modules/
+logs/
+data/
+.pytest_cache/
+.vscode/
+__pycache__/
+*.py[cod]
+
+# Local settings and credentials
+settings/
+sessions.json
+accounts.json
+google_sheets_id.json
+service_account.json
+members_id.json
+
+# Temporary files
+_spec_tmp_header.txt
