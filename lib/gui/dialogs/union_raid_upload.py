@@ -32,6 +32,7 @@ from ..layout import (
     create_listbox,
 )
 from ...data_store import load_sheets
+from ...jobs.union_raid_upload import run_union_raid_upload
 from ...constants import NIKKES_INFO_FILE, UNION_RAID_TEMP_FILE, UNION_RAID_TYPE, UNION_WEB_APP_URL
 from ...utils import col_letter
 from ...utils import load_session, run_with_session_context
@@ -447,41 +448,16 @@ def _upload_worker(app, ui: UnionUploadUi, state: UnionUploadState) -> None:
     status = "fail"
     msg = "上傳失敗"
     try:
-        log_msg(
-            f"union_upload start data_path={state.data_path} sheet_id={state.sheet_id} month={state.month_text}"
+        result = run_union_raid_upload(
+            account=str(getattr(app, "_last_slug", "") or "").strip(),
+            month=state.month_text or "",
+            data_path=state.data_path,
+            sheet_id=state.sheet_id or "",
         )
-        data = _load_union_data(state.data_path)
-        log_msg(f"union_upload data_loaded count={len(data) if isinstance(data, list) else 0}")
-        if not data:
-            msg = "資料檔內容為空"
-            log_msg(f"union_upload fail reason={msg}")
-            raise ValueError(msg)
-        sheet_id = state.sheet_id or ""
-        month = state.month_text or ""
-        guild_members: List[Dict[str, Any]] = []
-        try:
-            slug = str(getattr(app, "_last_slug", "") or "").strip()
-            if slug:
-                session_state = load_session(slug)
-                if session_state:
-                    fetched = _run_coro_sync(
-                        lambda: run_with_session_context(session_state, fetch_guild_members)
-                    )
-                    if isinstance(fetched, list):
-                        guild_members = fetched
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-        if not guild_members:
-            log_msg("union_upload fail reason=fetch_guild_members empty")
-            raise ValueError("取得公會成員失敗，已停止上傳")
-        log_msg(f"union_upload guild_members count={len(guild_members)}")
-        sheet_ok, web_ok, web_msg = _upload_to_sheets(sheet_id, month, data, guild_members)
-        log_msg(f"union_upload sheet_ok={sheet_ok} web_ok={web_ok} web_msg={web_msg}")
-        if not sheet_ok:
-            msg = "上傳失敗"
+        msg = result.message
+        if not result.ok:
             status = "fail"
-        elif not web_ok:
-            msg = f"總表成功 / WebApp失敗：{web_msg}"
+        elif result.stats.get("partial"):
             status = "partial"
         else:
             status = "success"

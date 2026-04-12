@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Tuple, Optional
 import tkinter as tk
 from tkinter import ttk
 
+from ...jobs.nikke_upload import run_nikke_upload
 from ..layout import (
     close_dialog,
     create_btn_between,
@@ -133,89 +134,10 @@ def _upload_worker(ui: NikkeUploadUi, files: List[str]) -> None:
     total_count = len(files)
     ok_count = 0
     try:
-        sheets = [s for s in ui.app.sheets if s.get("type") == CHAR_DETAILS_TYPE]
-        if not sheets:
-            msg = "未找到 CharacterDetails 試算表"
-            return
-        sheet_id = sheets[0].get("sheet_id")
-        if not sheet_id:
-            msg = "試算表 ID 無效"
-            return
-
-        try:
-            from ...google_sheets.auth import get_gspread_client
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            msg = "Google Sheets 操作失敗"
-            return
-
-        cli = get_gspread_client()
-        sh = cli.open_by_key(sheet_id)
-
-        worksheets = sh.worksheets()
-        main_sheets = _collect_character_sheets(worksheets)
-        if not main_sheets:
-            msg = "未找到角色練度工作表"
-            return
-        change_sheet = _find_change_sheet(worksheets)
-        change_nick_to_row, change_header_pos = _load_change_headers(change_sheet)
-
-        nick_to_row, header_pos = _load_sheet_headers(main_sheets)
-        if not nick_to_row:
-            msg = "讀取名單失敗"
-            return
-
-        combined_updates: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
-        combined_changes: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
-        pending: List[Tuple[Any, int, int, List[Any], str, str]] = []
-        for fname in files:
-            data_file = CHAR_DETAILS_DIR / fname
-            if not data_file.exists():
-                msg = f"資料不存在: {fname}"
-                continue
-            try:
-                obj = json.loads(data_file.read_text(encoding="utf-8"))
-            except Exception:
-                msg = f"讀取失敗: {fname}"
-                continue
-            nickname = obj.get("nickname", "")
-            details = obj.get("character_details", [])
-            if not nickname or not isinstance(details, list):
-                msg = f"資料格式錯誤: {fname}"
-                continue
-
-            updates_by_ws, changes_by_ws = _build_updates(
-                details,
-                nickname,
-                main_sheets,
-                nick_to_row,
-                header_pos,
-                change_sheet,
-                change_nick_to_row,
-                change_header_pos,
-            )
-            for ws, items in updates_by_ws.items():
-                combined_updates.setdefault(ws, []).extend(items)
-            pending.extend(changes_by_ws)
-            if updates_by_ws:
-                ok_count += 1
-
-        _populate_change_updates(
-            pending,
-            combined_changes,
-            change_sheet,
-            change_nick_to_row,
-            change_header_pos,
-        )
-        ok, notify_items = _apply_updates(combined_updates)
-        if change_sheet and combined_changes:
-            change_ok, change_notify_items = _apply_updates(combined_changes)
-            ok = ok or change_ok
-            notify_items.extend(change_notify_items)
-        if notify_items:
-            _notify_web_app_batch(notify_items)
-        if not ok:
-            msg = msg or "沒有任何資料可上傳"
+        result = run_nikke_upload(files=files)
+        ok = result.ok
+        msg = result.message
+        ok_count = int(result.stats.get("ok_count", 0) or 0)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         msg = str(exc)

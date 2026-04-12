@@ -11,9 +11,8 @@ from typing import List, Tuple
 import tkinter as tk
 from tkinter import ttk
 
+from ...jobs.nikke_batch_download import run_nikke_batch_download
 from ...log import log_exc, log_msg
-from ...utils import load_session, run_with_session_context
-from ...api import fetch_user_character_details, fetch_user_characters
 from ...data_store import save_members
 from ..layout import (
     close_dialog,
@@ -29,9 +28,6 @@ from ..layout import (
     create_listbox,
     create_msg_label,
 )
-from ...data_store import prepare_checklist_items
-
-
 def open_batch_download_nikke(app) -> None:
     """由主畫面呼叫：開啟批次下載視窗。"""
     if not getattr(app, "_last_slug", None):
@@ -112,50 +108,18 @@ def _start_batch_download(app, members, status_var: tk.StringVar, dlg: tk.Toplev
 
 
 def _batch_download_nikke_worker(app, members) -> None:
-    ok_count = 0
     total_count = len(members)
     msg = ""
-    name_ok, checklist_items, prep_msg = prepare_checklist_items()
-    if not name_ok:
-        msg = prep_msg or "下載失敗"
-    else:
-        state = load_session(app._last_slug or "")
-        if not state:
-            msg = "找不到登入狀態"
-        else:
-            try:
-                ok_count = app._run_coro_sync(functools.partial(_batch_download_async, state, members, checklist_items))
-            except Exception as exc:  # noqa: BLE001
-                log_exc(exc)
-                msg = str(exc)
+    ok_count = 0
+    try:
+        result = run_nikke_batch_download(account=app._last_slug or "", members=members)
+        msg = "" if result.ok else result.message
+        ok_count = int(result.stats.get("ok_count", 0) or 0)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        msg = str(exc)
 
     app.root.after(0, functools.partial(_finish_batch_download, app, ok_count, total_count, msg))
-
-
-async def _batch_download_async(state, members, checklist_items) -> int:
-    return await run_with_session_context(
-        state,
-        functools.partial(_batch_download_with_ctx, members=members, checklist_items=checklist_items),
-    )
-
-
-async def _batch_download_with_ctx(ctx, members, checklist_items) -> int:
-    ok_count = 0
-    for mem in members:
-        nickname = mem.get("nick_name")
-        intl_id = mem.get("intl_open_id")
-        if not nickname or not intl_id:
-            continue
-        name_codes = await fetch_user_characters(ctx, intl_open_id=intl_id)
-        if not name_codes:
-            continue
-        filtered = _filter_checklist_items(checklist_items, name_codes)
-        if not filtered:
-            continue
-        res = await fetch_user_character_details(ctx, filtered, nickname, intl_open_id=intl_id)
-        if res:
-            ok_count += 1
-    return ok_count
 
 
 def _finish_batch_download(app, ok_count: int, total_count: int, msg: str) -> None:
@@ -222,25 +186,6 @@ def _refresh_batch_list(app, lb: tk.Listbox) -> None:
     for mem in app.members:
         nick = mem.get("nick_name", "")
         lb.insert("end", f" {nick}")
-
-
-def _filter_checklist_items(
-    checklist_items: List[Tuple[int, str]],
-    name_codes: List,
-) -> List[Tuple[int, str]]:
-    try:
-        code_set = {int(x) for x in name_codes}
-    except Exception:
-        code_set = set()
-        for x in name_codes:
-            try:
-                code_set.add(int(x))
-            except Exception:
-                continue
-    if not code_set:
-        return []
-    return [item for item in checklist_items if item[0] in code_set]
-
 
 def _open_add_member_dialog(app, parent, lb: tk.Listbox, warn_var: tk.StringVar) -> None:
     dlg = create_dialog(parent, "新增成員", 320, 160)

@@ -37,8 +37,8 @@ from .gui.nikke_download import start_download_nikke
 from .gui.dialogs.nikke_batch_download import open_batch_download_nikke
 from .gui.dialogs.nikke_upload import open_upload_nikke_dialog
 from .gui.login_flow import start_login
-from .api import fetch_function_names, fetch_guild_members
-from .google_sheets.auth import get_gspread_client
+from .api import fetch_function_names
+from .jobs.sync_upload import run_sync_upload
 from .constants import (
     LOG_PATH,
     SESSIONS_FILE,
@@ -431,82 +431,10 @@ class LoginApp:
     def _upload_sync_worker(self) -> None:
         ok = False
         message = "上傳同步失敗：未知錯誤"
-
-        def _parse_int(value: Any) -> Optional[int]:
-            try:
-                return int(value)
-            except Exception:
-                return None
-
         try:
-            slug = self._last_slug or ""
-            state = load_session(slug)
-            if not state:
-                message = "上傳同步失敗：找不到登入 Session"
-                return
-
-            members = self._run_coro_sync(
-                lambda: run_with_session_context(state, fetch_guild_members)
-            )
-            if not isinstance(members, list) or not members:
-                message = "上傳同步失敗：未取得公會成員資料"
-                return
-
-            member_level_map: Dict[str, int] = {}
-            for item in members:
-                if not isinstance(item, dict):
-                    continue
-                nickname = str(item.get("nickname", "")).strip()
-                if not nickname:
-                    continue
-                level = _parse_int(item.get("synchro_level"))
-                if level is None:
-                    continue
-                member_level_map[nickname] = level
-
-            total_count = len(member_level_map)
-            if total_count == 0:
-                message = "上傳同步失敗：無有效成員資料可同步"
-                return
-
-            target_sheets = [s for s in self.sheets if s.get("type") == CHAR_DETAILS_TYPE]
-            if not target_sheets:
-                message = "上傳同步失敗：未設定 CharacterDetails 試算表"
-                return
-            sheet_id = target_sheets[0].get("sheet_id")
-            if not sheet_id:
-                message = "上傳同步失敗：CharacterDetails 試算表 ID 無效"
-                return
-
-            client = get_gspread_client()
-            sheet = client.open_by_key(sheet_id)
-            ws = sheet.worksheet("成員名稱")
-            a_values = ws.col_values(1)
-            last_row = max(2, len(a_values))
-            ws.batch_update(
-                [{"range": f"B2:B{last_row}", "values": [[""] for _ in range(last_row - 1)]}],
-                value_input_option="RAW",
-            )
-
-            updates = []
-            matched_count = 0
-            for row_idx in range(2, last_row + 1):
-                name = str(a_values[row_idx - 1]).strip() if row_idx - 1 < len(a_values) else ""
-                if not name:
-                    continue
-                level = member_level_map.get(name)
-                if level is None:
-                    continue
-                updates.append({"range": f"B{row_idx}:B{row_idx}", "values": [[level]]})
-                matched_count += 1
-
-            if matched_count == 0:
-                message = "上傳同步失敗：A欄沒有可匹配的成員"
-                return
-
-            ws.batch_update(updates, value_input_option="RAW")
-            message = f"上傳同步成功 ({matched_count}/{total_count})"
-            ok = True
+            result = run_sync_upload(account=self._last_slug or "")
+            ok = result.ok
+            message = result.message if result.ok else f"上傳同步失敗：{result.message}"
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
             message = f"上傳同步失敗：{exc}"
