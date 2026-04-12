@@ -13,6 +13,7 @@ from .constants import (
     NIKKE_CHECKLIST_NAME_CODES_FILE,
     NIKKES_INFO_FILE,
 )
+from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
 
@@ -42,7 +43,8 @@ def save_members(members: List[Dict[str, str]]) -> None:
     """寫入 members_id.json。"""
     try:
         MEMBERS_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-        MEMBERS_ID_FILE.write_text(
+        write_text_and_sync_if_changed(
+            MEMBERS_ID_FILE,
             json.dumps(members, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -109,7 +111,8 @@ def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
             if stype not in ordered_types:
                 ordered_types.append(stype)
         payload = [{"type": stype, "sheets": grouped.get(stype, [])} for stype in ordered_types]
-        GOOGLE_SHEETS_ID_FILE.write_text(
+        write_text_and_sync_if_changed(
+            GOOGLE_SHEETS_ID_FILE,
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )

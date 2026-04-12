@@ -25,6 +25,7 @@ from .constants import (
     UNION_RAID_TEMP_FILE,
     CHAR_DETAILS_DIR,
 )
+from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc, log_msg
 from .utils import get_nested_value
 
@@ -276,7 +277,8 @@ async def fetch_nikkes_info(context: BrowserContext) -> bool:
 
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
-            NIKKES_INFO_FILE.write_text(
+            write_text_and_sync_if_changed(
+                NIKKES_INFO_FILE,
                 json.dumps(result, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )

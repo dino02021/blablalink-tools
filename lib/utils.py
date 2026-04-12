@@ -6,6 +6,7 @@ import json
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from .constants import ACCOUNTS_FILE, DATA_DIR, PASS_KEY, SESSIONS_FILE
+from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
 
@@ -122,7 +123,11 @@ def save_session(account: str, state_obj: Dict[str, Any]) -> None:
     cookies = state_obj.get("cookies", []) if isinstance(state_obj, dict) else []
     data.append({"account": account, "cookies": cookies})
     try:
-        SESSIONS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_text_and_sync_if_changed(
+            SESSIONS_FILE,
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
 
