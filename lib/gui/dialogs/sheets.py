@@ -149,7 +149,7 @@ def _open_add_sheet_dialog(
     msg_var: tk.StringVar,
     msg_label: ttk.Label,
 ) -> None:
-    sub = create_dialog(parent, "新增試算表", 340, 200)
+    sub = create_dialog(parent, "新增試算表", 380, 240)
     sub_frame = create_frame(sub)
     entry_frame = create_entry_frame(sub_frame, row=0, column=0)
     entry_frame.columnconfigure(1, weight=1)
@@ -164,9 +164,13 @@ def _open_add_sheet_dialog(
     name_var = tk.StringVar()
     create_entry(entry_frame, name_var, row=1, column=1)
 
-    create_entry_label(entry_frame, "ID", row=2, column=0)
-    id_var = tk.StringVar()
-    create_entry(entry_frame, id_var, row=2, column=1)
+    create_entry_label(entry_frame, "試算表ID", row=2, column=0)
+    sheet_id_var = tk.StringVar()
+    create_entry(entry_frame, sheet_id_var, row=2, column=1)
+
+    create_entry_label(entry_frame, "聯盟ID", row=3, column=0)
+    union_id_var = tk.StringVar()
+    create_entry(entry_frame, union_id_var, row=3, column=1)
 
     sub_msg_var = tk.StringVar(value="")
     btns = create_btn_frame(sub_frame, row=1, column=0)
@@ -176,7 +180,16 @@ def _open_add_sheet_dialog(
         btns,
         "儲存",
         lambda: _save_sheet(
-            type_var, name_var, id_var, sheets, listbox, sub_msg_var, msg_var, msg_label, sub
+            type_var,
+            name_var,
+            sheet_id_var,
+            union_id_var,
+            sheets,
+            listbox,
+            sub_msg_var,
+            msg_var,
+            msg_label,
+            sub,
         ),
         row=0,
         column=0,
@@ -272,7 +285,8 @@ def _delete_type(listbox: tk.Listbox, sheet_types: List[str], msg_var: tk.String
 def _save_sheet(
     type_var: tk.StringVar,
     name_var: tk.StringVar,
-    id_var: tk.StringVar,
+    sheet_id_var: tk.StringVar,
+    union_id_var: tk.StringVar,
     sheets: List[Dict[str, str]],
     listbox: tk.Listbox,
     sub_msg_var: tk.StringVar,
@@ -282,11 +296,22 @@ def _save_sheet(
 ) -> None:
     stype_raw = type_var.get().strip()
     name = name_var.get().strip()
-    sid = id_var.get().strip()
+    sid = sheet_id_var.get().strip()
+    union_id = union_id_var.get().strip()
     if not stype_raw or not name or not sid:
-        sub_msg_var.set("請填寫類型、名稱與ID")
+        sub_msg_var.set("請填寫類型、名稱與試算表ID")
         return
-    sheets.append({"type": stype_raw, "sheet_name": name, "sheet_id": sid})
+    if stype_raw == "UnionRaid" and not union_id:
+        sub_msg_var.set("UnionRaid 類型必須填寫聯盟ID")
+        return
+    sheets.append(
+        {
+            "type": stype_raw,
+            "sheet_name": name,
+            "sheet_id": sid,
+            "union_id": union_id,
+        }
+    )
     _refresh_sheets(listbox, sheets)
     msg_var.set("已新增試算表")
     msg_label.configure(foreground="green")

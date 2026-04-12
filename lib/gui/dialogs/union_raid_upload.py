@@ -64,7 +64,7 @@ class UnionUploadUi:
 
 def open_upload_union_dialog(app) -> None:
     """Open union raid upload dialog."""
-    dlg = create_dialog(app.root, "上傳聯盟突襲資料", 480, 180)
+    dlg = create_dialog(app.root, "上傳聯盟突襲資料", 480, 200)
 
     frame = create_frame(dlg)
     entry_frame = create_entry_frame(frame, row=0, column=0)
@@ -293,67 +293,6 @@ def _open_union_folder() -> None:
         os.startfile(str(UNION_RAID_TEMP_FILE.parent))
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-
-
-def _open_sheet_dialog(ui: UnionUploadUi, state: UnionUploadState) -> None:
-    dlg = create_dialog(ui.dlg, "選擇試算表", 380, 320)
-    frame = create_frame(dlg)
-    frame.columnconfigure(0, weight=1)
-    frame.rowconfigure(0, weight=1)
-
-    listbox = create_listbox(frame, row=0, column=0)
-    items, _ = load_sheets()
-    items = [item for item in items if item.get("type") == UNION_RAID_TYPE]
-    for item in items:
-        listbox.insert("end", f" {item['type']}-{item['sheet_name']}")
-
-    btns = create_btn_frame(frame, row=1, column=0)
-    btns.columnconfigure(0, weight=1)
-
-    msg_var = tk.StringVar(value="")
-    msg_label = create_msg_label(frame, msg_var, row=2, column=0, sticky="w")
-    msg_label.configure(foreground="red", anchor="w", justify="left")
-
-    create_btn_last(
-        btns,
-        "套用選擇",
-        lambda: _apply_sheet_choice(dlg, listbox, items, ui, state, msg_var, msg_label),
-        row=0,
-        column=0,
-        sticky="we",
-    )
-
-    listbox.bind(
-        "<Double-Button-1>",
-        lambda e=None: _apply_sheet_choice(dlg, listbox, items, ui, state, msg_var, msg_label),
-    )
-    dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
-    ui.parent.wait_window(dlg)
-
-
-def _apply_sheet_choice(
-    dlg: tk.Toplevel,
-    listbox: tk.Listbox,
-    items: List[Dict[str, str]],
-    ui: UnionUploadUi,
-    state: UnionUploadState,
-    msg_var: tk.StringVar,
-    msg_label: ttk.Label,
-) -> None:
-    idx = _get_selected_index(listbox)
-    if idx is None:
-        msg_var.set("請選擇試算表")
-        msg_label.configure(foreground="red")
-        return
-    item = items[idx]
-    state.sheet_id = item.get("sheet_id") or None
-    state.sheet_name = item.get("sheet_name") or None
-    ui.sheet_var.set(state.sheet_name or "")
-    state.month_text = None
-    ui.month_var.set("")
-    _set_upload_status(ui, "", "green")
-    _refresh_upload_state(ui, state)
-    close_dialog(dlg)
 
 
 def _open_month_dialog(ui: UnionUploadUi, state: UnionUploadState) -> None:
