@@ -31,9 +31,8 @@ from ..layout import (
     create_msg_label,
     create_listbox,
 )
-from ...data_store import load_sheets
-from ...jobs.union_raid_upload import run_union_raid_upload
-from ...constants import NIKKES_INFO_FILE, UNION_RAID_TEMP_FILE, UNION_RAID_TYPE, UNION_WEB_APP_URL
+from ...jobs.union_raid_upload import run_union_raid_upload, resolve_union_sheet_target
+from ...constants import NIKKES_INFO_FILE, UNION_RAID_TEMP_FILE, UNION_WEB_APP_URL
 from ...utils import col_letter
 from ...utils import load_session, run_with_session_context
 from ...google_sheets.auth import get_gspread_client
@@ -59,14 +58,13 @@ class UnionUploadUi:
     status_var: tk.StringVar
     status_label: ttk.Label
     data_btn: ttk.Button
-    sheet_btn: ttk.Button
     month_btn: ttk.Button
     upload_btn: ttk.Button
 
 
 def open_upload_union_dialog(app) -> None:
     """Open union raid upload dialog."""
-    dlg = create_dialog(app.root, "上傳聯盟突襲資料", 480, 200)
+    dlg = create_dialog(app.root, "上傳聯盟突襲資料", 480, 180)
 
     frame = create_frame(dlg)
     entry_frame = create_entry_frame(frame, row=0, column=0)
@@ -80,7 +78,7 @@ def open_upload_union_dialog(app) -> None:
     data_entry = create_entry(entry_frame, data_var, row=0, column=1)
     data_entry.configure(state="readonly")
 
-    create_entry_label(entry_frame, "選擇試算表", row=1, column=0)
+    create_entry_label(entry_frame, "試算表", row=1, column=0)
     sheet_entry = create_entry(entry_frame, sheet_var, row=1, column=1)
     sheet_entry.configure(state="readonly")
 
@@ -91,13 +89,11 @@ def open_upload_union_dialog(app) -> None:
     btns = create_btn_frame(frame, row=1, column=0)
     btns.columnconfigure(0, weight=0)
     btns.columnconfigure(1, weight=0)
-    btns.columnconfigure(2, weight=0)
-    btns.columnconfigure(3, weight=1)
+    btns.columnconfigure(2, weight=1)
 
     data_btn = create_btn_between(btns, "選擇資料", lambda: None, row=0, column=0, sticky="w")
-    sheet_btn = create_btn_between(btns, "選擇試算表", lambda: None, row=0, column=1, sticky="w")
-    month_btn = create_btn_between(btns, "選擇月份", lambda: None, row=0, column=2, sticky="w")
-    upload_btn = create_btn_last(btns, "上傳", lambda: None, row=0, column=3, sticky="we")
+    month_btn = create_btn_between(btns, "選擇月份", lambda: None, row=0, column=1, sticky="w")
+    upload_btn = create_btn_last(btns, "上傳", lambda: None, row=0, column=2, sticky="we")
 
     status_label = create_msg_label(frame, status_var, row=2, column=0, sticky="e")
     status_label.configure(foreground="green", anchor="e", justify="right")
@@ -111,14 +107,12 @@ def open_upload_union_dialog(app) -> None:
         status_var=status_var,
         status_label=status_label,
         data_btn=data_btn,
-        sheet_btn=sheet_btn,
         month_btn=month_btn,
         upload_btn=upload_btn,
     )
     state = UnionUploadState()
 
     data_btn.config(command=lambda: _open_data_dialog(ui, state))
-    sheet_btn.config(command=lambda: _open_sheet_dialog(ui, state))
     month_btn.config(command=lambda: _open_month_dialog(ui, state))
     upload_btn.config(command=lambda: _start_upload(app, ui, state))
 
@@ -145,14 +139,12 @@ def _refresh_upload_state(ui: UnionUploadUi, state: UnionUploadState) -> None:
 
 def _disable_upload_controls(ui: UnionUploadUi) -> None:
     ui.data_btn.config(state="disabled")
-    ui.sheet_btn.config(state="disabled")
     ui.month_btn.config(state="disabled")
     ui.upload_btn.config(state="disabled")
 
 
 def _enable_upload_controls(ui: UnionUploadUi, state: UnionUploadState) -> None:
     ui.data_btn.config(state="normal")
-    ui.sheet_btn.config(state="normal")
     _refresh_upload_state(ui, state)
 
 
@@ -234,9 +226,33 @@ def _apply_data_choice(
         return
     state.data_path = files[idx]
     ui.data_var.set(files[idx].name)
-    _set_upload_status(ui, "", "green")
+    state.month_text = None
+    ui.month_var.set("")
+    _sync_sheet_from_data(ui, state)
+    if state.sheet_id:
+        _set_upload_status(ui, "", "green")
     _refresh_upload_state(ui, state)
     close_dialog(dlg)
+
+
+def _sync_sheet_from_data(ui: UnionUploadUi, state: UnionUploadState) -> None:
+    state.sheet_id = None
+    state.sheet_name = None
+    ui.sheet_var.set("")
+    if not state.data_path:
+        return
+    try:
+        union_id, sheet_id, sheet_name = resolve_union_sheet_target(data_path=state.data_path)
+    except Exception as exc:  # noqa: BLE001
+        _set_upload_status(ui, str(exc), "red")
+        return
+
+    state.sheet_id = sheet_id or None
+    state.sheet_name = sheet_name or None
+    display_name = state.sheet_name or state.sheet_id or ""
+    if union_id:
+        display_name = f"{display_name} ({union_id})" if display_name else union_id
+    ui.sheet_var.set(display_name)
 
 
 def _delete_selected_data(
@@ -342,7 +358,7 @@ def _apply_sheet_choice(
 
 def _open_month_dialog(ui: UnionUploadUi, state: UnionUploadState) -> None:
     if not state.sheet_id:
-        _set_upload_status(ui, "請先選擇試算表", "red")
+        _set_upload_status(ui, "找不到對應試算表", "red")
         return
     ui.month_btn.config(state="disabled")
     _set_upload_status(ui, "讀取試算表中...", "green")
@@ -421,7 +437,7 @@ def _start_upload(app, ui: UnionUploadUi, state: UnionUploadState) -> None:
         _set_upload_status(ui, "資料檔不存在", "red")
         return
     if not state.sheet_id:
-        _set_upload_status(ui, "請先選擇試算表", "red")
+        _set_upload_status(ui, "找不到對應試算表", "red")
         return
     if not state.month_text:
         _set_upload_status(ui, "請選擇月份", "red")

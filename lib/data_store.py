@@ -76,6 +76,7 @@ def load_sheets() -> Tuple[List[Dict[str, str]], List[str]]:
                             "type": gtype or "",
                             "sheet_name": item.get("sheet_name", ""),
                             "sheet_id": item.get("sheet_id", ""),
+                            "union_id": item.get("union_id", ""),
                         },
                     )
         if not types:
@@ -97,6 +98,7 @@ def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
                 {
                     "sheet_name": item.get("sheet_name", ""),
                     "sheet_id": item.get("sheet_id", ""),
+                    "union_id": item.get("union_id", ""),
                 },
             )
         ordered_types: List[str] = []

@@ -59,6 +59,25 @@ Each secret is written back to the same file layout that the local app already u
 
 All JSON secrets must contain the full original file content, not base64 and not partial fragments.
 
+For `google_sheets_id.json`, `UnionRaid` entries can include `union_id`. When `union_raid_upload` does not receive an explicit `sheet_id`, it resolves the target sheet by matching the downloaded union raid data's `union_id`.
+
+Example:
+
+```json
+[
+  {
+    "type": "UnionRaid",
+    "sheets": [
+      {
+        "sheet_name": "Main Union",
+        "sheet_id": "your-google-sheet-id",
+        "union_id": "your-union-id"
+      }
+    ]
+  }
+]
+```
+
 ## Manual workflow usage
 
 ### union_raid_pipeline
