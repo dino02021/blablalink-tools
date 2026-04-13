@@ -54,7 +54,6 @@ jobs:
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
-          printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Run union raid download
