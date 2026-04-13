@@ -53,8 +53,7 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
-      - name: Resolve account
-        id: resolve_account
+      - name: Run Nikke pipeline
         shell: bash
         env:
           BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
@@ -65,33 +64,4 @@ jobs:
             echo "Missing account" >&2
             exit 1
           fi
-          echo "account=$ACCOUNT" >> "$GITHUB_OUTPUT"
-      - name: Run Nikke batch download
-        id: nikke_download
-        shell: bash
-        run: |
-          python -m lib.cli.run_job --json nikke-batch-download --account "${{ steps.resolve_account.outputs.account }}" | tee nikke-download.log
-          tail -n 1 nikke-download.log > nikke-download.json
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          payload = json.loads(Path("nikke-download.json").read_text(encoding="utf-8"))
-          if not payload.get("ok"):
-              raise SystemExit(payload.get("message", "nikke-batch-download failed"))
-
-          outputs = payload.get("outputs") or {}
-          files = outputs.get("files") or []
-          guild_id = str(outputs.get("guild_id", "") or "")
-
-          with Path("nikke-download.outputs").open("w", encoding="utf-8") as handle:
-              handle.write(f"files_json={json.dumps(files, ensure_ascii=False)}\n")
-              handle.write(f"guild_id={guild_id}\n")
-          PY
-          cat nikke-download.outputs >> "$GITHUB_OUTPUT"
-      - name: Run Nikke upload
-        shell: bash
-        run: |
-          python -m lib.cli.run_job --json nikke-upload \
-            --account "${{ steps.resolve_account.outputs.account }}" \
-            --files-json '${{ steps.nikke_download.outputs.files_json }}'
+          python -m lib.cli.run_job --json nikke-pipeline --account "$ACCOUNT"

@@ -10,6 +10,7 @@ from typing import Callable
 from ..github_data_sync import flush_cloud_data_sync, pull_cloud_data_files
 from ..jobs.common import JobResult
 from ..jobs.nikke_batch_download import run_nikke_batch_download
+from ..jobs.nikke_pipeline import run_nikke_pipeline
 from ..jobs.nikke_upload import run_nikke_upload
 from ..jobs.sync_upload import run_sync_upload
 from ..jobs.union_raid_download import run_union_raid_download
@@ -39,6 +40,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_nikke_batch = sub.add_parser("nikke-batch-download", help="Batch download Nikke data.")
     p_nikke_batch.add_argument("--account", default="", help="Account slug.")
+
+    p_nikke_pipeline = sub.add_parser("nikke-pipeline", help="Run Nikke download and upload pipeline.")
+    p_nikke_pipeline.add_argument("--account", default="", help="Account slug.")
 
     p_nikke_upload = sub.add_parser("nikke-upload", help="Upload Nikke data.")
     p_nikke_upload.add_argument("--account", default="", help="Account slug.")
@@ -98,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     elif args.command == "nikke-batch-download":
         fn = lambda: run_nikke_batch_download(account=args.account)
+    elif args.command == "nikke-pipeline":
+        fn = lambda: run_nikke_pipeline(account=args.account)
     elif args.command == "nikke-upload":
         files = None
         if args.files_json:
