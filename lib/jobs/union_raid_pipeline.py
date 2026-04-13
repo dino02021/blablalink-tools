@@ -20,9 +20,9 @@ def _load_union_account_map_from_env() -> List[Dict[str, str]]:
     try:
         raw = json.loads(raw_text)
     except Exception:
-        return []
+        return load_union_account_map()
     if not isinstance(raw, list):
-        return []
+        return load_union_account_map()
 
     cleaned: List[Dict[str, str]] = []
     for item in raw:
@@ -33,7 +33,7 @@ def _load_union_account_map_from_env() -> List[Dict[str, str]]:
         if not union_id or not username:
             continue
         cleaned.append({"union_id": union_id, "username": username})
-    return cleaned
+    return cleaned or load_union_account_map()
 
 
 def _resolve_accounts(scope: str, account: str | None) -> List[str]:

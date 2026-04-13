@@ -56,6 +56,13 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
+      - name: Restore union account map
+        shell: bash
+        env:
+          BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
+          printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
       - name: Run union raid download
         if: ${{ inputs.mode == 'download' }}
         shell: bash
