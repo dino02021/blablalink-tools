@@ -60,9 +60,8 @@ jobs:
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Run union raid download
         shell: bash
-        env:
-          UNION_OVERRIDE_ACCOUNT: ${{ inputs.account }}
         run: |
+          UNION_OVERRIDE_ACCOUNT="${{ inputs.account }}"
           python - <<'PY'
           import json
           import os
@@ -172,10 +171,9 @@ jobs:
           path: ${{ steps.union_path.outputs.path }}
       - name: Run union raid upload
         shell: bash
-        env:
-          UNION_MONTH: ${{ inputs.month }}
-          UNION_OVERRIDE_ACCOUNT: ${{ inputs.account }}
         run: |
+          UNION_MONTH="${{ inputs.month }}"
+          UNION_OVERRIDE_ACCOUNT="${{ inputs.account }}"
           if [ -z "$UNION_MONTH" ]; then
             echo "month is required for full mode" >&2
             exit 1
