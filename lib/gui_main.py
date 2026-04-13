@@ -26,6 +26,7 @@ except Exception as exc:  # noqa: BLE001
         pass
 
 from .log import log_msg, log_exc
+from .github_data_sync import pull_cloud_data_files, start_cloud_data_watcher
 from .github_secrets_sync import start_secret_file_watcher
 from .utils import load_accounts, save_accounts, load_session, run_with_session_context
 from .gui.ui_constants import DEFAULT_PAD
@@ -97,6 +98,16 @@ class LoginApp:
             FUNCTION_NAMES_FILE.parent.mkdir(parents=True, exist_ok=True)
             GOOGLE_SHEETS_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
             CHAR_DETAILS_DIR.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            log_exc(exc)
+
+        try:
+            pull_cloud_data_files()
+        except Exception as exc:
+            log_exc(exc)
+
+        try:
+            start_cloud_data_watcher()
         except Exception as exc:
             log_exc(exc)
 
