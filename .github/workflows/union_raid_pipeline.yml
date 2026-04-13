@@ -24,6 +24,8 @@ jobs:
   download_union_raid:
     if: ${{ inputs.mode == 'download' || inputs.mode == 'full' }}
     runs-on: ubuntu-latest
+    outputs:
+      account: ${{ steps.account.outputs.account }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,6 +43,15 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
+      - name: Resolve account slug
+        id: account
+        shell: bash
+        env:
+          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
+        run: |
+          ACCOUNT="${{ inputs.account }}"
+          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
+          printf 'account=%s\n' "$ACCOUNT" >> "$GITHUB_OUTPUT"
       - name: Restore session file
         shell: bash
         env:
@@ -50,12 +61,8 @@ jobs:
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
       - name: Run union raid download
         shell: bash
-        env:
-          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
         run: |
-          ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          python -m lib.cli.run_job union-raid-download --account "$ACCOUNT"
+          python -m lib.cli.run_job union-raid-download --account "${{ steps.account.outputs.account }}"
       - name: Detect union artifact path
         id: union_path
         run: |
@@ -63,6 +70,13 @@ jobs:
           from lib.constants import UNION_RAID_TEMP_FILE
           print(f"path={UNION_RAID_TEMP_FILE.parent}")
           PY
+      - name: Upload session artifact
+        if: ${{ inputs.mode == 'full' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: union-runtime-settings
+          path: /home/runner/Documents/BlablalinkToolSettings/sessions.json
+          retention-days: 1
       - name: Upload union artifact
         if: ${{ inputs.mode == 'full' }}
         uses: actions/upload-artifact@v4
@@ -92,13 +106,6 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
-      - name: Restore session file
-        shell: bash
-        env:
-          BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
-        run: |
-          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
-          printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
       - name: Restore sheets file
         shell: bash
         env:
@@ -120,6 +127,11 @@ jobs:
           from lib.constants import UNION_RAID_TEMP_FILE
           print(f"path={UNION_RAID_TEMP_FILE.parent}")
           PY
+      - name: Download session artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: union-runtime-settings
+          path: /home/runner/Documents/BlablalinkToolSettings
       - name: Download union artifact
         uses: actions/download-artifact@v4
         with:
@@ -127,9 +139,5 @@ jobs:
           path: ${{ steps.union_path.outputs.path }}
       - name: Run union raid upload
         shell: bash
-        env:
-          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
         run: |
-          ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          python -m lib.cli.run_job union-raid-upload --account "$ACCOUNT" --month "${{ inputs.month }}"
+          python -m lib.cli.run_job union-raid-upload --account "${{ needs.download_union_raid.outputs.account }}" --month "${{ inputs.month }}"

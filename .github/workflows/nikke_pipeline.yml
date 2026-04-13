@@ -52,18 +52,6 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
-      - name: Restore Nikke info file
-        shell: bash
-        env:
-          BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
-        run: |
-          printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
-      - name: Restore Nikke checklist file
-        shell: bash
-        env:
-          BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
-        run: |
-          printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Run Nikke batch download
         shell: bash
         env:
@@ -107,7 +95,6 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
-          mkdir -p data
       - name: Restore sheets file
         shell: bash
         env:
