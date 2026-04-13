@@ -17,8 +17,7 @@ on:
         type: string
 
 jobs:
-  download_nikke_batch:
-    if: ${{ inputs.mode == 'download' || inputs.mode == 'full' }}
+  run_nikke_pipeline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,28 +73,8 @@ jobs:
           name: nikke-character-details
           path: ${{ steps.char_path.outputs.path }}
           retention-days: 1
-
-  upload_nikke:
-    if: ${{ inputs.mode == 'full' }}
-    needs: download_nikke_batch
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install runtime
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-tk
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-      - name: Prepare runtime directories
-        shell: bash
-        run: |
-          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
-          mkdir -p "$SETTINGS_DIR"
       - name: Restore sheets file
+        if: ${{ inputs.mode == 'full' }}
         shell: bash
         env:
           BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
@@ -103,23 +82,13 @@ jobs:
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
       - name: Restore Google credentials file
+        if: ${{ inputs.mode == 'full' }}
         shell: bash
         env:
           BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
-      - name: Detect char details path
-        id: char_path
-        run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          from lib.constants import CHAR_DETAILS_DIR
-          print(f"path={CHAR_DETAILS_DIR}")
-          PY
-      - name: Download Nikke artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: nikke-character-details
-          path: ${{ steps.char_path.outputs.path }}
       - name: Run Nikke upload
+        if: ${{ inputs.mode == 'full' }}
         run: python -m lib.cli.run_job nikke-upload
