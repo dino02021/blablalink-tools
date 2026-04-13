@@ -75,41 +75,6 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           cp ".github/runtime/union_google_sheets_id.json" "$SETTINGS_DIR/google_sheets_id.json"
-      - name: Download Nikke info file
-        if: ${{ inputs.mode == 'full' }}
-        shell: bash
-        run: |
-          mkdir -p data
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          from urllib.request import urlopen
-          from lib.constants import NIKKES_INFO_URL
-          from lib.utils import get_nested_value
-
-          raw = json.loads(urlopen(NIKKES_INFO_URL, timeout=30).read().decode("utf-8"))
-          result = []
-          for item in raw:
-              if not isinstance(item, dict):
-                  continue
-              result.append(
-                  {
-                      "id": int(str(item.get("id", ""))[:4]),
-                      "class": item.get("class"),
-                      "corporation": item.get("corporation"),
-                      "element": get_nested_value(item, "element_id", "element", "element"),
-                      "name_code": item.get("name_code"),
-                      "name": get_nested_value(item, "name_localkey", "name"),
-                      "original_rare": item.get("original_rare"),
-                      "weapon_type": get_nested_value(item, "shot_id", "element", "weapon_type"),
-                      "use_burst_skill": item.get("use_burst_skill"),
-                  }
-              )
-          Path("data/nikkes_info.json").write_text(
-              json.dumps(result, ensure_ascii=False, indent=2),
-              encoding="utf-8",
-          )
-          PY
       - name: Resolve upload month
         if: ${{ inputs.mode == 'full' }}
         id: upload_month
