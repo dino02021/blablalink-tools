@@ -61,49 +61,9 @@ jobs:
       - name: Run union raid download
         shell: bash
         run: |
-          UNION_OVERRIDE_ACCOUNT="${{ inputs.account }}"
-          python - <<'PY'
-          import json
-          import os
-          import subprocess
-          import sys
-
-          override = os.environ.get("UNION_OVERRIDE_ACCOUNT", "").strip()
-          raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
-
-          if override:
-            accounts = [override]
-          else:
-            try:
-              items = json.loads(raw) if raw else []
-            except Exception:
-              items = []
-            accounts = []
-            seen = set()
-            for item in items:
-              if not isinstance(item, dict):
-                continue
-              username = str(item.get("username", "")).strip()
-              if not username or username in seen:
-                continue
-              seen.add(username)
-              accounts.append(username)
-
-            if not accounts:
-              default_account = os.environ.get("BLABLALINK_DEFAULT_ACCOUNT", "").strip()
-              if default_account:
-                accounts = [default_account]
-
-          if not accounts:
-            raise SystemExit("No union accounts resolved from inputs.account, BLABLALINK_UNION_ACCOUNT_MAP_JSON, or BLABLALINK_DEFAULT_ACCOUNT")
-
-          for account in accounts:
-            print(f"[union-download] account={account}")
-            subprocess.run(
-              [sys.executable, "-m", "lib.cli.run_job", "union-raid-download", "--account", account],
-              check=True,
-            )
-          PY
+          ACCOUNT="${{ inputs.account }}"
+          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
+          python -m lib.cli.run_job union-raid-download --account "$ACCOUNT"
       - name: Detect union artifact path
         id: union_path
         run: |
