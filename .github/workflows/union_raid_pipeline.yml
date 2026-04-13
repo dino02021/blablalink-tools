@@ -11,6 +11,14 @@ on:
         options:
           - download
           - full
+      scope:
+        description: "Account scope"
+        required: true
+        type: choice
+        default: single
+        options:
+          - single
+          - all
       account:
         description: "Override account slug"
         required: false
@@ -41,15 +49,6 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
-      - name: Resolve account slug
-        id: account
-        shell: bash
-        env:
-          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
-        run: |
-          ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          printf 'account=%s\n' "$ACCOUNT" >> "$GITHUB_OUTPUT"
       - name: Restore session file
         shell: bash
         env:
@@ -58,9 +57,13 @@ jobs:
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
       - name: Run union raid download
+        if: ${{ inputs.mode == 'download' }}
         shell: bash
+        env:
+          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
+          BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
-          python -m lib.cli.run_job union-raid-download --account "${{ steps.account.outputs.account }}"
+          python -m lib.cli.run_job union-raid-pipeline --mode download --scope "${{ inputs.scope }}" --account "${{ inputs.account }}" --json
       - name: Restore Google credentials file
         if: ${{ inputs.mode == 'full' }}
         shell: bash
@@ -75,56 +78,12 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           cp ".github/runtime/union_google_sheets_id.json" "$SETTINGS_DIR/google_sheets_id.json"
-      - name: Resolve upload month
-        if: ${{ inputs.mode == 'full' }}
-        id: upload_month
-        shell: bash
-        run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          import re
-          from pathlib import Path
-
-          import gspread
-          from google.oauth2.service_account import Credentials
-
-          from lib.jobs.union_raid_upload import resolve_union_sheet_target
-
-          month = "${{ inputs.month }}".strip()
-          if month:
-              print(f"month={month}")
-              raise SystemExit
-
-          _union_id, sheet_id, _sheet_name = resolve_union_sheet_target()
-          settings = Path.home() / "Documents" / "BlablalinkToolSettings"
-          creds = json.loads((settings / "service_account.json").read_text(encoding="utf-8"))
-          scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-          client = gspread.authorize(Credentials.from_service_account_info(creds, scopes=scopes))
-          sh = client.open_by_key(sheet_id)
-
-          months = []
-          seen = set()
-          for ws in sh.worksheets():
-              title = str(ws.title).strip()
-              match = re.match(r"^(\d{4}/\d{2})", title)
-              if not match:
-                  continue
-              value = match.group(1)
-              if value in seen:
-                  continue
-              seen.add(value)
-              months.append(value)
-
-          if not months:
-              raise SystemExit("No upload month found in target spreadsheet")
-
-          months.sort(reverse=True)
-          print(f"month={months[0]}")
-          PY
-      - name: Run union raid upload
+      - name: Run union raid full pipeline
         if: ${{ inputs.mode == 'full' }}
         shell: bash
         env:
+          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
+          BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
           BLABLALINK_STRICT_UNION_WEBAPP: "1"
         run: |
-          python -m lib.cli.run_job union-raid-upload --account "${{ steps.account.outputs.account }}" --month "${{ steps.upload_month.outputs.month }}"
+          python -m lib.cli.run_job union-raid-pipeline --mode full --scope "${{ inputs.scope }}" --account "${{ inputs.account }}" --month "${{ inputs.month }}" --json

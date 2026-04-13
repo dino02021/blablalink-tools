@@ -6,11 +6,12 @@ from __future__ import annotations
 import functools
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..api import fetch_guild_members
-from ..constants import UNION_RAID_TEMP_FILE, UNION_RAID_TYPE
+from ..constants import GOOGLE_CRED_FILE, GOOGLE_SCOPES, UNION_RAID_TEMP_FILE, UNION_RAID_TYPE
 from ..data_store import load_sheets
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
@@ -106,6 +107,52 @@ def resolve_union_sheet_target(
     if not resolved_sheet_id:
         raise ValueError(f"找不到 union_id={union_id or '-'} 對應的試算表")
     return union_id, resolved_sheet_id, resolved_sheet_name
+
+
+def resolve_latest_union_upload_month(
+    data_path: str | Path | None = None,
+    sheet_id: str | None = None,
+) -> str:
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Missing Google Sheets runtime: {exc}") from exc
+
+    _union_id, target_sheet_id, _target_sheet_name = resolve_union_sheet_target(
+        data_path=data_path,
+        sheet_id=sheet_id,
+    )
+    if not GOOGLE_CRED_FILE.exists():
+        raise ValueError("Missing Google credentials file")
+
+    try:
+        creds = json.loads(GOOGLE_CRED_FILE.read_text(encoding="utf-8"))
+        client = gspread.authorize(
+            Credentials.from_service_account_info(creds, scopes=GOOGLE_SCOPES)
+        )
+        sh = client.open_by_key(target_sheet_id)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Failed to open target spreadsheet: {exc}") from exc
+
+    months: List[str] = []
+    seen: set[str] = set()
+    for ws in sh.worksheets():
+        title = str(ws.title).strip()
+        match = re.match(r"^(\d{4}/\d{2})", title)
+        if not match:
+            continue
+        value = match.group(1)
+        if value in seen:
+            continue
+        seen.add(value)
+        months.append(value)
+
+    if not months:
+        raise ValueError("No upload month found in target spreadsheet")
+
+    months.sort(reverse=True)
+    return months[0]
 
 
 def run_union_raid_upload(

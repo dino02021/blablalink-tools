@@ -17,6 +17,7 @@ from .constants import (
     GOOGLE_SHEETS_ID_FILE,
     MEMBERS_ID_FILE,
     SESSIONS_FILE,
+    UNION_ACCOUNT_MAP_FILE,
 )
 from .log import log_exc, log_msg
 
@@ -27,6 +28,7 @@ SECRET_FILE_MAP: Dict[Path, str] = {
     GOOGLE_SHEETS_ID_FILE.resolve(): "BLABLALINK_SHEETS_JSON",
     GOOGLE_CRED_FILE.resolve(): "BLABLALINK_GOOGLE_CREDENTIALS_JSON",
     MEMBERS_ID_FILE.resolve(): "BLABLALINK_MEMBERS_JSON",
+    UNION_ACCOUNT_MAP_FILE.resolve(): "BLABLALINK_UNION_ACCOUNT_MAP_JSON",
 }
 
 _watcher_lock = threading.Lock()

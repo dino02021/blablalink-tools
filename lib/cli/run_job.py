@@ -12,6 +12,7 @@ from ..jobs.nikke_batch_download import run_nikke_batch_download
 from ..jobs.nikke_upload import run_nikke_upload
 from ..jobs.sync_upload import run_sync_upload
 from ..jobs.union_raid_download import run_union_raid_download
+from ..jobs.union_raid_pipeline import run_union_raid_pipeline
 from ..jobs.union_raid_upload import run_union_raid_upload
 
 
@@ -28,6 +29,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_union_upload.add_argument("--month", required=True, help="Month text, e.g. 2026/04.")
     p_union_upload.add_argument("--data-file", default="", help="Union raid data file.")
     p_union_upload.add_argument("--sheet-id", default="", help="Override sheet id.")
+
+    p_union_pipeline = sub.add_parser("union-raid-pipeline", help="Run union raid pipeline.")
+    p_union_pipeline.add_argument("--mode", default="download", help="download or full.")
+    p_union_pipeline.add_argument("--scope", default="single", help="single or all.")
+    p_union_pipeline.add_argument("--account", default="", help="Account slug for single scope.")
+    p_union_pipeline.add_argument("--month", default="", help="Month text for full mode.")
 
     p_nikke_batch = sub.add_parser("nikke-batch-download", help="Batch download Nikke data.")
     p_nikke_batch.add_argument("--account", default="", help="Account slug.")
@@ -77,6 +84,13 @@ def main(argv: list[str] | None = None) -> int:
             month=args.month,
             data_path=args.data_file or None,
             sheet_id=args.sheet_id or None,
+        )
+    elif args.command == "union-raid-pipeline":
+        fn = lambda: run_union_raid_pipeline(
+            mode=args.mode,
+            scope=args.scope,
+            account=args.account or None,
+            month=args.month or None,
         )
     elif args.command == "nikke-batch-download":
         fn = lambda: run_nikke_batch_download(account=args.account)
