@@ -38,6 +38,8 @@ _watcher_started = False
 _known_hashes: Dict[Path, Optional[str]] = {}
 _pending_push_lock = threading.Lock()
 _pending_push_threads: set[threading.Thread] = set()
+_cached_github_token: Optional[str] = None
+_github_token_lock = threading.Lock()
 
 
 def _cloud_repo() -> str:
@@ -75,11 +77,23 @@ def _read_text_if_exists(path: Path, encoding: str = "utf-8") -> Optional[str]:
         return None
 
 
+def _subprocess_run_kwargs() -> dict:
+    kwargs: dict = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return kwargs
+
+
 def _github_token() -> str:
+    global _cached_github_token
     for key in ("BLABLALINK_CLOUD_DATA_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         value = str(os.getenv(key, "")).strip()
         if value:
             return value
+
+    with _github_token_lock:
+        if _cached_github_token is not None:
+            return _cached_github_token
 
     gh_path = shutil.which("gh")
     if not gh_path:
@@ -90,6 +104,7 @@ def _github_token() -> str:
             capture_output=True,
             text=True,
             check=False,
+            **_subprocess_run_kwargs(),
         )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
@@ -97,7 +112,10 @@ def _github_token() -> str:
 
     if result.returncode != 0:
         return ""
-    return str(result.stdout or "").strip()
+    token = str(result.stdout or "").strip()
+    with _github_token_lock:
+        _cached_github_token = token
+    return token
 
 
 def _request_json(url: str, method: str = "GET", body: object | None = None, auth_required: bool = False) -> dict:

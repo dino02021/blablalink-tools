@@ -59,6 +59,13 @@ def _read_text_if_exists(path: Path, encoding: str = "utf-8") -> Optional[str]:
         return None
 
 
+def _subprocess_run_kwargs() -> dict:
+    kwargs: dict = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return kwargs
+
+
 def _sync_secret_worker(secret_name: str, value: str, source_path: str) -> None:
     gh_path = shutil.which("gh")
     if not gh_path:
@@ -72,6 +79,7 @@ def _sync_secret_worker(secret_name: str, value: str, source_path: str) -> None:
             text=True,
             capture_output=True,
             check=False,
+            **_subprocess_run_kwargs(),
         )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
