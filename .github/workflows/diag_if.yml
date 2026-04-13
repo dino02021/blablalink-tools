@@ -1,0 +1,21 @@
+name: diag_if
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        type: choice
+        default: download
+        options:
+          - download
+          - full
+
+jobs:
+  ping:
+    if: ${{ inputs.mode == 'download' || inputs.mode == 'full' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping
+        run: echo hello
