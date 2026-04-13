@@ -39,13 +39,11 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
-      - name: Restore sheets file
+      - name: Restore nikke sheet mapping
         shell: bash
-        env:
-          BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
-          printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
+          cp ".github/runtime/nikke_google_sheets_id.json" "$SETTINGS_DIR/google_sheets_id.json"
       - name: Restore Google credentials file
         shell: bash
         env:
