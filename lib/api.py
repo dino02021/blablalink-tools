@@ -30,6 +30,11 @@ from .log import log_exc, log_msg
 from .utils import get_nested_value
 
 
+def build_character_details_path(nickname: str) -> Path:
+    safe_name = str(nickname or "").strip()
+    return CHAR_DETAILS_DIR / f"{safe_name}_character_details.json"
+
+
 async def check_login(context: BrowserContext) -> bool:
     """呼叫 CheckLogin API，回傳是否登入成功。"""
     try:
@@ -420,8 +425,7 @@ async def fetch_user_character_details(
 
         try:
             CHAR_DETAILS_DIR.mkdir(parents=True, exist_ok=True)
-            safe_name = nickname
-            outfile = CHAR_DETAILS_DIR / f"{safe_name}_character_details.json"
+            outfile = build_character_details_path(nickname)
             outfile.write_text(
                 json.dumps({"nickname": nickname, "character_details": results}, ensure_ascii=False, indent=2),
                 encoding="utf-8",
@@ -484,12 +488,12 @@ async def fetch_user_characters(
 
 async def fetch_guild_members(
     context: BrowserContext,
-) -> List[Dict[str, Any]]:
-    """呼叫 GetGuildMembers，回傳每位成員的 nickname 與 synchro_level。"""
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """呼叫 GetGuildMembers，回傳 (guild_id, 成員清單)。"""
     try:
         guild_id, _intl_open_id, nikke_area_id = await fetch_union_info(context)
         if not guild_id or not nikke_area_id:
-            return []
+            return "", []
         payload = {
             "guild_id": guild_id,
             "nikke_area_id": nikke_area_id,
@@ -497,24 +501,24 @@ async def fetch_guild_members(
         req = context.request
         resp = await req.post(GUILDMEMBERS_URL, data=payload)
         if resp.status != 200:
-            return []
+            return "", []
 
         try:
             data = await resp.json()
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            return []
+            return "", []
 
         if not isinstance(data, dict):
-            return []
+            return "", []
 
         data_field = data.get("data")
         if not isinstance(data_field, dict):
-            return []
+            return "", []
 
         items = data_field.get("items")
         if not isinstance(items, list):
-            return []
+            return "", []
 
         result: List[Dict[str, Any]] = []
         for item in items:
@@ -523,13 +527,14 @@ async def fetch_guild_members(
             result.append(
                 {
                     "nickname": item.get("nickname"),
+                    "member_id": item.get("member_id"),
                     "synchro_level": item.get("synchro_level"),
                 }
             )
-        return result
+        return str(guild_id).strip(), result
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return []
+        return "", []
 
 
 async def fetch_function_names(context: BrowserContext) -> bool:

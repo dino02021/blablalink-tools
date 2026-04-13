@@ -3,22 +3,88 @@
 
 from __future__ import annotations
 
+import functools
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from ..api import fetch_union_info
 from ..constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE
 from ..data_store import load_sheets
 from ..log import log_exc
-from .common import JobResult
+from ..utils import load_session, run_with_session_context
+from .common import JobResult, resolve_account, run_coro_sync
 
 
-def _default_sheet_id() -> str:
+def _find_character_sheet_by_sheet_id(sheet_id: str) -> Tuple[str, str]:
+    target = str(sheet_id or "").strip()
+    if not target:
+        return "", ""
+
     sheets, _ = load_sheets()
-    matches = [item for item in sheets if item.get("type") == CHAR_DETAILS_TYPE]
-    if not matches:
-        return ""
-    return str(matches[0].get("sheet_id", "") or "").strip()
+    for item in sheets:
+        if str(item.get("type", "") or "").strip() != CHAR_DETAILS_TYPE:
+            continue
+        if str(item.get("sheet_id", "") or "").strip() != target:
+            continue
+        return target, str(item.get("sheet_name", "") or "").strip()
+    return "", ""
+
+
+def _find_character_sheet_by_union_id(union_id: str) -> Tuple[str, str]:
+    target_union_id = str(union_id or "").strip()
+    if not target_union_id:
+        return "", ""
+
+    sheets, _ = load_sheets()
+    for item in sheets:
+        if str(item.get("type", "") or "").strip() != CHAR_DETAILS_TYPE:
+            continue
+        if str(item.get("union_id", "") or "").strip() != target_union_id:
+            continue
+        return (
+            str(item.get("sheet_id", "") or "").strip(),
+            str(item.get("sheet_name", "") or "").strip(),
+        )
+    return "", ""
+
+
+def resolve_character_sheet_target(union_id: str, sheet_id: str | None = None) -> Tuple[str, str]:
+    explicit_sheet_id = str(sheet_id or "").strip()
+    if explicit_sheet_id:
+        resolved_sheet_id, resolved_sheet_name = _find_character_sheet_by_sheet_id(explicit_sheet_id)
+        if not resolved_sheet_id:
+            raise ValueError("找不到指定的 CharacterDetails 試算表")
+        return resolved_sheet_id, resolved_sheet_name
+
+    resolved_sheet_id, resolved_sheet_name = _find_character_sheet_by_union_id(union_id)
+    if not resolved_sheet_id:
+        raise ValueError(f"找不到 union_id={union_id or '-'} 對應的 CharacterDetails 試算表")
+    return resolved_sheet_id, resolved_sheet_name
+
+
+def resolve_character_sheet_for_account(account: str | None, sheet_id: str | None = None) -> Tuple[str, str, str]:
+    slug = resolve_account(account)
+    if not slug:
+        raise ValueError("缺少帳號")
+
+    state = load_session(slug)
+    if not state:
+        raise ValueError("找不到登入 Session")
+
+    try:
+        union_id, _intl_open_id, _nikke_area_id = run_coro_sync(
+            functools.partial(run_with_session_context, state, fetch_union_info)
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(str(exc)) from exc
+
+    target_union_id = str(union_id or "").strip()
+    if not target_union_id:
+        raise ValueError("找不到聯盟資訊")
+
+    resolved_sheet_id, resolved_sheet_name = resolve_character_sheet_target(target_union_id, sheet_id=sheet_id)
+    return target_union_id, resolved_sheet_id, resolved_sheet_name
 
 
 def _resolve_files(files: List[str] | None, input_dir: str | Path | None) -> Tuple[Path, List[str]]:
@@ -30,13 +96,15 @@ def _resolve_files(files: List[str] | None, input_dir: str | Path | None) -> Tup
 
 
 def run_nikke_upload(
+    account: str | None = None,
     files: List[str] | None = None,
     input_dir: str | Path | None = None,
     sheet_id: str | None = None,
 ) -> JobResult:
-    target_sheet_id = str(sheet_id or _default_sheet_id()).strip()
-    if not target_sheet_id:
-        return JobResult(ok=False, message="未找到 CharacterDetails 試算表")
+    try:
+        union_id, target_sheet_id, target_sheet_name = resolve_character_sheet_for_account(account, sheet_id=sheet_id)
+    except ValueError as exc:
+        return JobResult(ok=False, message=str(exc))
 
     base_dir, target_files = _resolve_files(files, input_dir)
     if not target_files:
@@ -56,7 +124,7 @@ def run_nikke_upload(
         )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return JobResult(ok=False, message=f"載入 nikke upload 核心失敗：{exc}")
+        return JobResult(ok=False, message=f"載入 nikke upload 失敗: {exc}")
 
     ok = False
     ok_count = 0
@@ -69,13 +137,13 @@ def run_nikke_upload(
         worksheets = sh.worksheets()
         main_sheets = _collect_character_sheets(worksheets)
         if not main_sheets:
-            return JobResult(ok=False, message="未找到角色練度工作表")
+            return JobResult(ok=False, message="目標試算表缺少角色練度工作表")
         change_sheet = _find_change_sheet(worksheets)
         change_nick_to_row, change_header_pos = _load_change_headers(change_sheet)
 
         nick_to_row, header_pos = _load_sheet_headers(main_sheets)
         if not nick_to_row:
-            return JobResult(ok=False, message="讀取名單失敗")
+            return JobResult(ok=False, message="角色練度工作表缺少角色名稱欄位")
 
         combined_updates: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
         combined_changes: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
@@ -83,17 +151,18 @@ def run_nikke_upload(
         for fname in target_files:
             data_file = base_dir / fname
             if not data_file.exists():
-                msg = f"資料不存在: {fname}"
+                msg = f"找不到資料檔：{fname}"
                 continue
             try:
                 obj = json.loads(data_file.read_text(encoding="utf-8"))
             except Exception:
-                msg = f"讀取失敗: {fname}"
+                msg = f"讀取資料檔失敗：{fname}"
                 continue
+
             nickname = obj.get("nickname", "")
             details = obj.get("character_details", [])
             if not nickname or not isinstance(details, list):
-                msg = f"資料格式錯誤: {fname}"
+                msg = f"資料檔格式錯誤：{fname}"
                 continue
 
             updates_by_ws, changes_by_ws = _build_updates(
@@ -127,22 +196,29 @@ def run_nikke_upload(
         if notify_items:
             _notify_web_app_batch(notify_items)
         if not ok:
-            msg = msg or "沒有任何資料可上傳"
+            msg = msg or "批次上傳失敗"
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return JobResult(ok=False, message=str(exc))
 
+    outputs = {
+        "input_dir": str(base_dir),
+        "sheet_id": target_sheet_id,
+        "sheet_name": target_sheet_name,
+        "union_id": union_id,
+        "files": target_files,
+    }
     if not ok:
         return JobResult(
             ok=False,
             message=msg or "上傳妮姬資料失敗",
             stats={"ok_count": ok_count, "total_count": total_count},
-            outputs={"input_dir": str(base_dir)},
+            outputs=outputs,
         )
 
     return JobResult(
         ok=True,
         message=f"上傳妮姬資料成功 ({ok_count}/{total_count})",
         stats={"ok_count": ok_count, "total_count": total_count},
-        outputs={"input_dir": str(base_dir)},
+        outputs=outputs,
     )

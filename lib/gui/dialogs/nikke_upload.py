@@ -134,7 +134,7 @@ def _upload_worker(ui: NikkeUploadUi, files: List[str]) -> None:
     total_count = len(files)
     ok_count = 0
     try:
-        result = run_nikke_upload(files=files)
+        result = run_nikke_upload(account=ui.app._last_slug or "", files=files)
         ok = result.ok
         msg = result.message
         ok_count = int(result.stats.get("ok_count", 0) or 0)

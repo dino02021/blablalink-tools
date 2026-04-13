@@ -41,6 +41,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_nikke_batch.add_argument("--account", default="", help="Account slug.")
 
     p_nikke_upload = sub.add_parser("nikke-upload", help="Upload Nikke data.")
+    p_nikke_upload.add_argument("--account", default="", help="Account slug.")
+    p_nikke_upload.add_argument("--files-json", default="", help="JSON array of filenames to upload.")
     p_nikke_upload.add_argument("--input-dir", default="", help="Override character details directory.")
     p_nikke_upload.add_argument("--sheet-id", default="", help="Override sheet id.")
 
@@ -97,7 +99,20 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "nikke-batch-download":
         fn = lambda: run_nikke_batch_download(account=args.account)
     elif args.command == "nikke-upload":
+        files = None
+        if args.files_json:
+            try:
+                raw_files = json.loads(args.files_json)
+            except Exception as exc:
+                parser.error(f"Invalid --files-json: {exc}")
+                return 2
+            if not isinstance(raw_files, list):
+                parser.error("--files-json must be a JSON array")
+                return 2
+            files = [str(item) for item in raw_files]
         fn = lambda: run_nikke_upload(
+            account=args.account or None,
+            files=files,
             input_dir=args.input_dir or None,
             sheet_id=args.sheet_id or None,
         )

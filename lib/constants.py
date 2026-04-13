@@ -46,8 +46,6 @@ UNION_RAID_TEMP_FILE = Path(tempfile.gettempdir()) / "BlablalinkTool" / "UnionRa
 GOOGLE_SHEETS_ID_FILE = SETTINGS_DIR / "google_sheets_id.json"
 UNION_ACCOUNT_MAP_FILE = SETTINGS_DIR / "union_account_map.json"
 CHAR_DETAILS_DIR = Path(tempfile.gettempdir()) / "BlablalinkTool" / "CharacterDetails"
-MEMBERS_ID_FILE = SETTINGS_DIR / "members_id.json"
-MEMBERS_TYPE = "CharacterDetailsMembers"
 
 # Google Sheets / Drive
 GOOGLE_CRED_FILE = SETTINGS_DIR / "service_account.json"

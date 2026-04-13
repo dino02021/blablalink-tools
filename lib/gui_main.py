@@ -31,7 +31,6 @@ from .github_secrets_sync import start_secret_file_watcher
 from .utils import load_accounts, save_accounts, load_session, run_with_session_context
 from .gui.ui_constants import DEFAULT_PAD
 from .data_store import (
-    load_members,
     load_sheets,
     load_union_account_map,
     save_sheets,
@@ -78,7 +77,6 @@ class LoginApp:
         self.status_var = tk.StringVar(value="")
         self.accounts_path = ACCOUNTS_FILE
         self.accounts = load_accounts()
-        self.members = load_members()
         self.sheets, self.sheet_types = load_sheets()
         self.union_account_map = load_union_account_map()
         self._selected_account_index = None

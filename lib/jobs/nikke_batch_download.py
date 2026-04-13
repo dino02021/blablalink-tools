@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import functools
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
-from ..api import fetch_user_character_details, fetch_user_characters
+from ..api import (
+    build_character_details_path,
+    fetch_guild_members,
+    fetch_user_character_details,
+    fetch_user_characters,
+)
 from ..constants import CHAR_DETAILS_DIR
-from ..data_store import load_members, prepare_checklist_items
+from ..data_store import prepare_checklist_items
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
 from .common import JobResult, resolve_account, run_coro_sync
@@ -16,15 +21,15 @@ from .common import JobResult, resolve_account, run_coro_sync
 
 def _filter_checklist_items(
     checklist_items: List[Tuple[int, str]],
-    name_codes: List,
+    name_codes: List[Any],
 ) -> List[Tuple[int, str]]:
     try:
-        code_set = {int(x) for x in name_codes}
+        code_set = {int(value) for value in name_codes}
     except Exception:
         code_set = set()
-        for x in name_codes:
+        for value in name_codes:
             try:
-                code_set.add(int(x))
+                code_set.add(int(value))
             except Exception:
                 continue
     if not code_set:
@@ -32,69 +37,107 @@ def _filter_checklist_items(
     return [item for item in checklist_items if item[0] in code_set]
 
 
-async def _batch_download_with_ctx(ctx, members, checklist_items) -> int:
+async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) -> Dict[str, Any]:
+    guild_id, members = await fetch_guild_members(ctx)
+    if not guild_id:
+        return {"guild_id": "", "files": [], "ok_count": 0, "total_count": 0}
+
+    created_files: List[str] = []
     ok_count = 0
-    for mem in members:
-        nickname = mem.get("nick_name")
-        intl_id = mem.get("intl_open_id")
-        if not nickname or not intl_id:
+    total_count = 0
+    for member in members:
+        if not isinstance(member, dict):
             continue
-        name_codes = await fetch_user_characters(ctx, intl_open_id=intl_id)
+        nickname = str(member.get("nickname", "") or "").strip()
+        member_id = str(member.get("member_id", "") or "").strip()
+        if not nickname or not member_id:
+            continue
+
+        total_count += 1
+        name_codes = await fetch_user_characters(ctx, intl_open_id=member_id)
         if not name_codes:
             continue
         filtered = _filter_checklist_items(checklist_items, name_codes)
         if not filtered:
             continue
-        res = await fetch_user_character_details(ctx, filtered, nickname, intl_open_id=intl_id)
-        if res:
-            ok_count += 1
-    return ok_count
+
+        before_exists = build_character_details_path(nickname).exists()
+        ok = await fetch_user_character_details(ctx, filtered, nickname, intl_open_id=member_id)
+        if not ok:
+            continue
+
+        ok_count += 1
+        outfile = build_character_details_path(nickname)
+        if outfile.exists():
+            created_files.append(outfile.name)
+        elif before_exists:
+            created_files.append(outfile.name)
+
+    return {
+        "guild_id": guild_id,
+        "files": created_files,
+        "ok_count": ok_count,
+        "total_count": total_count,
+    }
 
 
-def run_nikke_batch_download(
-    account: str | None = None,
-    members: List[Dict[str, str]] | None = None,
-) -> JobResult:
+def run_nikke_batch_download(account: str | None = None) -> JobResult:
     slug = resolve_account(account)
     if not slug:
-        return JobResult(ok=False, message="找不到下載帳號")
+        return JobResult(ok=False, message="缺少帳號")
 
     name_ok, checklist_items, prep_msg = prepare_checklist_items()
     if not name_ok:
-        return JobResult(ok=False, message=prep_msg or "缺少妮姬清單資料")
-
-    target_members = list(members or load_members())
-    if not target_members:
-        return JobResult(ok=False, message="沒有可下載的成員資料")
+        return JobResult(ok=False, message=prep_msg or "無法準備妮姬檢查清單")
 
     state = load_session(slug)
     if not state:
         return JobResult(ok=False, message="找不到登入 Session")
 
     try:
-        ok_count = run_coro_sync(
+        result = run_coro_sync(
             functools.partial(
                 run_with_session_context,
                 state,
-                functools.partial(_batch_download_with_ctx, members=target_members, checklist_items=checklist_items),
+                functools.partial(_batch_download_with_ctx, checklist_items=checklist_items),
             )
         )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return JobResult(ok=False, message=str(exc))
 
-    total_count = len(target_members)
+    guild_id = str(result.get("guild_id", "") or "").strip()
+    files = [str(item).strip() for item in result.get("files", []) if str(item).strip()]
+    ok_count = int(result.get("ok_count", 0) or 0)
+    total_count = int(result.get("total_count", 0) or 0)
+
+    if not guild_id:
+        return JobResult(
+            ok=False,
+            message="找不到聯盟資訊",
+            stats={"account": slug, "ok_count": ok_count, "total_count": total_count},
+            outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "files": files},
+        )
+
+    if total_count <= 0:
+        return JobResult(
+            ok=False,
+            message="聯盟成員清單為空",
+            stats={"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count},
+            outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
+        )
+
     if ok_count <= 0:
         return JobResult(
             ok=False,
             message="批次下載妮姬資料失敗",
-            stats={"account": slug, "ok_count": ok_count, "total_count": total_count},
-            outputs={"char_details_dir": str(CHAR_DETAILS_DIR)},
+            stats={"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count},
+            outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
         )
 
     return JobResult(
         ok=True,
         message=f"批次下載妮姬資料成功 ({ok_count}/{total_count})",
-        stats={"account": slug, "ok_count": ok_count, "total_count": total_count},
-        outputs={"char_details_dir": str(CHAR_DETAILS_DIR)},
+        stats={"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count},
+        outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
     )

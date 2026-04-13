@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""資料讀寫：成員與試算表清單。"""
+"""Helpers for runtime JSON-backed settings and lookup data."""
 
 from __future__ import annotations
 
@@ -8,110 +8,80 @@ from typing import Dict, List, Tuple
 
 from .constants import (
     GOOGLE_SHEETS_ID_FILE,
-    MEMBERS_ID_FILE,
-    UNION_RAID_TYPE,
     NIKKE_CHECKLIST_NAME_CODES_FILE,
     NIKKES_INFO_FILE,
     UNION_ACCOUNT_MAP_FILE,
+    UNION_RAID_TYPE,
 )
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
 
-def load_members() -> List[Dict[str, str]]:
-    """讀取 members_id.json，回傳成員清單。"""
-    if MEMBERS_ID_FILE.exists():
-        try:
-            raw = json.loads(MEMBERS_ID_FILE.read_text(encoding="utf-8"))
-            if isinstance(raw, list):
-                cleaned = []
-                for item in raw:
-                    if not isinstance(item, dict):
-                        continue
-                    cleaned.append(
-                        {
-                            "nick_name": str(item.get("nick_name", "")),
-                            "intl_open_id": str(item.get("intl_open_id", "")),
-                        },
-                    )
-                return cleaned
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-    return []
-
-
-def save_members(members: List[Dict[str, str]]) -> None:
-    """寫入 members_id.json。"""
-    try:
-        MEMBERS_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-        write_text_and_sync_if_changed(
-            MEMBERS_ID_FILE,
-            json.dumps(members, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-
-
 def load_sheets() -> Tuple[List[Dict[str, str]], List[str]]:
-    """讀取 google_sheets_id.json，回傳 (sheets, types)。"""
+    """Read google_sheets_id.json and return (flat sheet rows, known types)."""
     sheets: List[Dict[str, str]] = []
     types: List[str] = []
     if not GOOGLE_SHEETS_ID_FILE.exists():
         return sheets, [UNION_RAID_TYPE]
+
     try:
         data = json.loads(GOOGLE_SHEETS_ID_FILE.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            for grp in data:
-                if not isinstance(grp, dict):
-                    continue
-                gtype = grp.get("type")
-                if isinstance(gtype, str) and gtype not in types:
-                    types.append(gtype)
-                inner = grp.get("sheets")
-                if not isinstance(inner, list):
-                    continue
-                for item in inner:
-                    if not isinstance(item, dict):
-                        continue
-                    sheets.append(
-                        {
-                            "type": gtype or "",
-                            "sheet_name": item.get("sheet_name", ""),
-                            "sheet_id": item.get("sheet_id", ""),
-                            "union_id": item.get("union_id", ""),
-                        },
-                    )
-        if not types:
-            types = [UNION_RAID_TYPE]
-        return sheets, types
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return sheets, [UNION_RAID_TYPE]
 
+    if isinstance(data, list):
+        for group in data:
+            if not isinstance(group, dict):
+                continue
+            group_type = str(group.get("type", "") or "").strip()
+            if group_type and group_type not in types:
+                types.append(group_type)
+
+            inner = group.get("sheets")
+            if not isinstance(inner, list):
+                continue
+            for item in inner:
+                if not isinstance(item, dict):
+                    continue
+                sheets.append(
+                    {
+                        "type": group_type,
+                        "sheet_name": str(item.get("sheet_name", "") or "").strip(),
+                        "sheet_id": str(item.get("sheet_id", "") or "").strip(),
+                        "union_id": str(item.get("union_id", "") or "").strip(),
+                    }
+                )
+
+    if not types:
+        types = [UNION_RAID_TYPE]
+    return sheets, types
+
 
 def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
-    """寫入 google_sheets_id.json。"""
+    """Write google_sheets_id.json grouped by type."""
     try:
         GOOGLE_SHEETS_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
         grouped: Dict[str, List[Dict[str, str]]] = {}
         for item in sheets:
-            stype = item.get("type") or ""
-            grouped.setdefault(stype, []).append(
+            sheet_type = str(item.get("type", "") or "").strip()
+            grouped.setdefault(sheet_type, []).append(
                 {
-                    "sheet_name": item.get("sheet_name", ""),
-                    "sheet_id": item.get("sheet_id", ""),
-                    "union_id": item.get("union_id", ""),
-                },
+                    "sheet_name": str(item.get("sheet_name", "") or "").strip(),
+                    "sheet_id": str(item.get("sheet_id", "") or "").strip(),
+                    "union_id": str(item.get("union_id", "") or "").strip(),
+                }
             )
+
         ordered_types: List[str] = []
-        for stype in sheet_types:
-            if stype not in ordered_types:
-                ordered_types.append(stype)
-        for stype in grouped.keys():
-            if stype not in ordered_types:
-                ordered_types.append(stype)
-        payload = [{"type": stype, "sheets": grouped.get(stype, [])} for stype in ordered_types]
+        for sheet_type in sheet_types:
+            if sheet_type not in ordered_types:
+                ordered_types.append(sheet_type)
+        for sheet_type in grouped:
+            if sheet_type not in ordered_types:
+                ordered_types.append(sheet_type)
+
+        payload = [{"type": sheet_type, "sheets": grouped.get(sheet_type, [])} for sheet_type in ordered_types]
         write_text_and_sync_if_changed(
             GOOGLE_SHEETS_ID_FILE,
             json.dumps(payload, ensure_ascii=False, indent=2),
@@ -122,35 +92,32 @@ def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
 
 
 def load_union_account_map() -> List[Dict[str, str]]:
-    """讀取 union_account_map.json。"""
+    """Read union_account_map.json."""
     if not UNION_ACCOUNT_MAP_FILE.exists():
         return []
     try:
         raw = json.loads(UNION_ACCOUNT_MAP_FILE.read_text(encoding="utf-8"))
-        if not isinstance(raw, list):
-            return []
-        cleaned: List[Dict[str, str]] = []
-        for item in raw:
-            if not isinstance(item, dict):
-                continue
-            union_id = str(item.get("union_id", "")).strip()
-            username = str(item.get("username", "")).strip()
-            if not union_id or not username:
-                continue
-            cleaned.append(
-                {
-                    "union_id": union_id,
-                    "username": username,
-                },
-            )
-        return cleaned
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return []
 
+    if not isinstance(raw, list):
+        return []
+
+    cleaned: List[Dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        union_id = str(item.get("union_id", "")).strip()
+        username = str(item.get("username", "")).strip()
+        if not union_id or not username:
+            continue
+        cleaned.append({"union_id": union_id, "username": username})
+    return cleaned
+
 
 def save_union_account_map(items: List[Dict[str, str]]) -> None:
-    """儲存 union_account_map.json。"""
+    """Write union_account_map.json."""
     try:
         payload: List[Dict[str, str]] = []
         for item in items:
@@ -158,12 +125,8 @@ def save_union_account_map(items: List[Dict[str, str]]) -> None:
             username = str(item.get("username", "")).strip()
             if not union_id or not username:
                 continue
-            payload.append(
-                {
-                    "union_id": union_id,
-                    "username": username,
-                },
-            )
+            payload.append({"union_id": union_id, "username": username})
+
         UNION_ACCOUNT_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
         write_text_and_sync_if_changed(
             UNION_ACCOUNT_MAP_FILE,
@@ -175,42 +138,39 @@ def save_union_account_map(items: List[Dict[str, str]]) -> None:
 
 
 def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
-    """讀取 checklist name_code 並組合名稱。"""
+    """Load checklist name_code values and map them to Nikke names."""
     try:
-        try:
-            raw_codes = json.loads(NIKKE_CHECKLIST_NAME_CODES_FILE.read_text(encoding="utf-8"))
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            raw_codes = None
-        if not isinstance(raw_codes, list):
-            return False, [], "nikke_checklist_name_codes.json 不存在或格式錯誤"
-
-        name_lookup: dict[str, str] = {}
-        try:
-            raw_info = json.loads(NIKKES_INFO_FILE.read_text(encoding="utf-8"))
-            if isinstance(raw_info, list):
-                for itm in raw_info:
-                    if not isinstance(itm, dict):
-                        continue
-                    nc = itm.get("name_code")
-                    nm = itm.get("name")
-                    if nc is None or nm is None:
-                        continue
-                    name_lookup[str(nc)] = str(nm)
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-
-        checklist_items: List[Tuple[int, str]] = []
-        for nc in raw_codes:
-            try:
-                nc_int = int(nc)
-            except Exception:
-                continue
-            nm = name_lookup.get(str(nc_int), "")
-            checklist_items.append((nc_int, nm))
-        if not checklist_items:
-            return False, [], "nikke_checklist_name_codes.json 沒資料"
-        return True, checklist_items, ""
+        raw_codes = json.loads(NIKKE_CHECKLIST_NAME_CODES_FILE.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return False, [], str(exc)
+        raw_codes = None
+
+    if not isinstance(raw_codes, list):
+        return False, [], "nikke_checklist_name_codes.json 格式錯誤或不存在"
+
+    name_lookup: Dict[str, str] = {}
+    try:
+        raw_info = json.loads(NIKKES_INFO_FILE.read_text(encoding="utf-8"))
+        if isinstance(raw_info, list):
+            for item in raw_info:
+                if not isinstance(item, dict):
+                    continue
+                name_code = item.get("name_code")
+                name = item.get("name")
+                if name_code is None or name is None:
+                    continue
+                name_lookup[str(name_code)] = str(name)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+
+    checklist_items: List[Tuple[int, str]] = []
+    for raw_code in raw_codes:
+        try:
+            name_code_int = int(raw_code)
+        except Exception:
+            continue
+        checklist_items.append((name_code_int, name_lookup.get(str(name_code_int), "")))
+
+    if not checklist_items:
+        return False, [], "nikke_checklist_name_codes.json 沒有可用的角色代碼"
+    return True, checklist_items, ""

@@ -196,8 +196,10 @@ def run_union_raid_upload(
         return JobResult(ok=False, message=f"載入 union upload 模組失敗: {exc}")
 
     try:
-        fetched = run_coro_sync(functools.partial(run_with_session_context, state, fetch_guild_members))
-        guild_members = fetched if isinstance(fetched, list) else []
+        _guild_id, fetched_members = run_coro_sync(
+            functools.partial(run_with_session_context, state, fetch_guild_members)
+        )
+        guild_members = fetched_members if isinstance(fetched_members, list) else []
         if not guild_members:
             return JobResult(ok=False, message="抓不到公會成員資料")
 
