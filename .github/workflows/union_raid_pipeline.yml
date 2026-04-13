@@ -58,15 +58,18 @@ jobs:
           printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
-      - name: Resolve union accounts
-        id: resolve_accounts
+      - name: Run union raid download
         shell: bash
+        env:
+          UNION_OVERRIDE_ACCOUNT: ${{ inputs.account }}
         run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
+          python - <<'PY'
           import json
           import os
+          import subprocess
+          import sys
 
-          override = "${{ inputs.account }}".strip()
+          override = os.environ.get("UNION_OVERRIDE_ACCOUNT", "").strip()
           raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
 
           if override:
@@ -87,26 +90,10 @@ jobs:
               seen.add(username)
               accounts.append(username)
 
-          print(f"count={len(accounts)}")
-          print("accounts_json<<EOF")
-          print(json.dumps(accounts, ensure_ascii=False))
-          print("EOF")
-          PY
-      - name: Run union raid download
-        shell: bash
-        run: |
-          UNION_ACCOUNTS='${{ steps.resolve_accounts.outputs.accounts_json }}'
-          python - <<'PY'
-          import json
-          import os
-          import subprocess
-          import sys
-
-          accounts = json.loads(os.environ.get("UNION_ACCOUNTS", "[]") or "[]")
-          if not accounts:
-            default_account = os.environ.get("BLABLALINK_DEFAULT_ACCOUNT", "").strip()
-            if default_account:
-              accounts = [default_account]
+            if not accounts:
+              default_account = os.environ.get("BLABLALINK_DEFAULT_ACCOUNT", "").strip()
+              if default_account:
+                accounts = [default_account]
 
           if not accounts:
             raise SystemExit("No union accounts resolved from inputs.account, BLABLALINK_UNION_ACCOUNT_MAP_JSON, or BLABLALINK_DEFAULT_ACCOUNT")
@@ -185,13 +172,14 @@ jobs:
           path: ${{ steps.union_path.outputs.path }}
       - name: Run union raid upload
         shell: bash
+        env:
+          UNION_MONTH: ${{ inputs.month }}
+          UNION_OVERRIDE_ACCOUNT: ${{ inputs.account }}
         run: |
-          if [ -z "${{ inputs.month }}" ]; then
+          if [ -z "$UNION_MONTH" ]; then
             echo "month is required for full mode" >&2
             exit 1
           fi
-          UNION_MONTH="${{ inputs.month }}"
-          UNION_OVERRIDE_ACCOUNT="${{ inputs.account }}"
           python - <<'PY'
           import json
           import os
