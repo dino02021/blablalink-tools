@@ -75,6 +75,19 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           cp ".github/runtime/union_google_sheets_id.json" "$SETTINGS_DIR/google_sheets_id.json"
+      - name: Download Nikke info file
+        if: ${{ inputs.mode == 'full' }}
+        shell: bash
+        run: |
+          mkdir -p data
+          python - <<'PY'
+          from pathlib import Path
+          from urllib.request import urlopen
+          from lib.constants import NIKKES_INFO_URL
+
+          data = urlopen(NIKKES_INFO_URL, timeout=30).read().decode("utf-8")
+          Path("data/nikkes_info.json").write_text(data, encoding="utf-8")
+          PY
       - name: Resolve upload month
         if: ${{ inputs.mode == 'full' }}
         id: upload_month
