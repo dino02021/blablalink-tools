@@ -1,159 +1,55 @@
 ﻿# -*- coding: utf-8 -*-
-"""妮姬資料上傳對話框與流程。"""
+"""妮姬資料上傳流程與共用試算表 helper。"""
 
 from __future__ import annotations
 
-import functools
 import json
 import subprocess
 import sys
 import threading
 import uuid
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 
-import tkinter as tk
-from tkinter import ttk
-
 from ...jobs.nikke_upload import run_nikke_upload
-from ..layout import (
-    close_dialog,
-    create_btn_between,
-    create_btn_frame,
-    create_btn_last,
-    create_dialog,
-    create_frame,
-    create_listbox,
-    create_msg_label,
-)
 from ...constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE, WEB_APP_URL
 from ...log import log_exc, log_msg
 
-@dataclass
-class NikkeUploadUi:
-    app: Any
-    dlg: tk.Toplevel
-    listbox: tk.Listbox
-    upload_btn: ttk.Button
-    upload_all_btn: ttk.Button
-    upload_status_var: tk.StringVar
-    upload_status_label: ttk.Label
-
 def open_upload_nikke_dialog(app) -> None:
-    """由主畫面呼叫：開啟上傳妮姬資料視窗。"""
-    dlg = create_dialog(app.root, "上傳妮姬資料", 360, 320)
-    frame = create_frame(dlg)
-
-    base = CHAR_DETAILS_DIR
-    base.mkdir(parents=True, exist_ok=True)
-    frame.rowconfigure(0, weight=1)
-    frame.columnconfigure(0, weight=1)
-    lb = create_listbox(frame, row=0, column=0, sticky="nsew")
-    lb.configure(selectmode="extended")
-    for p in sorted(base.glob("*.json")):
-        lb.insert("end", f" {p.name}")
-
-    btns = create_btn_frame(frame, row=1, column=0)
-    btns.columnconfigure(0, weight=1)
-    btns.columnconfigure(1, weight=0)
-
-    upload_status_var = tk.StringVar(value="")
-    upload_status_label = create_msg_label(frame, textvariable=upload_status_var, row=2, column=0, sticky="e")
-    upload_status_label.configure(foreground="green", anchor="e", justify="right")
-
-    ui = NikkeUploadUi(
-        app=app,
-        dlg=dlg,
-        listbox=lb,
-        upload_btn=None,
-        upload_all_btn=None,
-        upload_status_var=upload_status_var,
-        upload_status_label=upload_status_label,
-    )
-
-    upload_btn = create_btn_between(
-        btns,
-        text="選擇並上傳",
-        command=functools.partial(_start_upload_selected, ui),
-        row=0,
-        column=0,
-        sticky="we",
-    )
-    upload_all_btn = create_btn_last(
-        btns,
-        text="全部上傳",
-        command=functools.partial(_start_upload_all, ui),
-        row=0,
-        column=1,
-        sticky="e",
-    )
-    ui.upload_btn = upload_btn
-    ui.upload_all_btn = upload_all_btn
-
-    dlg.protocol("WM_DELETE_WINDOW", functools.partial(close_dialog, dlg))
-
-
-def _set_upload_status(ui: NikkeUploadUi, msg: str, color: str) -> None:
-    ui.upload_status_var.set(msg)
-    ui.upload_status_label.configure(foreground=color)
-    if msg.startswith("請選擇資料"):
-        ui.upload_status_label.configure(anchor="w", justify="left")
-        ui.upload_status_label.grid_configure(sticky="w")
+    """由主畫面呼叫：直接整批上傳目前角色資料。"""
+    if not getattr(app, "_last_slug", None):
+        app._set_nikke_status("請先登入", "red")
         return
-    if msg.startswith("上傳中"):
-        ui.upload_status_label.configure(anchor="e", justify="right")
-        ui.upload_status_label.grid_configure(sticky="e")
-
-def _start_upload_selected(ui: NikkeUploadUi) -> None:
-    files = _get_selected_files(ui)
-    if not files:
-        _set_upload_status(ui, "請選擇資料", "red")
-        return
-    _start_upload(ui, files)
+    app.nikke_status_var.set("上傳中...")
+    app.nikke_status_label.configure(foreground="green")
+    app.upload_nikke_btn.config(state="disabled")
+    threading.Thread(target=_upload_worker, args=(app,), daemon=True).start()
 
 
-def _start_upload_all(ui: NikkeUploadUi) -> None:
-    files = _get_all_files(ui)
-    if not files:
-        _set_upload_status(ui, "沒有可上傳的資料", "red")
-        return
-    _start_upload(ui, files)
-
-
-def _start_upload(ui: NikkeUploadUi, files: List[str]) -> None:
-    _set_upload_status(ui, "上傳中...", "green")
-    ui.upload_btn.config(state="disabled")
-    ui.upload_all_btn.config(state="disabled")
-    threading.Thread(target=_upload_worker, args=(ui, files), daemon=True).start()
-
-
-def _upload_worker(ui: NikkeUploadUi, files: List[str]) -> None:
-    ok = False
-    msg = ""
-    total_count = len(files)
-    ok_count = 0
+def _upload_worker(app) -> None:
     try:
-        result = run_nikke_upload(account=ui.app._last_slug or "", files=files)
+        result = run_nikke_upload(account=app._last_slug or "")
         ok = result.ok
         msg = result.message
         ok_count = int(result.stats.get("ok_count", 0) or 0)
+        total_count = int(result.stats.get("total_count", 0) or 0)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
+        ok = False
         msg = str(exc)
-    finally:
-        ui.app.root.after(0, functools.partial(_finish_upload, ui, ok, ok_count, total_count, msg))
+        ok_count = 0
+        total_count = 0
+    app.root.after(0, lambda: _finish_upload(app, ok, ok_count, total_count, msg))
 
 
-def _finish_upload(ui: NikkeUploadUi, ok: bool, ok_count: int, total_count: int, msg: str) -> None:
+def _finish_upload(app, ok: bool, ok_count: int, total_count: int, msg: str) -> None:
+    app.upload_nikke_btn.config(state="normal")
     if ok:
-        _set_upload_status(ui, f"上傳成功 ({ok_count}/{total_count})", "green")
-        ui.app.nikke_status_var.set(f"上傳成功 ({ok_count}/{total_count})")
-        close_dialog(ui.dlg)
+        app.nikke_status_var.set(f"上傳成功 ({ok_count}/{total_count})")
+        app.nikke_status_label.configure(foreground="green")
         return
-    _set_upload_status(ui, f"上傳失敗：{msg or '未知錯誤'}", "red")
-    ui.upload_btn.config(state="normal")
-    ui.upload_all_btn.config(state="normal")
+    app.nikke_status_var.set(f"上傳失敗：{msg or '未知錯誤'}")
+    app.nikke_status_label.configure(foreground="red")
 
 
 def _collect_character_sheets(worksheets) -> List[Any]:
@@ -640,13 +536,3 @@ def _notify_web_app_batch(items: List[Dict[str, Any]], kind: str = "training") -
         )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-
-def _get_selected_files(ui: NikkeUploadUi) -> List[str]:
-    selected = []
-    for idx in ui.listbox.curselection():
-        selected.append(ui.listbox.get(idx).strip())
-    return selected
-
-
-def _get_all_files(ui: NikkeUploadUi) -> List[str]:
-    return [ui.listbox.get(i).strip() for i in range(ui.listbox.size())]
