@@ -11,6 +11,10 @@ on:
 jobs:
   upload_sync:
     runs-on: ubuntu-latest
+    env:
+      BLABLALINK_CLOUD_DATA_REPO: dino02021/BlaBlaLinkTool-data
+      BLABLALINK_CLOUD_DATA_BRANCH: main
+      BLABLALINK_CLOUD_DATA_TOKEN: ${{ secrets.BLABLALINK_CLOUD_DATA_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

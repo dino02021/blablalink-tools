@@ -36,6 +36,8 @@ DATA_FILE_MAP: Dict[Path, str] = {
 _watcher_lock = threading.Lock()
 _watcher_started = False
 _known_hashes: Dict[Path, Optional[str]] = {}
+_pending_push_lock = threading.Lock()
+_pending_push_threads: set[threading.Thread] = set()
 
 
 def _cloud_repo() -> str:
@@ -74,7 +76,7 @@ def _read_text_if_exists(path: Path, encoding: str = "utf-8") -> Optional[str]:
 
 
 def _github_token() -> str:
-    for key in ("GH_TOKEN", "GITHUB_TOKEN"):
+    for key in ("BLABLALINK_CLOUD_DATA_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         value = str(os.getenv(key, "")).strip()
         if value:
             return value
@@ -199,6 +201,17 @@ def _push_data_file(path: Path, content: str) -> None:
     log_msg(f"github data pushed: repo={repo} branch={branch} path={rel}")
 
 
+def _push_data_file_worker(path: Path, content: str) -> None:
+    try:
+        _push_data_file(path, content)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+    finally:
+        current = threading.current_thread()
+        with _pending_push_lock:
+            _pending_push_threads.discard(current)
+
+
 def schedule_data_sync_for_path(path: Path, content: str) -> None:
     try:
         resolved = path.resolve()
@@ -210,7 +223,26 @@ def schedule_data_sync_for_path(path: Path, content: str) -> None:
         _known_hashes[resolved] = _file_hash_from_text(content)
     except Exception:
         pass
-    threading.Thread(target=_push_data_file, args=(resolved, content), daemon=True).start()
+    worker = threading.Thread(target=_push_data_file_worker, args=(resolved, content), daemon=True)
+    with _pending_push_lock:
+        _pending_push_threads.add(worker)
+    worker.start()
+
+
+def flush_cloud_data_sync(timeout_seconds: float = 60.0) -> None:
+    deadline = time.monotonic() + max(0.0, timeout_seconds)
+    while True:
+        with _pending_push_lock:
+            pending = [thread for thread in _pending_push_threads if thread.is_alive()]
+            _pending_push_threads.clear()
+            _pending_push_threads.update(pending)
+        if not pending:
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        for thread in pending:
+            thread.join(timeout=max(0.0, min(1.0, remaining)))
 
 
 def write_data_text_and_sync_if_changed(path: Path, content: str, encoding: str = "utf-8") -> bool:
