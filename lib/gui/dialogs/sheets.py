@@ -301,8 +301,8 @@ def _save_sheet(
     if not stype_raw or not name or not sid:
         sub_msg_var.set("請填寫類型、名稱與試算表ID")
         return
-    if stype_raw in {"UnionRaid", "CharacterDetails"} and not union_id:
-        sub_msg_var.set(f"{stype_raw} 類型必須填寫聯盟ID")
+    if not union_id:
+        sub_msg_var.set("聯盟ID為必填")
         return
     sheets.append(
         {
