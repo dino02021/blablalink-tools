@@ -63,7 +63,7 @@ jobs:
           BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
-          python -m lib.cli.run_job union-raid-pipeline --mode download --scope "${{ inputs.scope }}" --account "${{ inputs.account }}" --json
+          python -m lib.cli.run_job --json union-raid-pipeline --mode download --scope "${{ inputs.scope }}" --account "${{ inputs.account }}"
       - name: Restore Google credentials file
         if: ${{ inputs.mode == 'full' }}
         shell: bash
@@ -86,4 +86,4 @@ jobs:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
           BLABLALINK_STRICT_UNION_WEBAPP: "1"
         run: |
-          python -m lib.cli.run_job union-raid-pipeline --mode full --scope "${{ inputs.scope }}" --account "${{ inputs.account }}" --month "${{ inputs.month }}" --json
+          python -m lib.cli.run_job --json union-raid-pipeline --mode full --scope "${{ inputs.scope }}" --account "${{ inputs.account }}" --month "${{ inputs.month }}"
