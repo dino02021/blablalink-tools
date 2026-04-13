@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Tuple
 
 from ..api import (
     build_character_details_path,
+    fetch_union_info,
     fetch_guild_members,
     fetch_user_character_details,
     fetch_user_characters,
@@ -38,7 +39,16 @@ def _filter_checklist_items(
 
 
 async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) -> Dict[str, Any]:
-    guild_id, members = await fetch_guild_members(ctx)
+    guild_id, _fetched_open_id, nikke_area_id = await fetch_union_info(ctx)
+    target_guild_id = str(guild_id or "").strip()
+    target_nikke_area_id = str(nikke_area_id or "").strip()
+    if not target_guild_id or not target_nikke_area_id:
+        return {"guild_id": "", "files": [], "ok_count": 0, "total_count": 0}
+    guild_id, members = await fetch_guild_members(
+        ctx,
+        guild_id=target_guild_id,
+        nikke_area_id=target_nikke_area_id,
+    )
     if not guild_id:
         return {"guild_id": "", "files": [], "ok_count": 0, "total_count": 0}
 
@@ -54,7 +64,11 @@ async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) 
             continue
 
         total_count += 1
-        name_codes = await fetch_user_characters(ctx, intl_open_id=member_id)
+        name_codes = await fetch_user_characters(
+            ctx,
+            intl_open_id=member_id,
+            nikke_area_id=target_nikke_area_id,
+        )
         if not name_codes:
             continue
         filtered = _filter_checklist_items(checklist_items, name_codes)
@@ -62,7 +76,13 @@ async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) 
             continue
 
         before_exists = build_character_details_path(nickname).exists()
-        ok = await fetch_user_character_details(ctx, filtered, nickname, intl_open_id=member_id)
+        ok = await fetch_user_character_details(
+            ctx,
+            filtered,
+            nickname,
+            intl_open_id=member_id,
+            nikke_area_id=target_nikke_area_id,
+        )
         if not ok:
             continue
 

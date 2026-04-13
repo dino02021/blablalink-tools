@@ -302,6 +302,7 @@ async def fetch_user_character_details(
     checklist_items: List[Tuple[str, str]],
     nickname: str,
     intl_open_id: str | None = None,
+    nikke_area_id: str | None = None,
 ) -> bool:
     """
     取得角色詳細資訊並寫入暫存檔：
@@ -309,10 +310,12 @@ async def fetch_user_character_details(
     - 檔名：{nickname}_character_details.json 儲存於 CHAR_DETAILS_DIR
     """
     try:
-        # 取得區域資訊（可直接帶入 intl_open_id，但 nikke_area_id 仍需透過 fetch_union_info）
-        union_id, fetched_open_id, nikke_area_id = await fetch_union_info(context)
+        target_nikke_area_id = str(nikke_area_id or "").strip()
+        fetched_open_id: str | None = None
+        if not target_nikke_area_id:
+            _union_id, fetched_open_id, target_nikke_area_id = await fetch_union_info(context)
         intl_id = intl_open_id or fetched_open_id
-        if not (intl_id and nikke_area_id):
+        if not (intl_id and target_nikke_area_id):
             return False
         name_codes = [nc for nc, _ in checklist_items if nc]
         if not name_codes:
@@ -323,7 +326,7 @@ async def fetch_user_character_details(
 
         payload = {
             "intl_open_id": intl_id,
-            "nikke_area_id": nikke_area_id,
+            "nikke_area_id": target_nikke_area_id,
             "name_codes": unique_codes,
         }
         req = context.request
@@ -442,18 +445,22 @@ async def fetch_user_character_details(
 async def fetch_user_characters(
     context: BrowserContext,
     intl_open_id: str | None = None,
+    nikke_area_id: str | None = None,
 ) -> List[Any]:
     """呼叫 GetUserCharacters，回傳 name_code 清單。"""
     try:
-        union_id, fetched_open_id, nikke_area_id = await fetch_union_info(context)
-        if not nikke_area_id:
+        target_nikke_area_id = str(nikke_area_id or "").strip()
+        fetched_open_id: str | None = None
+        if not target_nikke_area_id:
+            _union_id, fetched_open_id, target_nikke_area_id = await fetch_union_info(context)
+        if not target_nikke_area_id:
             return []
         intl_id = intl_open_id or fetched_open_id
         if not intl_id:
             return []
         payload = {
             "intl_open_id": intl_id,
-            "nikke_area_id": nikke_area_id,
+            "nikke_area_id": target_nikke_area_id,
         }
         req = context.request
         resp = await req.post(USER_CHARACTERS_URL, data=payload)
@@ -488,15 +495,20 @@ async def fetch_user_characters(
 
 async def fetch_guild_members(
     context: BrowserContext,
+    guild_id: str | None = None,
+    nikke_area_id: str | None = None,
 ) -> Tuple[str, List[Dict[str, Any]]]:
     """呼叫 GetGuildMembers，回傳 (guild_id, 成員清單)。"""
     try:
-        guild_id, _intl_open_id, nikke_area_id = await fetch_union_info(context)
-        if not guild_id or not nikke_area_id:
+        target_guild_id = str(guild_id or "").strip()
+        target_nikke_area_id = str(nikke_area_id or "").strip()
+        if not target_guild_id or not target_nikke_area_id:
+            target_guild_id, _intl_open_id, target_nikke_area_id = await fetch_union_info(context)
+        if not target_guild_id or not target_nikke_area_id:
             return "", []
         payload = {
-            "guild_id": guild_id,
-            "nikke_area_id": nikke_area_id,
+            "guild_id": target_guild_id,
+            "nikke_area_id": target_nikke_area_id,
         }
         req = context.request
         resp = await req.post(GUILDMEMBERS_URL, data=payload)
@@ -531,7 +543,7 @@ async def fetch_guild_members(
                     "synchro_level": item.get("synchro_level"),
                 }
             )
-        return str(guild_id).strip(), result
+        return target_guild_id, result
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return "", []
