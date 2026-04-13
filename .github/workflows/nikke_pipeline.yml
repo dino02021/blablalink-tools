@@ -20,14 +20,6 @@ jobs:
   download_nikke_batch:
     if: ${{ inputs.mode == 'download' || inputs.mode == 'full' }}
     runs-on: ubuntu-latest
-    env:
-      BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
-      BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
-      BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
-      BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
-      BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
-      BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
-      BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,20 +32,42 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m playwright install chromium
-      - name: Restore runtime files
+      - name: Prepare runtime directories
         shell: bash
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
           mkdir -p data
+      - name: Restore session and sheets files
+        shell: bash
+        env:
+          BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
+          BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
+      - name: Restore credentials and members files
+        shell: bash
+        env:
+          BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
+          BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
+      - name: Restore data files
+        shell: bash
+        env:
+          BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
+          BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
+        run: |
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Run Nikke batch download
         shell: bash
+        env:
+          BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
         run: |
           ACCOUNT="${{ inputs.account }}"
           if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
@@ -77,13 +91,6 @@ jobs:
     if: ${{ inputs.mode == 'full' }}
     needs: download_nikke_batch
     runs-on: ubuntu-latest
-    env:
-      BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
-      BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
-      BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
-      BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
-      BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
-      BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -95,16 +102,36 @@ jobs:
           sudo apt-get install -y python3-tk
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-      - name: Restore runtime files
+      - name: Prepare runtime directories
         shell: bash
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
           mkdir -p data
+      - name: Restore session and sheets files
+        shell: bash
+        env:
+          BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
+          BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
+      - name: Restore credentials and members files
+        shell: bash
+        env:
+          BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
+          BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
           printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
+      - name: Restore data files
+        shell: bash
+        env:
+          BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
+          BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
+        run: |
           printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
           printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Detect char details path
