@@ -22,8 +22,9 @@ from .constants import (
     NIKKES_NICKNAME_FILE,
     PROJECT_ROOT,
 )
-from .github_secrets_sync import DEFAULT_GITHUB_REPO
 from .log import log_exc, log_msg
+
+DEFAULT_CLOUD_DATA_REPO = "dino02021/BlaBlaLinkTool-data"
 
 DATA_FILE_MAP: Dict[Path, str] = {
     NIKKES_INFO_FILE.resolve(): "data/nikkes_info.json",
@@ -41,8 +42,7 @@ def _cloud_repo() -> str:
     value = str(os.getenv("BLABLALINK_CLOUD_DATA_REPO", "")).strip()
     if value:
         return value
-    value = str(os.getenv("BLABLALINK_GITHUB_REPO", "")).strip()
-    return value or DEFAULT_GITHUB_REPO
+    return DEFAULT_CLOUD_DATA_REPO
 
 
 def _cloud_branch() -> str:
@@ -56,6 +56,11 @@ def _cloud_enabled() -> bool:
 
 def _file_hash_from_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _write_text_exact(path: Path, content: str, encoding: str = "utf-8") -> None:
+    with path.open("w", encoding=encoding, newline="") as handle:
+        handle.write(content)
 
 
 def _read_text_if_exists(path: Path, encoding: str = "utf-8") -> Optional[str]:
@@ -159,7 +164,7 @@ def pull_cloud_data_files(paths: Iterable[Path] | None = None) -> None:
             continue
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(remote_text, encoding="utf-8")
+            _write_text_exact(path, remote_text, encoding="utf-8")
             _known_hashes[path] = _file_hash_from_text(remote_text)
             log_msg(f"github data pulled: repo={_cloud_repo()} branch={_cloud_branch()} path={rel}")
         except Exception as exc:  # noqa: BLE001
@@ -218,7 +223,7 @@ def write_data_text_and_sync_if_changed(path: Path, content: str, encoding: str 
         return False
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding=encoding)
+    _write_text_exact(path, content, encoding=encoding)
     schedule_data_sync_for_path(path, content)
     return True
 
