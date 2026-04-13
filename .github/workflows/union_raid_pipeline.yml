@@ -137,5 +137,7 @@ jobs:
       - name: Run union raid upload
         if: ${{ inputs.mode == 'full' }}
         shell: bash
+        env:
+          BLABLALINK_STRICT_UNION_WEBAPP: "1"
         run: |
           python -m lib.cli.run_job union-raid-upload --account "${{ steps.account.outputs.account }}" --month "${{ steps.upload_month.outputs.month }}"

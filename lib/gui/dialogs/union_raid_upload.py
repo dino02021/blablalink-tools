@@ -660,6 +660,11 @@ def _upload_to_sheets(
     for _, _, item in ordered_with_rows:
         web_members.append(_build_web_member(item, id_to_name))
 
+    log_msg(
+        "union_upload webapp_payload "
+        f"nikke_map={len(id_to_name)} members={len(web_members)} "
+        f"sample={json.dumps(_summarize_web_members(web_members), ensure_ascii=False)}"
+    )
     web_ok, web_msg = _notify_union_web_app(month, sheet_id, web_members)
     log_msg(f"union_upload webapp members={len(web_members)} ok={web_ok} msg={web_msg}")
     return True, web_ok, web_msg
@@ -979,6 +984,31 @@ def _build_web_member(item: Dict[str, Any], id_to_name: Dict[int, str]) -> Dict[
     }
 
 
+def _summarize_web_members(members: List[Dict[str, Any]], limit: int = 2) -> List[Dict[str, Any]]:
+    summaries: List[Dict[str, Any]] = []
+    for member in members[:limit]:
+        member_name = str(member.get("member_name", "")).strip()
+        merged = member.get("merged_teams_by_step", {})
+        step_summary: Dict[str, List[str]] = {}
+        if isinstance(merged, dict):
+            for step, data in merged.items():
+                if not isinstance(data, dict):
+                    continue
+                raw_names = data.get("team_names", [])
+                if not isinstance(raw_names, list):
+                    continue
+                names = [str(name).strip() for name in raw_names if str(name).strip()]
+                if names:
+                    step_summary[str(step)] = names[:5]
+        summaries.append(
+            {
+                "member_name": member_name,
+                "step_summary": step_summary,
+            }
+        )
+    return summaries
+
+
 def _build_row_update(row_idx: int, start_col: int, values: List[Any]) -> Dict[str, Any]:
     end_col = start_col + len(values) - 1
     start_letter = col_letter(start_col)
@@ -1122,4 +1152,3 @@ def _get_selected_index(listbox: tk.Listbox) -> Optional[int]:
 
 
 __all__ = ["open_upload_union_dialog", "col_letter"]
-

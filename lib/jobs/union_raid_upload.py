@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -14,6 +15,10 @@ from ..data_store import load_sheets
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
 from .common import JobResult, resolve_account, run_coro_sync
+
+
+def _should_fail_on_webapp_error() -> bool:
+    return str(os.getenv("BLABLALINK_STRICT_UNION_WEBAPP", "")).strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _find_latest_union_raid_file() -> Optional[Path]:
@@ -170,6 +175,13 @@ def run_union_raid_upload(
         )
 
     if not web_ok:
+        if _should_fail_on_webapp_error():
+            return JobResult(
+                ok=False,
+                message=f"試算表已更新，但 WebApp 失敗: {web_msg}",
+                stats={"partial": True, "web_ok": False},
+                outputs=outputs,
+            )
         return JobResult(
             ok=True,
             message=f"試算表已更新，但 WebApp 失敗: {web_msg}",
