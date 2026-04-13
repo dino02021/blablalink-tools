@@ -28,33 +28,27 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           mkdir -p "$SETTINGS_DIR"
-          mkdir -p data
-      - name: Restore session and sheets files
+      - name: Restore session file
         shell: bash
         env:
           BLABLALINK_SESSIONS_JSON: ${{ secrets.BLABLALINK_SESSIONS_JSON }}
-          BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
+      - name: Restore sheets file
+        shell: bash
+        env:
+          BLABLALINK_SHEETS_JSON: ${{ secrets.BLABLALINK_SHEETS_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SHEETS_JSON" > "$SETTINGS_DIR/google_sheets_id.json"
-      - name: Restore credentials and members files
+      - name: Restore Google credentials file
         shell: bash
         env:
           BLABLALINK_GOOGLE_CREDENTIALS_JSON: ${{ secrets.BLABLALINK_GOOGLE_CREDENTIALS_JSON }}
-          BLABLALINK_MEMBERS_JSON: ${{ secrets.BLABLALINK_MEMBERS_JSON }}
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_GOOGLE_CREDENTIALS_JSON" > "$SETTINGS_DIR/service_account.json"
-          printf '%s' "$BLABLALINK_MEMBERS_JSON" > "$SETTINGS_DIR/members_id.json"
-      - name: Restore data files
-        shell: bash
-        env:
-          BLABLALINK_NIKKES_INFO_JSON: ${{ secrets.BLABLALINK_NIKKES_INFO_JSON }}
-          BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON: ${{ secrets.BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON }}
-        run: |
-          printf '%s' "$BLABLALINK_NIKKES_INFO_JSON" > "data/nikkes_info.json"
-          printf '%s' "$BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON" > "data/nikke_checklist_name_codes.json"
       - name: Run sync upload
         shell: bash
         env:
