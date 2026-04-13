@@ -3,13 +3,26 @@ name: union_raid_pipeline
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        type: choice
+        default: download
+        options:
+          - download
+          - full
       account:
         description: "Override account slug"
+        required: false
+        type: string
+      month:
+        description: "Month text for upload, e.g. 2026/04"
         required: false
         type: string
 
 jobs:
   download_union_raid:
+    if: ${{ inputs.mode == 'download' || inputs.mode == 'full' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,3 +61,16 @@ jobs:
         shell: bash
         run: |
           python -m lib.cli.run_job union-raid-download --account "${{ steps.account.outputs.account }}"
+
+  full_mode_unavailable:
+    if: ${{ inputs.mode == 'full' }}
+    needs: download_union_raid
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain current limitation
+        shell: bash
+        run: |
+          echo "Full mode is temporarily disabled in GitHub Actions."
+          echo "Reason: the upload path still triggers Actions startup_failure when the workflow references sheet configuration secrets."
+          echo "Month input received: '${{ inputs.month }}'"
+          exit 1
