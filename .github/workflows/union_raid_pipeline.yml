@@ -62,7 +62,24 @@ jobs:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
-          printf '%s' "$BLABLALINK_UNION_ACCOUNT_MAP_JSON" > "$SETTINGS_DIR/union_account_map.json"
+          SETTINGS_DIR="$SETTINGS_DIR" python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
+          if not raw:
+              raise SystemExit("Missing BLABLALINK_UNION_ACCOUNT_MAP_JSON")
+
+          try:
+              data = json.loads(raw)
+          except Exception:
+              data = json.loads(base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8"))
+
+          path = Path(os.environ["SETTINGS_DIR"]) / "union_account_map.json"
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
       - name: Run union raid download
         if: ${{ inputs.mode == 'download' }}
         shell: bash

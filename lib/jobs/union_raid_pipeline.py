@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 from typing import Any, Dict, List
@@ -13,16 +14,9 @@ from .union_raid_download import run_union_raid_download
 from .union_raid_upload import resolve_latest_union_upload_month, run_union_raid_upload
 
 
-def _load_union_account_map_from_env() -> List[Dict[str, str]]:
-    raw_text = str(os.getenv("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "")).strip()
-    if not raw_text:
-        return load_union_account_map()
-    try:
-        raw = json.loads(raw_text)
-    except Exception:
-        return load_union_account_map()
+def _clean_union_account_map(raw: Any) -> List[Dict[str, str]]:
     if not isinstance(raw, list):
-        return load_union_account_map()
+        return []
 
     cleaned: List[Dict[str, str]] = []
     for item in raw:
@@ -33,7 +27,39 @@ def _load_union_account_map_from_env() -> List[Dict[str, str]]:
         if not union_id or not username:
             continue
         cleaned.append({"union_id": union_id, "username": username})
-    return cleaned or load_union_account_map()
+    return cleaned
+
+
+def _parse_union_account_map_text(raw_text: str) -> List[Dict[str, str]]:
+    try:
+        raw = json.loads(raw_text)
+    except Exception:
+        return []
+    return _clean_union_account_map(raw)
+
+
+def _parse_union_account_map_base64(raw_text: str) -> List[Dict[str, str]]:
+    try:
+        decoded = base64.b64decode(raw_text.encode("utf-8"), validate=True).decode("utf-8")
+    except Exception:
+        return []
+    return _parse_union_account_map_text(decoded)
+
+
+def _load_union_account_map_from_env() -> List[Dict[str, str]]:
+    raw_text = str(os.getenv("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "")).strip()
+    if not raw_text:
+        return load_union_account_map()
+
+    items = _parse_union_account_map_text(raw_text)
+    if items:
+        return items
+
+    items = _parse_union_account_map_base64(raw_text)
+    if items:
+        return items
+
+    return load_union_account_map()
 
 
 def _resolve_accounts(scope: str, account: str | None) -> List[str]:
