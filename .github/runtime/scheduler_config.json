@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "timezone": "Asia/Taipei",
+  "jobs": [
+    {
+      "name": "nikke_pipeline_daily",
+      "enabled": true,
+      "type": "daily",
+      "time": "18:00",
+      "workflow": "nikke_pipeline_run.yml",
+      "ref": "main",
+      "inputs": {
+        "scope": "all"
+      }
+    },
+    {
+      "name": "sync_upload_daily",
+      "enabled": true,
+      "type": "daily",
+      "time": "18:05",
+      "workflow": "sync_upload.yml",
+      "ref": "main",
+      "inputs": {
+        "scope": "all"
+      }
+    },
+    {
+      "name": "union_raid_pipeline_once",
+      "enabled": false,
+      "type": "once",
+      "date": "2026-12-31",
+      "time": "18:10",
+      "workflow": "union_raid_pipeline.yml",
+      "ref": "main",
+      "inputs": {
+        "mode": "full",
+        "scope": "all",
+        "month": "2026/12"
+      }
+    }
+  ]
+}

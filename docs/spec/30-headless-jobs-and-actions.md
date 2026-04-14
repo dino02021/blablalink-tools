@@ -2,33 +2,22 @@
 
 ## Job Layer
 
-`lib/jobs/` 是 headless 執行的核心層。
+`lib/jobs/` is the shared execution layer for GUI, CLI, and automation.
 
-目的：
-- 把 GUI 可用流程收斂成可直接由 CLI 與 workflow 執行的 job
-- 穩定回傳 `JobResult`
-- 把 routing、資料驗證與主要失敗訊息集中
+Goals:
+- convert GUI-capable flows into reusable headless jobs
+- return stable `JobResult` objects
+- keep routing and failure rules in Python instead of shell scripts
 
-共用入口：
+Shared base:
 - [lib/jobs/common.py](../../lib/jobs/common.py)
-
-重要內容：
-- `JobResult`
-- `run_coro_sync()`
-- `resolve_account()`
 
 ## CLI Entry
 
-CLI 入口在：
+CLI entry point:
 - [lib/cli/run_job.py](../../lib/cli/run_job.py)
 
-CLI 的責任：
-- 解析子命令與參數
-- 執行 job
-- 統一輸出 `JobResult`
-- 在流程前後包住 cloud data sync hook
-
-目前有效子命令：
+Current commands:
 - `union-raid-download`
 - `union-raid-upload`
 - `union-raid-pipeline`
@@ -41,208 +30,162 @@ CLI 的責任：
 
 ### `run_union_raid_download`
 
-檔案：
+File:
 - [lib/jobs/union_raid_download.py](../../lib/jobs/union_raid_download.py)
 
-流程：
-1. 解析 account
-2. 載入 session
-3. 呼叫 `fetch_union_info()`
-4. 呼叫 `fetch_union_raid_data()`
-5. 產生 union raid JSON
-
-關鍵輸出：
-- `outputs.data_path`
-- `outputs.created_new_file`
+Flow:
+1. resolve account
+2. load session
+3. call `fetch_union_info()`
+4. call `fetch_union_raid_data()`
+5. write union raid JSON
 
 ### `run_union_raid_upload`
 
-檔案：
+File:
 - [lib/jobs/union_raid_upload.py](../../lib/jobs/union_raid_upload.py)
 
-流程：
-1. 讀取 union raid JSON
-2. 取出 `union_id`
-3. 以 `type=UnionRaid + union_id` 精準匹配 sheet
-4. 取得聯盟成員資料
-5. 寫入 Google Sheets
-
-規則：
-- `month` 可顯式指定
-- 未指定時可由現有資料推導最新月份
+Flow:
+1. load union raid JSON
+2. extract `union_id`
+3. resolve `type=UnionRaid + union_id`
+4. fetch guild members
+5. write Google Sheets
 
 ### `run_union_raid_pipeline`
 
-檔案：
+File:
 - [lib/jobs/union_raid_pipeline.py](../../lib/jobs/union_raid_pipeline.py)
 
-支援參數：
+Parameters:
 - `mode=download|full`
 - `scope=single|all`
+- `month`
 
-規則：
-- `single` 模式只跑一個 account
-- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
-- `full` 表示 download 後接 upload
-- 每個 account 獨立記錄結果，最後回傳 summary
+Rules:
+- `single` runs one account
+- `all` reads `BLABLALINK_UNION_ACCOUNT_MAP_JSON`, then falls back to local `union_account_map.json`
+- `full` means download then upload
+- this workflow is intended for manual dispatch and one-time external scheduling
 
 ## Nikke Jobs
 
 ### `run_nikke_batch_download`
 
-檔案：
+File:
 - [lib/jobs/nikke_batch_download.py](../../lib/jobs/nikke_batch_download.py)
 
-流程：
-1. `prepare_checklist_items()`
-2. 由 session 取得 `guild_id` 與 `nikke_area_id`
-3. 呼叫 `fetch_guild_members()`
-4. 對每位 member 呼叫：
-   - `fetch_user_characters()`
-   - checklist 過濾
-   - `fetch_user_character_details()`
-5. 產生本次成功的 `CharacterDetails/*.json`
-
-關鍵輸出：
-- `outputs.guild_id`
-- `outputs.char_details_dir`
-- `outputs.files`
-- `stats.ok_count`
-- `stats.total_count`
+Flow:
+1. prepare checklist items
+2. read `guild_id` and `nikke_area_id` from session context
+3. fetch guild members
+4. fetch characters and character details for each member
+5. write `CharacterDetails/*.json`
 
 ### `run_nikke_upload`
 
-檔案：
+File:
 - [lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py)
 
-流程：
-1. 由 account 對應 session 取得 `union_id`
-2. 以 `type=CharacterDetails + union_id` 精準匹配 sheet
-3. 讀取指定的角色細節 JSON
-4. 寫入主 sheet 與 change sheet
-
-規則：
-- 可接受 `files`，只上傳指定檔案
-- `files` 為空時，預設掃整個 `CHAR_DETAILS_DIR`
-- 找不到對應 sheet 時直接失敗
+Rules:
+- route by `type=CharacterDetails + union_id`
+- allow selected `files`
+- fail when no matching sheet exists
 
 ### `run_nikke_pipeline`
 
-檔案：
+File:
 - [lib/jobs/nikke_pipeline.py](../../lib/jobs/nikke_pipeline.py)
 
-支援參數：
+Parameters:
 - `scope=single|all`
 
-流程：
-1. 解析要執行的帳號集合
-2. 每個帳號先跑 `run_nikke_batch_download()`
-3. 只取本次下載成功的 `files`
-4. 若該帳號可解析對應 `CharacterDetails` sheet，接著跑 `run_nikke_upload()`
-
-規則：
-- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
-- 對 `username` 去重後逐帳號執行
-- 若缺少對應 `CharacterDetails` sheet，該帳號記為 `skipped`
-- 若 download 或 upload 真正失敗，該帳號記為 failed
-- 只要存在 failed，整體 pipeline 回傳失敗
+Rules:
+- `all` reads `BLABLALINK_UNION_ACCOUNT_MAP_JSON`, then falls back to local `union_account_map.json`
+- de-duplicate by `username`
+- skip accounts that have no matching `CharacterDetails` sheet
+- fail the whole pipeline if any account truly fails
 
 ## Sync Upload
 
-檔案：
+File:
 - [lib/jobs/sync_upload.py](../../lib/jobs/sync_upload.py)
 
-支援參數：
+Parameters:
 - `scope=single|all`
 
-流程：
-1. 由 account 的 session 取得聯盟成員資料
-2. 整理 `nickname -> synchro_level`
-3. 以 `guild_id` 路由到 `CharacterDetails` sheet
-4. 寫入指定 worksheet
+Rules:
+- route by `guild_id -> CharacterDetails`
+- `all` reads `BLABLALINK_UNION_ACCOUNT_MAP_JSON`, then falls back to local `union_account_map.json`
+- de-duplicate by `username`
 
-規則：
-- `guild_id` 視同 `union_id`
-- worksheet 名稱可指定
-- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
-- `all` 模式對 `username` 去重後逐帳號執行，最後彙總結果
-- 沒有可匹配資料時直接失敗
+## GitHub Workflow Role
 
-## Workflow Role
+Workflow files remain execution wrappers for:
+- manual dispatch from GitHub
+- dispatch requests from the external scheduler
 
-workflow 的角色只有一個：
+They should not be the production source of schedule timing.
 
-把既有 job layer 包裝成可在 GitHub Actions 執行的入口。
-
-它不應該：
-- 自己重寫業務邏輯
-- 自己維護另一套 routing 規則
-- 在 shell script 內做大量資料判斷
-
-## Current Workflows
-
-### Union Raid
-
+Current workflow files:
 - [.github/workflows/union_raid_pipeline.yml](../../.github/workflows/union_raid_pipeline.yml)
-
-對應 job：
-- `union-raid-pipeline`
-
-### Nikke
-
 - [.github/workflows/nikke_pipeline_run.yml](../../.github/workflows/nikke_pipeline_run.yml)
-
-對應 job：
-- `nikke-pipeline`
-
-觸發方式：
-- `workflow_dispatch`
-- `schedule`
-
-排程規則：
-- 每天 18:00 `Asia/Taipei` 觸發一次
-- cron 實作值為 `0 10 * * *`
-- 排程執行時固定用 `scope=all`
-- 手動觸發時預設也是 `scope=all`，仍可改成 `single`
-
-### Sync Upload
-
 - [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
 
-對應 job：
-- `sync-upload`
+Current trigger model:
+- `union_raid_pipeline`: manual dispatch only
+- `nikke_pipeline`: manual dispatch plus external `workflow_dispatch`
+- `sync_upload`: manual dispatch plus external `workflow_dispatch`
 
-觸發方式：
-- `workflow_dispatch`
-- `schedule`
+Each workflow now accepts optional scheduler metadata inputs:
+- `scheduler_source`
+- `scheduler_job_name`
+- `scheduler_fire_time`
 
-排程規則：
-- 每天 18:00 `Asia/Taipei` 觸發一次
-- cron 實作值為 `0 10 * * *`
-- 排程執行時固定用 `scope=all`
-- 手動觸發時預設也是 `scope=all`，仍可改成 `single`
+Those inputs are for observability only and do not change business logic.
+
+## External Cloud Scheduler
+
+Production scheduling is handled by:
+- [cloudflare-scheduler/](../../cloudflare-scheduler/)
+
+Components:
+- [cloudflare-scheduler/wrangler.toml](../../cloudflare-scheduler/wrangler.toml)
+- [cloudflare-scheduler/src/index.js](../../cloudflare-scheduler/src/index.js)
+- [.github/runtime/scheduler_config.json](../../.github/runtime/scheduler_config.json)
+
+Design:
+- Cloudflare Cron Trigger runs every minute
+- Worker loads scheduler config from the GitHub repository
+- Worker evaluates due jobs in the configured timezone
+- Worker dispatches GitHub workflows with `workflow_dispatch`
+
+Why this exists:
+- GitHub native `schedule` has proven unreliable on this repo
+- schedules must be editable from GitHub or local git
+- `union_raid_pipeline` needs one-time event-based scheduling after the event date is known
+
+## External Scheduler Rules
+
+- `scheduler_config.json` is the scheduling source of truth
+- do not hard-code production schedule times in workflow YAML
+- the worker must stay config-driven
+- workflow file names are stable identifiers used by the scheduler
+- one-time union raid jobs should be represented as `type=once` entries
 
 ## Workflow Development Rules
 
-修改 workflow 時維持以下原則：
-- 只 restore 該流程真的需要的 runtime 檔
-- 盡量把邏輯放回 Python job，不要堆在 bash
-- workflow input 命名要與 job 參數一致
-- 不要重新引入大型、重複或不必要的 secret restore 步驟
-- 若 workflow 行為變更會影響排程、預設 scope、routing 或失敗條件，必須同步更新 spec
-
-## Current Important Constraints
-
-- `startup_failure` 類問題通常發生在 workflow 初始化階段，而不是 Python job 本體
-- `nikke_pipeline` 與 `union_raid_pipeline` 都已支援 `single/all`
-- `sync_upload` 已支援 `single/all`
-- `nikke` 與 `sync` 都依 `CharacterDetails` routing
+When changing workflows:
+- keep shell logic thin
+- move routing and validation into Python or worker code
+- keep workflow inputs aligned with job parameters
+- update spec whenever workflow behavior, scheduler contract, or dispatch semantics change
 
 ## Recommended Change Strategy
 
-若未來要改流程，優先順序是：
-1. 先改 `lib/jobs/*`
-2. 再改 CLI 參數
-3. 最後再改 workflow 包裝
-
-不要反過來先改 workflow shell 行為。
+Change order:
+1. `lib/jobs/*`
+2. workflow inputs
+3. cloud scheduler logic
+4. scheduler config contract
+5. spec

@@ -3,6 +3,18 @@ name: union_raid_pipeline
 on:
   workflow_dispatch:
     inputs:
+      scheduler_source:
+        description: "Optional scheduler source"
+        required: false
+        type: string
+      scheduler_job_name:
+        description: "Optional scheduler job name"
+        required: false
+        type: string
+      scheduler_fire_time:
+        description: "Optional scheduler fire time"
+        required: false
+        type: string
       mode:
         description: "Run mode"
         required: true

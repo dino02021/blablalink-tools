@@ -1,10 +1,20 @@
 name: nikke_pipeline
 
 on:
-  schedule:
-    - cron: "0 10 * * *"
   workflow_dispatch:
     inputs:
+      scheduler_source:
+        description: "Optional scheduler source"
+        required: false
+        type: string
+      scheduler_job_name:
+        description: "Optional scheduler job name"
+        required: false
+        type: string
+      scheduler_fire_time:
+        description: "Optional scheduler fire time"
+        required: false
+        type: string
       scope:
         description: "Account scope"
         required: true
@@ -50,7 +60,7 @@ jobs:
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
       - name: Restore union account map
-        if: ${{ github.event_name == 'schedule' || inputs.scope == 'all' }}
+        if: ${{ inputs.scope == 'all' }}
         shell: bash
         env:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
@@ -93,7 +103,7 @@ jobs:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
           ACCOUNT="${{ inputs.account }}"
-          SCOPE="${{ github.event_name == 'schedule' && 'all' || inputs.scope }}"
+          SCOPE="${{ inputs.scope }}"
           if [ -z "$SCOPE" ]; then SCOPE="all"; fi
           if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
           if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then
