@@ -25,11 +25,7 @@ Cloud workflows rebuild the existing local runtime files from GitHub Secrets.
 Required secrets:
 
 - `BLABLALINK_SESSIONS_JSON`
-- `BLABLALINK_SHEETS_JSON`
 - `BLABLALINK_GOOGLE_CREDENTIALS_JSON`
-- `BLABLALINK_MEMBERS_JSON`
-- `BLABLALINK_NIKKES_INFO_JSON`
-- `BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON`
 - `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
 - `BLABLALINK_DEFAULT_ACCOUNT`
 
@@ -45,22 +41,16 @@ Each secret is written back to the same file layout that the local app already u
 
 - `BLABLALINK_SESSIONS_JSON`
   Restored to `$HOME/Documents/BlablalinkToolSettings/sessions.json`
-- `BLABLALINK_SHEETS_JSON`
-  Restored to `$HOME/Documents/BlablalinkToolSettings/google_sheets_id.json`
 - `BLABLALINK_GOOGLE_CREDENTIALS_JSON`
   Restored to `$HOME/Documents/BlablalinkToolSettings/service_account.json`
-- `BLABLALINK_MEMBERS_JSON`
-  Restored to `$HOME/Documents/BlablalinkToolSettings/members_id.json`
 - `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
   Restored to `$HOME/Documents/BlablalinkToolSettings/union_account_map.json`
-- `BLABLALINK_NIKKES_INFO_JSON`
-  Restored to `data/nikkes_info.json`
-- `BLABLALINK_NIKKE_CHECKLIST_NAME_CODES_JSON`
-  Restored to `data/nikke_checklist_name_codes.json`
 - `BLABLALINK_DEFAULT_ACCOUNT`
   Default account slug used by non-union workflows when `workflow_dispatch` does not override `account`
 
-All JSON secrets must contain the full original file content, not base64 and not partial fragments.
+Workflow-managed sheet mappings now come from repo runtime files under `.github/runtime/`, not GitHub Secrets.
+
+All JSON secrets must contain the full original file content, not partial fragments.
 
 For `google_sheets_id.json`, `UnionRaid` entries can include `union_id`. When `union_raid_upload` does not receive an explicit `sheet_id`, it resolves the target sheet by matching the downloaded union raid data's `union_id`.
 
@@ -123,17 +113,14 @@ Recommended first test:
 
 `workflow_dispatch` inputs:
 
-- `mode`
-  `download` or `full`
 - `account`
   Optional. Overrides `BLABLALINK_DEFAULT_ACCOUNT`
 
 Recommended first test:
 
 1. Run `nikke_pipeline`
-2. Set `mode=download`
-3. Confirm the batch download job succeeds
-4. Run again with `mode=full`
+2. Leave `account` empty if the default account is correct
+3. Confirm the combined download + upload job succeeds
 
 ### sync_upload
 
@@ -155,11 +142,11 @@ Recommended first test:
 3. Verify every `username` used in `BLABLALINK_UNION_ACCOUNT_MAP_JSON` exists in `sessions.json`
 4. Open `Actions` and enable workflows if GitHub asks for confirmation
 5. Run `union_raid_pipeline` in `download` mode first
-6. Run `nikke_pipeline` in `download` mode first
+6. Run `nikke_pipeline`
 7. Run `sync_upload`
 
 ## Notes
 
 - Current workflows are manual-first. Cron schedule is not enabled yet.
-- Secrets are reconstructed at runtime only. They are not committed back to the repository.
+- Secrets are reconstructed at runtime only. Sheet mapping runtime files are now stored in the repository under `.github/runtime/`.
 - Local GUI behavior is unchanged; the cloud workflows call the shared job layer instead of GUI code.
