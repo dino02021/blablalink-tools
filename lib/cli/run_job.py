@@ -42,6 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_nikke_batch.add_argument("--account", default="", help="Account slug.")
 
     p_nikke_pipeline = sub.add_parser("nikke-pipeline", help="Run Nikke download and upload pipeline.")
+    p_nikke_pipeline.add_argument("--scope", default="single", help="single or all.")
     p_nikke_pipeline.add_argument("--account", default="", help="Account slug.")
 
     p_nikke_upload = sub.add_parser("nikke-upload", help="Upload Nikke data.")
@@ -103,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "nikke-batch-download":
         fn = lambda: run_nikke_batch_download(account=args.account)
     elif args.command == "nikke-pipeline":
-        fn = lambda: run_nikke_pipeline(account=args.account)
+        fn = lambda: run_nikke_pipeline(scope=args.scope, account=args.account or None)
     elif args.command == "nikke-upload":
         files = None
         if args.files_json:
