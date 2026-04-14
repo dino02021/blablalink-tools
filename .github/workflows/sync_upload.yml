@@ -2,7 +2,7 @@ name: sync_upload
 
 on:
   schedule:
-    - cron: "20 19 * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
     inputs:
       scope:
