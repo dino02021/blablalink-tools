@@ -52,6 +52,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_nikke_upload.add_argument("--sheet-id", default="", help="Override sheet id.")
 
     p_sync = sub.add_parser("sync-upload", help="Upload synchro levels.")
+    p_sync.add_argument("--scope", default="single", help="single or all.")
     p_sync.add_argument("--account", default="", help="Account slug.")
     p_sync.add_argument("--worksheet", default="成員名稱", help="Worksheet name.")
     return parser
@@ -124,7 +125,11 @@ def main(argv: list[str] | None = None) -> int:
             sheet_id=args.sheet_id or None,
         )
     elif args.command == "sync-upload":
-        fn = lambda: run_sync_upload(account=args.account, worksheet_name=args.worksheet)
+        fn = lambda: run_sync_upload(
+            account=args.account or None,
+            worksheet_name=args.worksheet,
+            scope=args.scope,
+        )
     else:
         parser.error(f"Unknown command: {args.command}")
         return 2

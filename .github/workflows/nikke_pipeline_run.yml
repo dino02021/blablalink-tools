@@ -1,13 +1,15 @@
 name: nikke_pipeline
 
 on:
+  schedule:
+    - cron: "0 10 * * *"
   workflow_dispatch:
     inputs:
       scope:
         description: "Account scope"
         required: true
         type: choice
-        default: single
+        default: all
         options:
           - single
           - all
@@ -48,7 +50,7 @@ jobs:
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
       - name: Restore union account map
-        if: ${{ inputs.scope == 'all' }}
+        if: ${{ github.event_name == 'schedule' || inputs.scope == 'all' }}
         shell: bash
         env:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
@@ -91,7 +93,8 @@ jobs:
           BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
           ACCOUNT="${{ inputs.account }}"
-          SCOPE="${{ inputs.scope }}"
+          SCOPE="${{ github.event_name == 'schedule' && 'all' || inputs.scope }}"
+          if [ -z "$SCOPE" ]; then SCOPE="all"; fi
           if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
           if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then
             echo "Missing account" >&2

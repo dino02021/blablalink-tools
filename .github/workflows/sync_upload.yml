@@ -1,8 +1,18 @@
 name: sync_upload
 
 on:
+  schedule:
+    - cron: "0 10 * * *"
   workflow_dispatch:
     inputs:
+      scope:
+        description: "Account scope"
+        required: true
+        type: choice
+        default: all
+        options:
+          - single
+          - all
       account:
         description: "Override account slug"
         required: false
@@ -39,6 +49,31 @@ jobs:
         run: |
           SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
           printf '%s' "$BLABLALINK_SESSIONS_JSON" > "$SETTINGS_DIR/sessions.json"
+      - name: Restore union account map
+        if: ${{ github.event_name == 'schedule' || inputs.scope == 'all' }}
+        shell: bash
+        env:
+          BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
+        run: |
+          SETTINGS_DIR="$HOME/Documents/BlablalinkToolSettings"
+          SETTINGS_DIR="$SETTINGS_DIR" python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          raw = os.environ.get("BLABLALINK_UNION_ACCOUNT_MAP_JSON", "").strip()
+          if not raw:
+              raise SystemExit("Missing BLABLALINK_UNION_ACCOUNT_MAP_JSON")
+
+          try:
+              data = json.loads(raw)
+          except Exception:
+              data = json.loads(base64.b64decode(raw.encode("utf-8"), validate=True).decode("utf-8"))
+
+          path = Path(os.environ["SETTINGS_DIR"]) / "union_account_map.json"
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
       - name: Restore nikke sheet mapping
         shell: bash
         run: |
@@ -55,7 +90,14 @@ jobs:
         shell: bash
         env:
           BLABLALINK_DEFAULT_ACCOUNT: ${{ secrets.BLABLALINK_DEFAULT_ACCOUNT }}
+          BLABLALINK_UNION_ACCOUNT_MAP_JSON: ${{ secrets.BLABLALINK_UNION_ACCOUNT_MAP_JSON }}
         run: |
           ACCOUNT="${{ inputs.account }}"
-          if [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
-          python -m lib.cli.run_job sync-upload --account "$ACCOUNT"
+          SCOPE="${{ github.event_name == 'schedule' && 'all' || inputs.scope }}"
+          if [ -z "$SCOPE" ]; then SCOPE="all"; fi
+          if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then ACCOUNT="$BLABLALINK_DEFAULT_ACCOUNT"; fi
+          if [ "$SCOPE" = "single" ] && [ -z "$ACCOUNT" ]; then
+            echo "Missing account" >&2
+            exit 1
+          fi
+          python -m lib.cli.run_job --json sync-upload --scope "$SCOPE" --account "$ACCOUNT"
