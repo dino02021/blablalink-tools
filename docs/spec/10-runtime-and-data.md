@@ -54,9 +54,9 @@
     "type": "UnionRaid",
     "sheets": [
       {
-        "sheet_name": "月下",
-        "sheet_id": "...",
-        "union_id": "3097"
+        "sheet_name": "Example Union Raid Sheet",
+        "sheet_id": "example-union-sheet-id",
+        "union_id": "example-union-id"
       }
     ]
   },
@@ -64,9 +64,9 @@
     "type": "CharacterDetails",
     "sheets": [
       {
-        "sheet_name": "月下",
-        "sheet_id": "...",
-        "union_id": "3097"
+        "sheet_name": "Example Character Sheet",
+        "sheet_id": "example-character-sheet-id",
+        "union_id": "example-union-id"
       }
     ]
   }
@@ -85,12 +85,12 @@
 ```json
 [
   {
-    "union_id": "5010",
-    "username": "account_a@gmail.com"
+    "union_id": "example-union-a",
+    "username": "example-account-a@example.com"
   },
   {
-    "union_id": "3097",
-    "username": "account_b@gmail.com"
+    "union_id": "example-union-b",
+    "username": "example-account-b@example.com"
   }
 ]
 ```
