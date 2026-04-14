@@ -68,8 +68,8 @@ CLI 的責任：
 5. 寫入 Google Sheets
 
 規則：
-- `month` 可顯式指定。
-- 未指定時可由現有資料推導最新月份。
+- `month` 可顯式指定
+- 未指定時可由現有資料推導最新月份
 
 ### `run_union_raid_pipeline`
 
@@ -81,10 +81,10 @@ CLI 的責任：
 - `scope=single|all`
 
 規則：
-- `single` 模式只跑一個 account。
-- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`。
-- `full` 表示 download 後接 upload。
-- 每個 account 獨立記錄結果，最後回傳 summary。
+- `single` 模式只跑一個 account
+- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
+- `full` 表示 download 後接 upload
+- 每個 account 獨立記錄結果，最後回傳 summary
 
 ## Nikke Jobs
 
@@ -122,9 +122,9 @@ CLI 的責任：
 4. 寫入主 sheet 與 change sheet
 
 規則：
-- 可接受 `files`，只上傳指定檔案。
-- `files` 為空時，預設掃整個 `CHAR_DETAILS_DIR`。
-- 找不到對應 sheet 時直接失敗。
+- 可接受 `files`，只上傳指定檔案
+- `files` 為空時，預設掃整個 `CHAR_DETAILS_DIR`
+- 找不到對應 sheet 時直接失敗
 
 ### `run_nikke_pipeline`
 
@@ -152,6 +152,9 @@ CLI 的責任：
 檔案：
 - [lib/jobs/sync_upload.py](../../lib/jobs/sync_upload.py)
 
+支援參數：
+- `scope=single|all`
+
 流程：
 1. 由 account 的 session 取得聯盟成員資料
 2. 整理 `nickname -> synchro_level`
@@ -161,6 +164,8 @@ CLI 的責任：
 規則：
 - `guild_id` 視同 `union_id`
 - worksheet 名稱可指定
+- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
+- `all` 模式對 `username` 去重後逐帳號執行，最後彙總結果
 - 沒有可匹配資料時直接失敗
 
 ## Workflow Role
@@ -190,12 +195,32 @@ workflow 的角色只有一個：
 對應 job：
 - `nikke-pipeline`
 
+觸發方式：
+- `workflow_dispatch`
+- `schedule`
+
+排程規則：
+- 每天 18:00 `Asia/Taipei` 觸發一次
+- cron 實作值為 `0 10 * * *`
+- 排程執行時固定用 `scope=all`
+- 手動觸發時預設也是 `scope=all`，仍可改成 `single`
+
 ### Sync Upload
 
 - [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
 
 對應 job：
 - `sync-upload`
+
+觸發方式：
+- `workflow_dispatch`
+- `schedule`
+
+排程規則：
+- 每天 18:00 `Asia/Taipei` 觸發一次
+- cron 實作值為 `0 10 * * *`
+- 排程執行時固定用 `scope=all`
+- 手動觸發時預設也是 `scope=all`，仍可改成 `single`
 
 ## Workflow Development Rules
 
@@ -204,13 +229,14 @@ workflow 的角色只有一個：
 - 盡量把邏輯放回 Python job，不要堆在 bash
 - workflow input 命名要與 job 參數一致
 - 不要重新引入大型、重複或不必要的 secret restore 步驟
+- 若 workflow 行為變更會影響排程、預設 scope、routing 或失敗條件，必須同步更新 spec
 
 ## Current Important Constraints
 
-- `startup_failure` 類問題通常發生在 workflow 初始化階段，而不是 Python job 本體。
-- `nikke_pipeline` 與 `union_raid_pipeline` 都已支援 `single/all`。
-- `sync_upload` 目前仍是單帳號流程。
-- `nikke` 與 `sync` 都依 `CharacterDetails` routing。
+- `startup_failure` 類問題通常發生在 workflow 初始化階段，而不是 Python job 本體
+- `nikke_pipeline` 與 `union_raid_pipeline` 都已支援 `single/all`
+- `sync_upload` 已支援 `single/all`
+- `nikke` 與 `sync` 都依 `CharacterDetails` routing
 
 ## Recommended Change Strategy
 
