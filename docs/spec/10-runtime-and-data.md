@@ -2,7 +2,7 @@
 
 ## 路徑分層
 
-[lib/constants.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/constants.py) 將資料切成三類：
+[lib/constants.py](../../lib/constants.py) 將資料切成三類：
 
 - repo 內靜態資料
   `data/`
@@ -46,7 +46,7 @@
 
 ### `google_sheets_id.json`
 
-由 [lib/data_store.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/data_store.py) 讀寫，格式為：
+由 [lib/data_store.py](../../lib/data_store.py) 讀寫，格式為：
 
 ```json
 [
@@ -102,17 +102,17 @@
 
 ## Data Store 責任
 
-[lib/data_store.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/data_store.py) 負責：
+[lib/data_store.py](../../lib/data_store.py) 負責：
 
 - 讀取與寫入 `google_sheets_id.json`
 - 讀取與寫入 `union_account_map.json`
 - 將 `nikke_checklist_name_codes.json` 與 `nikkes_info.json` 整理成 `checklist_items`
 
-其中 `save_sheets()` 與 `save_union_account_map()` 會透過 [lib/github_secrets_sync.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/github_secrets_sync.py) 同步敏感 runtime 檔到 GitHub secrets。
+其中 `save_sheets()` 與 `save_union_account_map()` 會透過 [lib/github_secrets_sync.py](../../lib/github_secrets_sync.py) 同步敏感 runtime 檔到 GitHub secrets。
 
 ## Cloud Data Sync
 
-[lib/github_data_sync.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/github_data_sync.py) 管理 repo data 與獨立 cloud data repo 的同步。
+[lib/github_data_sync.py](../../lib/github_data_sync.py) 管理 repo data 與獨立 cloud data repo 的同步。
 
 ### 同步對象
 
@@ -136,7 +136,7 @@
 
 ## GitHub Secret Sync
 
-[lib/github_secrets_sync.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/github_secrets_sync.py) 現在只同步三種 runtime 檔：
+[lib/github_secrets_sync.py](../../lib/github_secrets_sync.py) 現在只同步三種 runtime 檔：
 
 - `sessions.json -> BLABLALINK_SESSIONS_JSON`
 - `service_account.json -> BLABLALINK_GOOGLE_CREDENTIALS_JSON`

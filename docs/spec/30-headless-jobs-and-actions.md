@@ -10,7 +10,7 @@
 - 將輸出統一成 `JobResult`
 - 讓 workflow 不需要了解 GUI 細節
 
-[lib/jobs/common.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/common.py) 定義：
+[lib/jobs/common.py](../../lib/jobs/common.py) 定義：
 
 - `JobResult`
 - `run_coro_sync()`
@@ -18,7 +18,7 @@
 
 ## CLI
 
-[lib/cli/run_job.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/cli/run_job.py) 是所有 headless workflow 的統一入口。
+[lib/cli/run_job.py](../../lib/cli/run_job.py) 是所有 headless workflow 的統一入口。
 
 啟動順序：
 
@@ -33,7 +33,7 @@
 
 ### 下載
 
-[lib/jobs/union_raid_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/union_raid_download.py)
+[lib/jobs/union_raid_download.py](../../lib/jobs/union_raid_download.py)
 
 流程：
 
@@ -50,7 +50,7 @@
 
 ### 上傳
 
-[lib/jobs/union_raid_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/union_raid_upload.py)
+[lib/jobs/union_raid_upload.py](../../lib/jobs/union_raid_upload.py)
 
 流程：
 
@@ -67,7 +67,7 @@
 
 ### Pipeline
 
-[lib/jobs/union_raid_pipeline.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/union_raid_pipeline.py)
+[lib/jobs/union_raid_pipeline.py](../../lib/jobs/union_raid_pipeline.py)
 
 支援：
 
@@ -83,7 +83,7 @@
 
 ### 本帳號下載
 
-GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/nikke_download.py) 直接呼叫 API：
+GUI 的 [lib/gui/nikke_download.py](../../lib/gui/nikke_download.py) 直接呼叫 API：
 
 - `fetch_user_characters()`
 - `fetch_user_character_details()`
@@ -92,7 +92,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 ### 全聯盟批次下載
 
-[lib/jobs/nikke_batch_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/nikke_batch_download.py)
+[lib/jobs/nikke_batch_download.py](../../lib/jobs/nikke_batch_download.py)
 
 流程：
 
@@ -114,7 +114,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 ### Nikke 上傳
 
-[lib/jobs/nikke_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/nikke_upload.py)
+[lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py)
 
 路由規則：
 
@@ -131,7 +131,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 ### Nikke pipeline
 
-[lib/jobs/nikke_pipeline.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/nikke_pipeline.py)
+[lib/jobs/nikke_pipeline.py](../../lib/jobs/nikke_pipeline.py)
 
 流程：
 
@@ -143,7 +143,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 ## Sync Upload
 
-[lib/jobs/sync_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/sync_upload.py)
+[lib/jobs/sync_upload.py](../../lib/jobs/sync_upload.py)
 
 流程：
 
@@ -158,7 +158,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 檔案：
 
-- [.github/workflows/union_raid_pipeline.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/union_raid_pipeline.yml)
+- [.github/workflows/union_raid_pipeline.yml](../../.github/workflows/union_raid_pipeline.yml)
 
 使用：
 
@@ -171,7 +171,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 檔案：
 
-- [.github/workflows/nikke_pipeline_run.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/nikke_pipeline_run.yml)
+- [.github/workflows/nikke_pipeline_run.yml](../../.github/workflows/nikke_pipeline_run.yml)
 
 使用：
 
@@ -185,7 +185,7 @@ GUI 的 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/g
 
 檔案：
 
-- [.github/workflows/sync_upload.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/sync_upload.yml)
+- [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
 
 使用：
 

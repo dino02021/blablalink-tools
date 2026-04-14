@@ -2,7 +2,7 @@
 
 ## 主視窗
 
-[lib/gui_main.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui_main.py) 的 `LoginApp` 是桌面模式主入口。
+[lib/gui_main.py](../../lib/gui_main.py) 的 `LoginApp` 是桌面模式主入口。
 
 主視窗分成兩個狀態：
 
@@ -26,7 +26,7 @@
 
 ## 登入流程
 
-登入由 [lib/gui/login_flow.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/login_flow.py) 進入，再落到 [lib/auth.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/auth.py) 的 Playwright 流程。
+登入由 [lib/gui/login_flow.py](../../lib/gui/login_flow.py) 進入，再落到 [lib/auth.py](../../lib/auth.py) 的 Playwright 流程。
 
 ### `auth.py` 責任
 
@@ -50,19 +50,19 @@
 ### 聯盟突襲區
 
 - `下載聯盟突襲資料`
-  進入 [lib/gui/union_raid_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/union_raid_download.py)，背景執行 `run_union_raid_download`
+  進入 [lib/gui/union_raid_download.py](../../lib/gui/union_raid_download.py)，背景執行 `run_union_raid_download`
 - `上傳聯盟突襲資料`
-  進入 [lib/gui/dialogs/union_raid_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/union_raid_upload.py)
+  進入 [lib/gui/dialogs/union_raid_upload.py](../../lib/gui/dialogs/union_raid_upload.py)
 
 ### Nikke 區
 
 - `下載本帳號妮姬資料`
-  進入 [lib/gui/nikke_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/nikke_download.py)
+  進入 [lib/gui/nikke_download.py](../../lib/gui/nikke_download.py)
 - `批次下載妮姬資料`
-  進入 [lib/gui/dialogs/nikke_batch_download.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/nikke_batch_download.py)
+  進入 [lib/gui/dialogs/nikke_batch_download.py](../../lib/gui/dialogs/nikke_batch_download.py)
   現行行為是直接對當前聯盟整批下載，不再開成員選取視窗
 - `上傳妮姬資料`
-  進入 [lib/gui/dialogs/nikke_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/nikke_upload.py)
+  進入 [lib/gui/dialogs/nikke_upload.py](../../lib/gui/dialogs/nikke_upload.py)
   現行行為是直接整批上傳，不再跳檔案選擇視窗
 - `上傳同步`
   直接呼叫 `run_sync_upload`
@@ -70,11 +70,11 @@
 ### 管理區
 
 - `選擇/管理帳號`
-  [lib/gui/dialogs/accounts.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/accounts.py)
+  [lib/gui/dialogs/accounts.py](../../lib/gui/dialogs/accounts.py)
 - `管理試算表`
-  [lib/gui/dialogs/sheets.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/sheets.py)
+  [lib/gui/dialogs/sheets.py](../../lib/gui/dialogs/sheets.py)
 - `管理雲端帳號`
-  [lib/gui/dialogs/union_account_map.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui/dialogs/union_account_map.py)
+  [lib/gui/dialogs/union_account_map.py](../../lib/gui/dialogs/union_account_map.py)
 
 ## GUI 與 job layer 的邊界
 
@@ -93,7 +93,7 @@ GUI 現在主要做三件事：
 - `union_raid_upload` 的部分上傳實作與 sheet 寫入 helper
 - `nikke_upload` 內的 worksheet 掃描、欄位對齊、變化表更新、WebApp 通知 helper
 
-其中 [lib/jobs/nikke_upload.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/jobs/nikke_upload.py) 會直接 import `lib/gui/dialogs/nikke_upload.py` 內的 helper。  
+其中 [lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py) 會直接 import `lib/gui/dialogs/nikke_upload.py` 內的 helper。  
 這是一個實作上存在的跨層依賴，維護時要特別注意。
 
 ## UI 狀態管理

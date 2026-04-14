@@ -42,14 +42,14 @@
 
 ### 桌面入口
 
-- [main.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/main.py)
-- [main.pyw](C:/Users/Yabi/Documents/BlaBlaLinkTool/main.pyw)
+- [main.py](../../main.py)
+- [main.pyw](../../main.pyw)
 
-兩者都只負責啟動 [lib/gui_main.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/gui_main.py) 的 `LoginApp`。
+兩者都只負責啟動 [lib/gui_main.py](../../lib/gui_main.py) 的 `LoginApp`。
 
 ### CLI 入口
 
-- [lib/cli/run_job.py](C:/Users/Yabi/Documents/BlaBlaLinkTool/lib/cli/run_job.py)
+- [lib/cli/run_job.py](../../lib/cli/run_job.py)
 
 提供下列子命令：
 
@@ -63,9 +63,9 @@
 
 ### GitHub Actions 入口
 
-- [.github/workflows/union_raid_pipeline.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/union_raid_pipeline.yml)
-- [.github/workflows/nikke_pipeline_run.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/nikke_pipeline_run.yml)
-- [.github/workflows/sync_upload.yml](C:/Users/Yabi/Documents/BlaBlaLinkTool/.github/workflows/sync_upload.yml)
+- [.github/workflows/union_raid_pipeline.yml](../../.github/workflows/union_raid_pipeline.yml)
+- [.github/workflows/nikke_pipeline_run.yml](../../.github/workflows/nikke_pipeline_run.yml)
+- [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
 
 ## 目錄分層
 
