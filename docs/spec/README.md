@@ -1,34 +1,40 @@
-# BlaBlaLinkTool Spec
+# BlaBlaLinkTool Development Spec
 
-這份 spec 採拆檔維護。
+## Purpose
 
-原因：
-- 專案同時包含桌面 GUI、Playwright 登入、自動化 API 擷取、Google Sheets 寫入、GitHub 雲端同步與 Actions workflow。
-- 若全部塞進單一文件，之後每次調整 pipeline 或 runtime 檔案時會很難維護。
-- 拆檔後可以讓 GUI、資料/設定、Headless jobs/Actions 分別演進。
+這組文件的目標是描述目前專案的實作結構、資料契約、流程邊界與修改時要遵守的規則。
 
-## 文件索引
+它不是：
+- 使用者說明書
+- 部署教學
+- 雲端維運手冊
 
-- [00-overview.md](./00-overview.md)
-  專案範圍、核心能力、目錄分層、主要流程總覽。
-- [10-runtime-and-data.md](./10-runtime-and-data.md)
-  runtime 檔案、repo data、cloud data repo、GitHub secrets 與資料同步規則。
-- [20-desktop-gui.md](./20-desktop-gui.md)
-  桌面版 GUI 的登入、主畫面、按鈕功能與對話框責任。
-- [30-headless-jobs-and-actions.md](./30-headless-jobs-and-actions.md)
-  CLI、job layer、GitHub Actions workflow、union / nikke / sync 三條雲端流程。
+## Read Order
 
-## 閱讀順序
+1. [00-overview.md](./00-overview.md)
+   先看專案目的、主要模組、共用原則。
+2. [10-runtime-and-data.md](./10-runtime-and-data.md)
+   再看所有重要資料檔、資料格式、路由規則與來源優先序。
+3. [20-desktop-gui.md](./20-desktop-gui.md)
+   需要改 GUI 時看這份。
+4. [30-headless-jobs-and-actions.md](./30-headless-jobs-and-actions.md)
+   需要改 CLI、job layer 或 workflow 時看這份。
 
-建議順序：
+## Scope
 
-1. 先看 `00-overview.md` 了解整體架構。
-2. 再看 `10-runtime-and-data.md` 了解哪些資料在本機、哪些在 repo、哪些在 GitHub secrets。
-3. 如果主要維護 GUI，讀 `20-desktop-gui.md`。
-4. 如果主要維護自動化、排程、雲端流程，讀 `30-headless-jobs-and-actions.md`。
+文件只描述目前 repo 內有效的行為與規則：
+- 桌面 GUI
+- Playwright 登入與 session 使用
+- BlaBlaLink / Nikke API 擷取
+- Google Sheets 上傳
+- headless jobs
+- GitHub Actions workflow 對 job layer 的包裝方式
 
-## 文件原則
+## Writing Rules
 
-- 這份 spec 描述的是目前 repo 已實作的行為，不是理想狀態藍圖。
-- 若程式與文件衝突，以目前 `main` 分支程式碼為準，並應同步修正文檔。
-- 文件中盡量用模組名稱與資料流描述，不複製過多實作細節，以避免文件過快過時。
+後續更新 spec 時，維持以下原則：
+- 優先寫「現在程式怎麼運作」，不要寫理想化設計。
+- 優先寫可驗證的規則，不寫空泛描述。
+- 避免使用真實帳號、真實 union_id、真實 sheet_id。
+- 不放維運教學、人工操作清單或外部平台設定步驟。
+- 若 GUI 與 headless 共用同一邏輯，要明確標出共用入口。

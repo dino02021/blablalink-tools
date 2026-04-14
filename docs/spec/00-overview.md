@@ -1,124 +1,100 @@
 # Overview
 
-## 專案定位
+## Project Role
 
-`BlaBlaLinkTool` 是一個以 Python 實作的桌面工具，同時帶有 headless job / GitHub Actions 執行能力，用來處理 BlaBlaLink / Nikke 的三類工作：
+`BlaBlaLinkTool` 是一個以 Python 為主的內部工具專案，處理三類工作：
+- BlaBlaLink 登入與 session 管理
+- Union Raid 資料下載與上傳
+- Nikke 角色資料與同步等級資料的下載與上傳
 
-- 帳號登入與 session 維護
-- 聯盟突襲資料下載與上傳
-- Nikke 角色資料、同步等級資料下載與上傳
+同一套核心流程要能同時服務：
+- 桌面 GUI
+- CLI
+- GitHub Actions
 
-桌面模式提供人工操作與管理介面；headless 模式讓同一組核心邏輯可在 CLI 與 GitHub Actions 重用。
+## Architectural Rule
 
-## 核心能力
+核心規則只有一條：
 
-### 1. 帳號與 session
+GUI 只負責互動與狀態顯示，真正的下載、整理、上傳與路由判斷應盡量集中在 `lib/jobs/` 與共用 helper，而不是散落在按鈕事件內。
 
-- GUI 透過 Playwright 自動化登入 BlaBlaLink。
-- 登入成功後，cookies 會被存到本機 `sessions.json`。
-- Headless job 透過 `storage_state` 重建登入狀態，不必每次重新手動登入。
+## Major Modules
 
-### 2. 聯盟突襲
-
-- 下載聯盟突襲資料
-- 依 `union_id` 對應試算表上傳
-- 支援單帳號與多帳號 pipeline
-- `full` 模式可自動下載後接續上傳
-
-### 3. Nikke 資料
-
-- 下載目前登入帳號的角色詳細資料
-- 下載整個聯盟所有成員的角色資料
-- 依 `union_id -> CharacterDetails` 試算表自動路由上傳
-- 上傳同步等級到指定 worksheet
-
-### 4. 雲端同步
-
-- repo 內 `data/` 資料可同步到獨立的 cloud data repo
-- `sessions.json` / `service_account.json` / `union_account_map.json` 透過 GitHub secrets 同步
-- GitHub Actions workflow 可重建必要 runtime 檔後執行 headless jobs
-
-## 主要入口
-
-### 桌面入口
+### Entry Points
 
 - [main.py](../../main.py)
 - [main.pyw](../../main.pyw)
-
-兩者都只負責啟動 [lib/gui_main.py](../../lib/gui_main.py) 的 `LoginApp`。
-
-### CLI 入口
-
+- [lib/gui_main.py](../../lib/gui_main.py)
 - [lib/cli/run_job.py](../../lib/cli/run_job.py)
 
-提供下列子命令：
+### API / Session
 
-- `union-raid-download`
-- `union-raid-upload`
-- `union-raid-pipeline`
-- `nikke-batch-download`
-- `nikke-pipeline`
-- `nikke-upload`
-- `sync-upload`
+- [lib/api.py](../../lib/api.py)
+  BlaBlaLink / Nikke API 呼叫。
+- [lib/auth.py](../../lib/auth.py)
+  Playwright 登入、storage state 建立與更新。
+- [lib/utils.py](../../lib/utils.py)
+  session 載入、帳號解析、同步執行 coroutine。
 
-### GitHub Actions 入口
+### Data / Runtime
 
-- [.github/workflows/union_raid_pipeline.yml](../../.github/workflows/union_raid_pipeline.yml)
-- [.github/workflows/nikke_pipeline_run.yml](../../.github/workflows/nikke_pipeline_run.yml)
-- [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
-
-## 目錄分層
-
-### 核心程式
-
-- `lib/api.py`
-  BlaBlaLink / Nikke API 封裝、資料整理與部分輸出檔案生成。
-- `lib/auth.py`
-  Playwright 登入流程與 session 建立。
-- `lib/utils.py`
-  session / account 儲存、同步執行 async coroutine、共用工具。
-- `lib/constants.py`
-  所有檔案路徑、URL、型別常數。
-- `lib/data_store.py`
-  runtime JSON 設定檔存取與 checklist 預處理。
-- `lib/log.py`
-  logging 工具。
+- [lib/constants.py](../../lib/constants.py)
+  目錄、檔名、URL 與共用常數。
+- [lib/data_store.py](../../lib/data_store.py)
+  runtime JSON 存取與 checklist 預處理。
+- [lib/github_data_sync.py](../../lib/github_data_sync.py)
+  `data/` 類靜態檔同步。
 
 ### GUI
 
-- `lib/gui_main.py`
-  主視窗與各按鈕入口。
-- `lib/gui/`
-  GUI 行為與下載入口。
-- `lib/gui/dialogs/`
-  各管理視窗與部分上傳 helper。
+- [lib/gui/](../../lib/gui/)
+- [lib/gui/dialogs/](../../lib/gui/dialogs/)
 
-### Headless jobs
+### Headless Jobs
 
-- `lib/jobs/`
-  不依賴 GUI 的工作單元，供 CLI 與 Actions 共用。
+- [lib/jobs/](../../lib/jobs/)
 
 ### Google Sheets
 
-- `lib/google_sheets/`
-  gspread / Google Credentials 取用。
+- [lib/google_sheets/](../../lib/google_sheets/)
 
-### Runtime / workflow
+### Workflow Runtime Mapping
 
-- `.github/workflows/`
-  GitHub Actions workflow 定義。
-- `.github/runtime/`
-  workflow 使用的靜態 runtime mapping 檔。
+- [.github/runtime/](../../.github/runtime/)
 
-### 測試
+## Supported Flows
 
-- `tests/`
-  以單元測試為主，覆蓋 constants、utils、API、部分 GUI helper、Google Sheets service。
+### Union Raid
 
-## 設計原則
+- 下載 union raid JSON。
+- 依 `union_id` 路由到對應 `UnionRaid` 試算表。
+- `union_raid_pipeline` 支援 `single` 與 `all`。
+- `full` 模式表示 download 後接 upload。
 
-- GUI 與 headless job 共用相同的底層 API / data / upload 邏輯。
-- runtime 設定檔與 repo 靜態資料檔分離。
-- `union_id` 是聯盟與試算表路由的核心鍵。
-- `account` 或 `BLABLALINK_DEFAULT_ACCOUNT` 是 headless 執行的核心身份來源。
-- data 檔優先放在 repo / cloud data repo；敏感 runtime 檔透過 GitHub secrets 管理。
+### Nikke
+
+- 先取目前登入帳號的 `guild_id` 與聯盟成員。
+- 批次抓每位成員的角色資料與角色細節。
+- 依 `guild_id -> CharacterDetails` 路由到對應試算表。
+- `nikke_pipeline` 支援 `single` 與 `all`。
+- `all` 模式下若某帳號沒有對應的 `CharacterDetails` sheet，該帳號略過，不視為整體失敗。
+
+### Sync Upload
+
+- 取聯盟成員的 `nickname -> synchro_level`。
+- 依 `guild_id -> CharacterDetails` 路由到對應試算表中的指定 worksheet。
+
+## Current Source-Of-Truth Rules
+
+- `union_id` / `guild_id` 是所有上傳 routing 的主鍵。
+- `sheet_name` 只用於顯示，不用於路由。
+- `account` 是 session 的選擇鍵，不是資料路由鍵。
+- `CharacterDetails` 與 `UnionRaid` 兩種 sheet mapping 必須明確帶 `union_id`。
+
+## Development Priorities
+
+修改功能時優先維持：
+- GUI 與 headless 共用同一套業務規則。
+- routing 規則集中，不要在多個 UI 或 workflow 重複寫。
+- JobResult 的輸出 shape 穩定。
+- runtime JSON 格式向後相容，除非明確重構。

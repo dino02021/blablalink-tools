@@ -1,12 +1,10 @@
-# BlaBlaLinkTool Spec
+# BlaBlaLinkTool Development Spec
 
-完整 spec 已改為拆檔維護，入口請看：
+這份 spec 是給開發與後續維護使用的內部規格，不是對外文件。
 
+閱讀入口：
 - [docs/spec/README.md](./docs/spec/README.md)
-
-主要內容：
-
-- [總覽](./docs/spec/00-overview.md)
-- [Runtime 與資料規格](./docs/spec/10-runtime-and-data.md)
-- [Desktop GUI 規格](./docs/spec/20-desktop-gui.md)
-- [Headless jobs 與 GitHub Actions 規格](./docs/spec/30-headless-jobs-and-actions.md)
+- [docs/spec/00-overview.md](./docs/spec/00-overview.md)
+- [docs/spec/10-runtime-and-data.md](./docs/spec/10-runtime-and-data.md)
+- [docs/spec/20-desktop-gui.md](./docs/spec/20-desktop-gui.md)
+- [docs/spec/30-headless-jobs-and-actions.md](./docs/spec/30-headless-jobs-and-actions.md)

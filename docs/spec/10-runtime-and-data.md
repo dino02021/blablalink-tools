@@ -1,52 +1,97 @@
 # Runtime And Data
 
-## 路徑分層
+## Data Categories
 
-[lib/constants.py](../../lib/constants.py) 將資料切成三類：
+專案內的資料分成四類：
 
-- repo 內靜態資料
-  `data/`
-- 本機設定 / secrets / sessions
-  `$HOME/Documents/BlablalinkToolSettings`
-- 暫存輸出
-  `%TEMP%/BlablalinkTool/...`
+### 1. Repo Static Data
 
-## 主要檔案
+位於 `data/`，屬於靜態 lookup 或前置整理資料。
 
-### Repo data
+目前重要檔案：
+- `nikkes_info.json`
+- `nikkes_nickname.json`
+- `function_names.json`
+- `nikke_checklist_name_codes.json`
 
-- `data/nikkes_info.json`
-- `data/nikkes_nickname.json`
-- `data/function_names.json`
-- `data/nikke_checklist_name_codes.json`
+用途：
+- Nikke 名稱對照
+- checklist 預處理
+- 角色細節欄位整理
 
-這些檔案是工具執行 Nikke 相關流程時的 lookup data，會被 GUI 與 headless job 共用。
+### 2. Runtime Settings
 
-### 本機 runtime 檔案
+屬於程式執行時需要的設定檔。
 
+重要檔案：
 - `accounts.json`
-  本機帳密清單；密碼以 XOR + Base64 儲存。
 - `sessions.json`
-  各帳號 Playwright `storage_state` 的 cookie 集合。
 - `service_account.json`
-  Google Sheets service account credentials。
 - `google_sheets_id.json`
-  試算表設定。由 type 分組，每筆 sheet 可帶 `union_id`。
 - `union_account_map.json`
-  `union_id -> username` 映射，用於多聯盟 pipeline。
 
-### 暫存輸出
+### 3. Generated Output
 
-- `UnionRaid/blablalink_union_raid_<union_id>_<timestamp>.json`
-- `CharacterDetails/<nickname>_character_details.json`
+由 API 擷取後產生的輸出檔。
 
-這些檔案是下載結果，供後續上傳流程使用。
+重要目錄：
+- `UnionRaid/`
+- `CharacterDetails/`
 
-## 設定檔格式
+### 4. Workflow Mapping
+
+供 workflow 使用的 mapping 檔。
+
+重要檔案：
+- `.github/runtime/union_google_sheets_id.json`
+- `.github/runtime/nikke_google_sheets_id.json`
+
+## Runtime File Contracts
+
+### `accounts.json`
+
+用途：
+- 儲存帳號清單與 GUI 可選帳號。
+
+實作備註：
+- 程式目前仍有歷史格式相容處理。
+- 修改時不要假設每個欄位都一定存在。
+
+### `sessions.json`
+
+用途：
+- 保存 Playwright `storage_state`。
+
+規則：
+- job layer 透過 `account` 找到對應 session。
+- session 缺失時，所有需要登入的流程都應直接失敗。
+
+### `service_account.json`
+
+用途：
+- Google Sheets 認證。
+
+規則：
+- 只提供給 Google Sheets client 使用。
+- 不應被業務邏輯直接解析。
 
 ### `google_sheets_id.json`
 
-由 [lib/data_store.py](../../lib/data_store.py) 讀寫，格式為：
+用途：
+- 儲存 GUI runtime 使用的 sheet mapping。
+
+有效欄位以實作為準，核心欄位至少包含：
+- `type`
+- `sheet_name`
+- `sheet_id`
+- `union_id`
+
+路由規則：
+- `type=UnionRaid` 給 union raid upload 使用。
+- `type=CharacterDetails` 給 nikke upload 與 sync upload 使用。
+- `union_id` 為必要路由欄位。
+
+範例：
 
 ```json
 [
@@ -54,9 +99,9 @@
     "type": "UnionRaid",
     "sheets": [
       {
-        "sheet_name": "Example Union Raid Sheet",
-        "sheet_id": "example-union-sheet-id",
-        "union_id": "example-union-id"
+        "sheet_name": "Example Union Raid",
+        "sheet_id": "example-union-raid-sheet",
+        "union_id": "example-union-a"
       }
     ]
   },
@@ -64,100 +109,105 @@
     "type": "CharacterDetails",
     "sheets": [
       {
-        "sheet_name": "Example Character Sheet",
-        "sheet_id": "example-character-sheet-id",
-        "union_id": "example-union-id"
+        "sheet_name": "Example Character Details",
+        "sheet_id": "example-character-sheet",
+        "union_id": "example-union-a"
       }
     ]
   }
 ]
 ```
 
-路由規則：
-
-- `UnionRaid` 上傳以 `type=UnionRaid` 且 `union_id` 精準匹配為主
-- `CharacterDetails` / `sync_upload` 以 `type=CharacterDetails` 且 `union_id` 精準匹配為主
-
 ### `union_account_map.json`
 
-格式：
+用途：
+- 定義 `union_id -> username` 的關係。
+- `all` 模式 pipeline 由這份資料決定要跑哪些帳號。
+
+規則：
+- `username` 是登入帳號識別。
+- `union_id` 是 union raid routing 用資料，不是執行帳號主鍵。
+- pipeline 會對 `username` 去重後逐帳號執行。
+
+範例：
 
 ```json
 [
   {
     "union_id": "example-union-a",
-    "username": "example-account-a@example.com"
+    "username": "example-account-a"
   },
   {
     "union_id": "example-union-b",
-    "username": "example-account-b@example.com"
+    "username": "example-account-b"
   }
 ]
 ```
 
+## Generated Output Contracts
+
+### Union Raid JSON
+
+檔名由時間戳與 `union_id` 組成。
+
 用途：
+- 作為 upload 階段的唯一輸入。
 
-- `union_raid_pipeline --scope all` 會對每個唯一 `username` 跑一次流程
-- 上傳階段仍以下載結果的 `union_id` 決定最終 sheet routing
+規則：
+- upload 以檔案內容的 `union_id` 做 routing。
+- 不應依賴檔名解析 `union_id` 作為唯一來源。
 
-## Data Store 責任
+### Character Details JSON
 
-[lib/data_store.py](../../lib/data_store.py) 負責：
+每個檔案代表一位成員的角色細節。
 
-- 讀取與寫入 `google_sheets_id.json`
-- 讀取與寫入 `union_account_map.json`
-- 將 `nikke_checklist_name_codes.json` 與 `nikkes_info.json` 整理成 `checklist_items`
+規則：
+- 檔名目前以 `nickname` 為主。
+- 檔案內容必須能提供 `nickname` 與 `character_details`。
+- upload 可以指定只上傳本次成功下載的 `files`。
 
-其中 `save_sheets()` 與 `save_union_account_map()` 會透過 [lib/github_secrets_sync.py](../../lib/github_secrets_sync.py) 同步敏感 runtime 檔到 GitHub secrets。
+## Checklist Preparation
 
-## Cloud Data Sync
-
-[lib/github_data_sync.py](../../lib/github_data_sync.py) 管理 repo data 與獨立 cloud data repo 的同步。
-
-### 同步對象
-
-- `nikkes_info.json`
-- `nikkes_nickname.json`
-- `function_names.json`
+[lib/data_store.py](../../lib/data_store.py) 會把：
 - `nikke_checklist_name_codes.json`
+- `nikkes_info.json`
 
-### 行為
+整理成 `checklist_items`，供 Nikke batch download 過濾角色列表使用。
 
-- 啟動時 `pull_cloud_data_files()` 先從 cloud data repo 拉最新版本
-- 本地 data 檔異動後，watcher 會自動排程 push 回 cloud data repo
-- CLI job 執行完會呼叫 `flush_cloud_data_sync()` 等待 pending push 完成
+這層規則很重要：
+- `fetch_user_characters()` 回傳的是角色 code 集合。
+- `prepare_checklist_items()` 產出的資料必須能用來過濾這些 code。
 
-### 相關環境變數
+## Routing Rules
 
-- `BLABLALINK_CLOUD_DATA_REPO`
-- `BLABLALINK_CLOUD_DATA_BRANCH`
-- `BLABLALINK_CLOUD_DATA_TOKEN`
-- `BLABLALINK_CLOUD_DATA_ENABLED`
+### Union Raid Upload
 
-## GitHub Secret Sync
+- 從下載結果或資料檔內容取得 `union_id`。
+- 只匹配 `type=UnionRaid`。
+- 再用 `union_id` 精準匹配 target sheet。
 
-[lib/github_secrets_sync.py](../../lib/github_secrets_sync.py) 現在只同步三種 runtime 檔：
+### Nikke Upload
 
-- `sessions.json -> BLABLALINK_SESSIONS_JSON`
-- `service_account.json -> BLABLALINK_GOOGLE_CREDENTIALS_JSON`
-- `union_account_map.json -> BLABLALINK_UNION_ACCOUNT_MAP_JSON`
+- 先從 account 對應的 session 取得 `union_id`。
+- 只匹配 `type=CharacterDetails`。
+- 再用 `union_id` 精準匹配 target sheet。
 
-`google_sheets_id.json` 已不再同步到 secrets，而是改走 repo 內 `.github/runtime/*.json`。
+### Sync Upload
 
-## `.github/runtime/` 的角色
+- 先從 `fetch_guild_members()` 取得 `guild_id`。
+- `guild_id` 視同 `union_id` 使用。
+- 只匹配 `type=CharacterDetails`。
 
-目前 workflow 用到兩份 runtime mapping：
+## Priority Rules
 
-- `.github/runtime/union_google_sheets_id.json`
-- `.github/runtime/nikke_google_sheets_id.json`
+修改資料來源時，維持以下優先序：
+- 業務路由規則優先寫在 job layer。
+- GUI 只讀寫 runtime 檔，不自行定義另一套 routing 規則。
+- workflow mapping 與 GUI runtime mapping 若分離，必須明確知道哪個流程讀哪一份。
 
-用途：
+## Out Of Scope
 
-- 讓 workflow 不依賴大型或容易出問題的 sheet mapping secret
-- 把不同流程所需的試算表映射固定在 repo 中
-
-## 風險與限制
-
-- `sessions.json` 與 `service_account.json` 仍屬敏感資料，不能放進 repo。
-- `google_sheets_id.json` 的本機編輯與 workflow runtime 檔目前是兩套來源；若 mapping 變更，需同步調整 `.github/runtime/`。
-- Character details 暫存檔以 `nickname` 作檔名；若同聯盟出現重名，後寫入者會覆蓋前者。
+以下不屬於這份開發規格：
+- 外部平台設定步驟
+- 憑證建立教學
+- 人工維運 checklist

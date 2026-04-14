@@ -1,116 +1,119 @@
 # Desktop GUI
 
-## 主視窗
+## Entry
 
-[lib/gui_main.py](../../lib/gui_main.py) 的 `LoginApp` 是桌面模式主入口。
+桌面模式的主要入口是：
+- [lib/gui_main.py](../../lib/gui_main.py)
 
-主視窗分成兩個狀態：
+核心 app class 為 `LoginApp`。
 
-- 未登入狀態
-  顯示帳號、密碼、登入、帳號管理、試算表管理、雲端帳號管理
-- 已登入狀態
-  顯示聯盟突襲與 Nikke 相關操作按鈕
+## GUI Responsibilities
 
-## 啟動初始化
+GUI 只負責以下工作：
+- 顯示帳號、狀態、按鈕與管理視窗
+- 讓使用者選擇 account / sheet / mapping
+- 啟動背景 thread 執行流程
+- 將結果回寫到狀態列與 log
 
-`LoginApp.__init__()` 會做幾件事：
+GUI 不應負責：
+- 自己實作 API 路由
+- 自己決定 sheet 匹配規則
+- 自己維護與 headless 不一致的業務邏輯
 
-- 建立主視窗與 UI 狀態變數
-- 讀取本機 `accounts`、`sheets`、`union_account_map`
-- 確保 log / data / settings / temp 目錄存在
-- 啟動 cloud data pull
-- 啟動 cloud data watcher
-- 啟動 secret file watcher
+## Startup Responsibilities
 
-這表示 GUI 啟動本身就會帶有 runtime 同步責任，不只是畫面。
+`LoginApp.__init__()` 啟動時會做的事應視為固定基礎流程：
+- 建立主畫面與狀態列
+- 載入 accounts、sheets、union account map
+- 初始化 log / temp / runtime 目錄
+- 啟動 cloud data 同步相關 watcher
+- 啟動 runtime 檔變動監看
 
-## 登入流程
+修改啟動流程時注意：
+- 不要在啟動階段做大量阻塞 API 呼叫
+- 不要讓 watcher 重複啟動
+- 不要引入會額外彈出命令列視窗的子程序
 
-登入由 [lib/gui/login_flow.py](../../lib/gui/login_flow.py) 進入，再落到 [lib/auth.py](../../lib/auth.py) 的 Playwright 流程。
+## Login Flow
 
-### `auth.py` 責任
+登入相關邏輯分散於：
+- [lib/gui/login_flow.py](../../lib/gui/login_flow.py)
+- [lib/auth.py](../../lib/auth.py)
 
-- 優先用既有 `sessions.json` 嘗試 headless 驗證登入
-- 若舊 session 不可用，切回 headful Playwright 自動化登入
-- 處理 cookie close、region 選取、填帳密、按登入
-- 驗證成功後把新的 `storage_state` 存回 `sessions.json`
+規則：
+- 優先使用既有 `sessions.json` 重建 session。
+- 若 session 無法使用，再進入 Playwright 登入流程。
+- 成功登入後要能回寫 `storage_state`。
 
-### 登入後資料
+## Main User Actions
 
-登入成功後 GUI 會保存：
+### Union Raid
 
-- `_last_slug`
-- `_last_role_name`
-- `_last_role_id`
+按鈕對應流程：
+- 下載 union raid
+  呼叫 union raid download 流程。
+- 上傳 union raid
+  呼叫 union raid upload 流程。
 
-這些欄位會被之後的下載、上傳、同步功能重用。
+### Nikke
 
-## 主畫面按鈕與功能
+按鈕對應流程：
+- 下載單一玩家 Nikke 資料
+  直接走 API 抓取。
+- 批次下載 Nikke 資料
+  直接對當前聯盟成員做批次下載，不再透過手動 member 清單視窗。
+- 上傳 Nikke 資料
+  直接依目前 account 的 `union_id` 路由到對應 `CharacterDetails` sheet，不再先跳選擇視窗。
+- 上傳同步等級
+  直接依 `guild_id -> CharacterDetails` sheet 路由。
 
-### 聯盟突襲區
+### Management Dialogs
 
-- `下載聯盟突襲資料`
-  進入 [lib/gui/union_raid_download.py](../../lib/gui/union_raid_download.py)，背景執行 `run_union_raid_download`
-- `上傳聯盟突襲資料`
-  進入 [lib/gui/dialogs/union_raid_upload.py](../../lib/gui/dialogs/union_raid_upload.py)
+目前重要管理視窗：
+- [lib/gui/dialogs/accounts.py](../../lib/gui/dialogs/accounts.py)
+- [lib/gui/dialogs/sheets.py](../../lib/gui/dialogs/sheets.py)
+- [lib/gui/dialogs/union_account_map.py](../../lib/gui/dialogs/union_account_map.py)
 
-### Nikke 區
+規則：
+- `sheet` 管理視窗新增試算表時，`union_id` 為必填欄位。
+- GUI 編輯 mapping 時，不要在視窗內額外定義與 job layer 不一致的驗證規則。
 
-- `下載本帳號妮姬資料`
-  進入 [lib/gui/nikke_download.py](../../lib/gui/nikke_download.py)
-- `批次下載妮姬資料`
-  進入 [lib/gui/dialogs/nikke_batch_download.py](../../lib/gui/dialogs/nikke_batch_download.py)
-  現行行為是直接對當前聯盟整批下載，不再開成員選取視窗
-- `上傳妮姬資料`
-  進入 [lib/gui/dialogs/nikke_upload.py](../../lib/gui/dialogs/nikke_upload.py)
-  現行行為是直接整批上傳，不再跳檔案選擇視窗
-- `上傳同步`
-  直接呼叫 `run_sync_upload`
+## Threading Rule
 
-### 管理區
+所有會阻塞 UI 的工作都必須放到背景 thread：
+- API 呼叫
+- Playwright 登入
+- 大量檔案整理
+- Google Sheets 上傳
 
-- `選擇/管理帳號`
-  [lib/gui/dialogs/accounts.py](../../lib/gui/dialogs/accounts.py)
-- `管理試算表`
-  [lib/gui/dialogs/sheets.py](../../lib/gui/dialogs/sheets.py)
-- `管理雲端帳號`
-  [lib/gui/dialogs/union_account_map.py](../../lib/gui/dialogs/union_account_map.py)
+UI 更新規則：
+- 背景 thread 不直接操作 Tk widget。
+- 透過 `root.after()` 或等價方式回到主執行緒更新狀態。
 
-## GUI 與 job layer 的邊界
+## Shared Logic Rule
 
-GUI 現在主要做三件事：
+若某段流程同時被 GUI 與 headless 使用，應優先收斂到：
+- `lib/jobs/`
+- `lib/api.py`
+- `lib/data_store.py`
+- `lib/google_sheets/`
 
-- 收集使用者操作意圖
-- 更新按鈕 disable/enable 與狀態字串
-- 在背景 thread 內呼叫 `lib/jobs/*`
+GUI 應只保留：
+- helper UI
+- 顯示文字
+- 背景執行包裝
 
-真正的資料下載、sheet routing、Google Sheets 寫入邏輯已經大多下沉到 `lib/jobs/`，這讓 GUI 和 Actions 可以共用同一套核心流程。
+## Current Risks
 
-## GUI 特有邏輯
+目前 GUI 仍有幾個歷史負債：
+- 某些 upload helper 仍從 GUI dialog 模組匯入共用函式。
+- GUI 啟動時會同時帶入多個 watcher，改動時容易造成重複觸發。
+- 若未來再新增一套只存在 GUI 的 routing 規則，會與 headless 行為分叉。
 
-雖然大部分業務已下沉到 job layer，仍有兩塊重要邏輯還在 GUI 模組：
+## Development Rule For GUI Changes
 
-- `union_raid_upload` 的部分上傳實作與 sheet 寫入 helper
-- `nikke_upload` 內的 worksheet 掃描、欄位對齊、變化表更新、WebApp 通知 helper
-
-其中 [lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py) 會直接 import `lib/gui/dialogs/nikke_upload.py` 內的 helper。  
-這是一個實作上存在的跨層依賴，維護時要特別注意。
-
-## UI 狀態管理
-
-主畫面用多個 `StringVar` 顯示不同區塊的狀態：
-
-- `status_var`
-  一般登入 / 主流程狀態
-- `union_status_var`
-  聯盟突襲狀態
-- `nikke_status_var`
-  Nikke 下載 / 上傳 / 同步狀態
-
-長時間動作一律走 background thread，完成後透過 `root.after()` 回主執行緒更新 UI。
-
-## GUI 限制
-
-- GUI 依賴本機桌面與 Playwright browser；不適合直接在 server 環境跑。
-- `auth.py` 的 headful fallback 會開啟可見 browser，必要時還會保留 30 分鐘等待人工介入。
-- 上傳 helper 與 GUI 模組耦合仍偏高，後續若要更清楚分層，可再抽到獨立 service / upload helper module。
+改 GUI 功能時，優先檢查：
+- 是否已有對應 job 可直接重用
+- 是否會改變 account、union_id、sheet routing 規則
+- 是否會讓背景 thread 直接碰 UI
+- 是否會讓 GUI 與 workflow 的實際行為不同步

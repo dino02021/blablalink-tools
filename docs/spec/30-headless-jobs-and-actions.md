@@ -1,218 +1,222 @@
 # Headless Jobs And Actions
 
-## Job Layer 原則
+## Job Layer
 
-`lib/jobs/` 是這個專案的 headless 核心層。
+`lib/jobs/` 是 headless 執行的核心層。
 
 目的：
+- 把 GUI 可用流程收斂成可直接由 CLI 與 workflow 執行的 job
+- 穩定回傳 `JobResult`
+- 把 routing、資料驗證與主要失敗訊息集中
 
-- 把 GUI 可用的功能轉成 CLI / Actions 可重用的 job
-- 將輸出統一成 `JobResult`
-- 讓 workflow 不需要了解 GUI 細節
+共用入口：
+- [lib/jobs/common.py](../../lib/jobs/common.py)
 
-[lib/jobs/common.py](../../lib/jobs/common.py) 定義：
-
+重要內容：
 - `JobResult`
 - `run_coro_sync()`
 - `resolve_account()`
 
-## CLI
+## CLI Entry
 
-[lib/cli/run_job.py](../../lib/cli/run_job.py) 是所有 headless workflow 的統一入口。
+CLI 入口在：
+- [lib/cli/run_job.py](../../lib/cli/run_job.py)
 
-啟動順序：
+CLI 的責任：
+- 解析子命令與參數
+- 執行 job
+- 統一輸出 `JobResult`
+- 在流程前後包住 cloud data sync hook
 
-1. `pull_cloud_data_files()`
-2. 執行指定 job
-3. `flush_cloud_data_sync()`
-4. 以純文字或 JSON 輸出結果
+目前有效子命令：
+- `union-raid-download`
+- `union-raid-upload`
+- `union-raid-pipeline`
+- `nikke-batch-download`
+- `nikke-pipeline`
+- `nikke-upload`
+- `sync-upload`
 
-這代表 headless job 執行前一定會先同步 repo data。
+## Union Raid Jobs
 
-## Union Raid 流程
+### `run_union_raid_download`
 
-### 下載
-
-[lib/jobs/union_raid_download.py](../../lib/jobs/union_raid_download.py)
+檔案：
+- [lib/jobs/union_raid_download.py](../../lib/jobs/union_raid_download.py)
 
 流程：
-
 1. 解析 account
-2. 讀取 `sessions.json`
+2. 載入 session
 3. 呼叫 `fetch_union_info()`
 4. 呼叫 `fetch_union_raid_data()`
-5. 寫出帶 timestamp 的 union raid 暫存 JSON
+5. 產生 union raid JSON
 
-輸出重點：
-
+關鍵輸出：
 - `outputs.data_path`
 - `outputs.created_new_file`
 
-### 上傳
+### `run_union_raid_upload`
 
-[lib/jobs/union_raid_upload.py](../../lib/jobs/union_raid_upload.py)
+檔案：
+- [lib/jobs/union_raid_upload.py](../../lib/jobs/union_raid_upload.py)
 
 流程：
-
-1. 讀取指定或最新的 union raid JSON
+1. 讀取 union raid JSON
 2. 取出 `union_id`
-3. 用 `union_id` 路由到 `type=UnionRaid` 的 sheet
-4. 用同帳號 session 呼叫 `fetch_guild_members()`
-5. 呼叫 GUI 模組中的 `_upload_to_sheets`
+3. 以 `type=UnionRaid + union_id` 精準匹配 sheet
+4. 取得聯盟成員資料
+5. 寫入 Google Sheets
 
-行為特點：
+規則：
+- `month` 可顯式指定。
+- 未指定時可由現有資料推導最新月份。
 
-- 若未指定 `month`，可透過 `resolve_latest_union_upload_month()` 自動找最新月份
-- `BLABLALINK_STRICT_UNION_WEBAPP=1` 時，WebApp 通知失敗會讓整個 job fail
+### `run_union_raid_pipeline`
 
-### Pipeline
+檔案：
+- [lib/jobs/union_raid_pipeline.py](../../lib/jobs/union_raid_pipeline.py)
 
-[lib/jobs/union_raid_pipeline.py](../../lib/jobs/union_raid_pipeline.py)
-
-支援：
-
+支援參數：
 - `mode=download|full`
 - `scope=single|all`
 
-`all` 模式來源：
+規則：
+- `single` 模式只跑一個 account。
+- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`。
+- `full` 表示 download 後接 upload。
+- 每個 account 獨立記錄結果，最後回傳 summary。
 
-- 優先讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
-- 失敗時 fallback 到本機 `union_account_map.json`
+## Nikke Jobs
 
-## Nikke 流程
+### `run_nikke_batch_download`
 
-### 本帳號下載
-
-GUI 的 [lib/gui/nikke_download.py](../../lib/gui/nikke_download.py) 直接呼叫 API：
-
-- `fetch_user_characters()`
-- `fetch_user_character_details()`
-
-這是桌面專用的單帳號下載。
-
-### 全聯盟批次下載
-
-[lib/jobs/nikke_batch_download.py](../../lib/jobs/nikke_batch_download.py)
+檔案：
+- [lib/jobs/nikke_batch_download.py](../../lib/jobs/nikke_batch_download.py)
 
 流程：
-
 1. `prepare_checklist_items()`
-2. 透過 session 呼叫 `fetch_union_info()`
+2. 由 session 取得 `guild_id` 與 `nikke_area_id`
 3. 呼叫 `fetch_guild_members()`
-4. 對每位成員：
+4. 對每位 member 呼叫：
    - `fetch_user_characters()`
    - checklist 過濾
    - `fetch_user_character_details()`
-5. 寫出 `CharacterDetails/<nickname>_character_details.json`
+5. 產生本次成功的 `CharacterDetails/*.json`
 
-輸出重點：
+關鍵輸出：
+- `outputs.guild_id`
+- `outputs.char_details_dir`
+- `outputs.files`
+- `stats.ok_count`
+- `stats.total_count`
 
-- `guild_id`
-- `char_details_dir`
-- `files`
-- `ok_count / total_count`
+### `run_nikke_upload`
 
-### Nikke 上傳
-
-[lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py)
-
-路由規則：
-
-1. 用 account 的 session 呼叫 `fetch_union_info()`
-2. 取出當前 `union_id`
-3. 在 `google_sheets_id.json` 中找 `type=CharacterDetails` 且 `union_id` 精準匹配
-4. 將指定或整個 `CHAR_DETAILS_DIR` 的 JSON 寫入對應試算表
-
-實作特點：
-
-- 支援 `files` 過濾，只上傳本次下載成功的檔案
-- 支援 change sheet `角色練度_變化`
-- 上傳後可觸發 WebApp notify
-
-### Nikke pipeline
-
-[lib/jobs/nikke_pipeline.py](../../lib/jobs/nikke_pipeline.py)
+檔案：
+- [lib/jobs/nikke_upload.py](../../lib/jobs/nikke_upload.py)
 
 流程：
+1. 由 account 對應 session 取得 `union_id`
+2. 以 `type=CharacterDetails + union_id` 精準匹配 sheet
+3. 讀取指定的角色細節 JSON
+4. 寫入主 sheet 與 change sheet
 
-1. `run_nikke_batch_download()`
-2. 取回 `outputs.files`
-3. `run_nikke_upload(files=...)`
+規則：
+- 可接受 `files`，只上傳指定檔案。
+- `files` 為空時，預設掃整個 `CHAR_DETAILS_DIR`。
+- 找不到對應 sheet 時直接失敗。
 
-這是目前 `nikke_pipeline` workflow 的核心執行單元。
+### `run_nikke_pipeline`
+
+檔案：
+- [lib/jobs/nikke_pipeline.py](../../lib/jobs/nikke_pipeline.py)
+
+支援參數：
+- `scope=single|all`
+
+流程：
+1. 解析要執行的帳號集合
+2. 每個帳號先跑 `run_nikke_batch_download()`
+3. 只取本次下載成功的 `files`
+4. 若該帳號可解析對應 `CharacterDetails` sheet，接著跑 `run_nikke_upload()`
+
+規則：
+- `all` 模式讀 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，失敗時 fallback 到本地 `union_account_map.json`
+- 對 `username` 去重後逐帳號執行
+- 若缺少對應 `CharacterDetails` sheet，該帳號記為 `skipped`
+- 若 download 或 upload 真正失敗，該帳號記為 failed
+- 只要存在 failed，整體 pipeline 回傳失敗
 
 ## Sync Upload
 
-[lib/jobs/sync_upload.py](../../lib/jobs/sync_upload.py)
+檔案：
+- [lib/jobs/sync_upload.py](../../lib/jobs/sync_upload.py)
 
 流程：
+1. 由 account 的 session 取得聯盟成員資料
+2. 整理 `nickname -> synchro_level`
+3. 以 `guild_id` 路由到 `CharacterDetails` sheet
+4. 寫入指定 worksheet
 
-1. 用 account 的 session 呼叫 `fetch_guild_members()`
-2. 取得成員 `nickname -> synchro_level`
-3. 透過 `resolve_character_sheet_target(guild_id)` 找到 `CharacterDetails` sheet
-4. 寫入指定 worksheet，預設名稱為 `同步等級`
+規則：
+- `guild_id` 視同 `union_id`
+- worksheet 名稱可指定
+- 沒有可匹配資料時直接失敗
 
-## GitHub Actions
+## Workflow Role
 
-### `union_raid_pipeline`
+workflow 的角色只有一個：
 
-檔案：
+把既有 job layer 包裝成可在 GitHub Actions 執行的入口。
+
+它不應該：
+- 自己重寫業務邏輯
+- 自己維護另一套 routing 規則
+- 在 shell script 內做大量資料判斷
+
+## Current Workflows
+
+### Union Raid
 
 - [.github/workflows/union_raid_pipeline.yml](../../.github/workflows/union_raid_pipeline.yml)
 
-使用：
+對應 job：
+- `union-raid-pipeline`
 
-- `sessions` secret
-- `union_account_map` secret
-- `service_account` secret
-- repo runtime `union_google_sheets_id.json`
-
-### `nikke_pipeline`
-
-檔案：
+### Nikke
 
 - [.github/workflows/nikke_pipeline_run.yml](../../.github/workflows/nikke_pipeline_run.yml)
 
-使用：
+對應 job：
+- `nikke-pipeline`
 
-- `sessions` secret
-- `service_account` secret
-- repo runtime `nikke_google_sheets_id.json`
-
-目前已不依賴 `BLABLALINK_SHEETS_JSON`。
-
-### `sync_upload`
-
-檔案：
+### Sync Upload
 
 - [.github/workflows/sync_upload.yml](../../.github/workflows/sync_upload.yml)
 
-使用：
+對應 job：
+- `sync-upload`
 
-- `sessions` secret
-- `service_account` secret
-- repo runtime `nikke_google_sheets_id.json`
+## Workflow Development Rules
 
-## Workflow 必要 secrets
+修改 workflow 時維持以下原則：
+- 只 restore 該流程真的需要的 runtime 檔
+- 盡量把邏輯放回 Python job，不要堆在 bash
+- workflow input 命名要與 job 參數一致
+- 不要重新引入大型、重複或不必要的 secret restore 步驟
 
-目前有效的 workflow secrets：
+## Current Important Constraints
 
-- `BLABLALINK_SESSIONS_JSON`
-- `BLABLALINK_GOOGLE_CREDENTIALS_JSON`
-- `BLABLALINK_UNION_ACCOUNT_MAP_JSON`
-- `BLABLALINK_DEFAULT_ACCOUNT`
-- `BLABLALINK_CLOUD_DATA_TOKEN`
+- `startup_failure` 類問題通常發生在 workflow 初始化階段，而不是 Python job 本體。
+- `nikke_pipeline` 與 `union_raid_pipeline` 都已支援 `single/all`。
+- `sync_upload` 目前仍是單帳號流程。
+- `nikke` 與 `sync` 都依 `CharacterDetails` routing。
 
-## 目前的重要 routing 規則
+## Recommended Change Strategy
 
-- `UnionRaid` 上傳：看 union raid JSON 內的 `union_id`
-- `Nikke upload`：看當前 account 對應 session 查出的 `union_id`
-- `Sync upload`：看 `fetch_guild_members()` 回傳的 `guild_id`
+若未來要改流程，優先順序是：
+1. 先改 `lib/jobs/*`
+2. 再改 CLI 參數
+3. 最後再改 workflow 包裝
 
-三者都依賴 `union_id/guild_id`，而不是 sheet name。
-
-## 維護注意事項
-
-- 改 `google_sheets_id.json` 本機設定時，若 workflow 也要吃到同樣 mapping，必須同步更新 `.github/runtime/*.json`
-- `nikke_upload` 的部分 helper 目前仍放在 GUI 模組中，不能隨意搬動函式名稱
-- workflow 若在 job 建立前就 `startup_failure`，優先檢查是否又引入大型或不必要的 secret restore 步驟
+不要反過來先改 workflow shell 行為。
