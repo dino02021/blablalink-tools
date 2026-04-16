@@ -135,13 +135,23 @@ function normalizeJob(rawJob) {
   if (!workflow) {
     throw new Error(`Job ${name} is missing workflow`)
   }
-  if (!["daily", "once"].includes(type)) {
+  if (!["daily", "once", "interval"].includes(type)) {
     throw new Error(`Job ${name} has unsupported type: ${type}`)
   }
 
   const time = parseTime(rawJob.time, name)
   const daysOfWeek = normalizeDaysOfWeek(rawJob.days_of_week, name)
   const date = type === "once" ? parseDate(rawJob.date, name) : ""
+  
+  let startDate = ""
+  let endDate = ""
+  const intervalMinutes = 5
+  if (type === "interval") {
+    startDate = parseDate(rawJob.start_date, name)
+    const [year, month, day] = startDate.split("-").map(Number)
+    const nextDay = new Date(year, month - 1, day + 1)
+    endDate = nextDay.toISOString().split("T")[0]
+  }
 
   return {
     name,
@@ -153,6 +163,9 @@ function normalizeJob(rawJob) {
     time,
     daysOfWeek,
     date,
+    startDate,
+    endDate,
+    intervalMinutes,
   }
 }
 
@@ -222,11 +235,11 @@ function isJobDue(job, zoned) {
   if (!job.enabled) {
     return false
   }
-  if (job.time.hour !== zoned.hour || job.time.minute !== zoned.minute) {
-    return false
-  }
 
   if (job.type === "daily") {
+    if (job.time.hour !== zoned.hour || job.time.minute !== zoned.minute) {
+      return false
+    }
     if (job.daysOfWeek && !job.daysOfWeek.includes(zoned.weekday)) {
       return false
     }
@@ -234,7 +247,39 @@ function isJobDue(job, zoned) {
   }
 
   if (job.type === "once") {
+    if (job.time.hour !== zoned.hour || job.time.minute !== zoned.minute) {
+      return false
+    }
     return job.date === zoned.date
+  }
+
+  if (job.type === "interval") {
+    if (job.time.minute % job.intervalMinutes !== 0) {
+      return false
+    }
+    
+    const currentDate = zoned.date
+    const isDateInRange = currentDate >= job.startDate && currentDate <= job.endDate
+    if (!isDateInRange) {
+      return false
+    }
+
+    const startHour = job.time.hour
+    const currentHour = zoned.hour
+    const currentMinute = zoned.minute
+
+    let isTimeInRange = false
+    if (job.startDate === job.endDate) {
+      isTimeInRange = currentHour === startHour && currentMinute % job.intervalMinutes === 0
+    } else if (currentDate === job.startDate) {
+      isTimeInRange = currentHour >= startHour && currentMinute % job.intervalMinutes === 0
+    } else if (currentDate === job.endDate) {
+      isTimeInRange = currentHour <= startHour && currentMinute % job.intervalMinutes === 0
+    } else {
+      isTimeInRange = currentMinute % job.intervalMinutes === 0
+    }
+
+    return isTimeInRange
   }
 
   return false
@@ -281,7 +326,7 @@ async function dispatchWorkflow(job, zoned, env) {
 }
 
 function summarizeJob(job) {
-  return {
+  const summary = {
     name: job.name,
     type: job.type,
     workflow: job.workflow,
@@ -291,6 +336,13 @@ function summarizeJob(job) {
     days_of_week: job.daysOfWeek,
     inputs: job.inputs,
   }
+  if (job.type === "interval") {
+    summary.start_date = job.startDate
+    summary.end_date = job.endDate
+    summary.interval_minutes = job.intervalMinutes
+    summary.timezone = "Asia/Taipei"
+  }
+  return summary
 }
 
 function getZonedNow(now, timeZone) {

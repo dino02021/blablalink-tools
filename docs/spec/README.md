@@ -1,6 +1,6 @@
-# BlaBlaLinkTool Development Spec
+# BlaBlaLinkTool 開發規格
 
-## Purpose
+## 目的
 
 這組文件的目標是描述目前專案的實作結構、資料契約、流程邊界與修改時要遵守的規則。
 
@@ -9,7 +9,7 @@
 - 部署教學
 - 雲端維運手冊
 
-## Read Order
+## 閱讀順序
 
 1. [00-overview.md](./00-overview.md)
    先看專案目的、主要模組、共用原則。
@@ -19,8 +19,10 @@
    需要改 GUI 時看這份。
 4. [30-headless-jobs-and-actions.md](./30-headless-jobs-and-actions.md)
    需要改 CLI、job layer 或 workflow 時看這份。
+5. [05-coding-style.md](./05-coding-style.md)
+   程式風格、命名規範與 UI 佈局規則。
 
-## Scope
+## 涵蓋範圍
 
 文件只描述目前 repo 內有效的行為與規則：
 - 桌面 GUI
@@ -29,8 +31,9 @@
 - Google Sheets 上傳
 - headless jobs
 - GitHub Actions workflow 對 job layer 的包裝方式
+- 程式碼風格與命名規則
 
-## Writing Rules
+## 撰寫規則
 
 後續更新 spec 時，維持以下原則：
 - 優先寫「現在程式怎麼運作」，不要寫理想化設計。
@@ -38,4 +41,4 @@
 - 避免使用真實帳號、真實 union_id、真實 sheet_id。
 - 不放維運教學、人工操作清單或外部平台設定步驟。
 - 若 GUI 與 headless 共用同一邏輯，要明確標出共用入口。
-- 只要 code 變更影響到流程、資料契約、routing、workflow 行為或 GUI 操作方式，必須在同一次修改中同步更新對應 spec。
+- 只要 code 變更影響到流程、資料契約、routing、workflow 行為、GUI 操作方式或程式風格，必須在同一次修改中同步更新對應 spec。

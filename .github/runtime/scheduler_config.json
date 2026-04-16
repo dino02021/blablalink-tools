@@ -27,15 +27,15 @@
     {
       "name": "union_raid_pipeline_once",
       "enabled": false,
-      "type": "once",
-      "date": "2026-12-31",
-      "time": "18:10",
+      "type": "interval",
+      "start_date": "2026-04-17",
+      "time": "04:00",
       "workflow": "union_raid_pipeline.yml",
       "ref": "main",
       "inputs": {
         "mode": "full",
         "scope": "all",
-        "month": "2026/12"
+        "month": "2026/04"
       }
     }
   ]

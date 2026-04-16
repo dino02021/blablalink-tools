@@ -39,6 +39,7 @@ from .data_store import (
 from .gui.dialogs.accounts import choose_or_manage_accounts
 from .gui.dialogs.sheets import manage_sheet_types, manage_sheets
 from .gui.dialogs.union_account_map import manage_union_account_map
+from .gui.dialogs.scheduler_config import open_scheduler_config_dialog
 from .gui.dialogs.union_raid_upload import open_upload_union_dialog
 from .gui.union_raid_download import start_download_union
 from .gui.nikke_download import start_download_nikke
@@ -163,10 +164,12 @@ class LoginApp:
         self.manage_cloud_account_btn.grid(row=0, column=0, padx=(0, gap))
         self.manage_sheet_btn = ttk.Button(btn_frame, text="管理試算表", command=self._open_manage_sheets)
         self.manage_sheet_btn.grid(row=0, column=1, padx=(0, gap))
+        self.schedule_btn = ttk.Button(btn_frame, text="排程設定", command=self._open_scheduler_config)
+        self.schedule_btn.grid(row=0, column=2, padx=(0, gap))
         self.manage_btn = ttk.Button(btn_frame, text="選擇/管理帳號", command=self._open_manage_accounts)
-        self.manage_btn.grid(row=0, column=2, padx=(0, gap))
+        self.manage_btn.grid(row=0, column=3, padx=(0, gap))
         self.login_btn = ttk.Button(btn_frame, text="登入", command=self._on_login_clicked)
-        self.login_btn.grid(row=0, column=3)
+        self.login_btn.grid(row=0, column=4)
 
         info_frame = ttk.Frame(top, padding=(gap, gap, gap, gap))
         info_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(gap, gap), pady=(gap, gap))
@@ -434,6 +437,11 @@ class LoginApp:
         if updated_items is not None:
             self.union_account_map = updated_items
             save_union_account_map(self.union_account_map)
+
+    def _open_scheduler_config(self) -> None:
+        result = open_scheduler_config_dialog(self.root)
+        if result:
+            self._set_status(result.get("message", "排程已更新"), "green")
 
     def _on_logout(self) -> None:
         self._is_logged_in = False

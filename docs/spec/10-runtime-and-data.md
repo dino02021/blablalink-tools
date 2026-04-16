@@ -1,60 +1,60 @@
-# Runtime And Data
+# 運行時與資料
 
-## Data Categories
+## 資料分類
 
-### 1. Repo Static Data
+### 1. 儲存庫靜態資料
 
-Stored under `data/`.
+存放於 `data/`。
 
-Important files:
+重要檔案：
 - `nikkes_info.json`
 - `nikkes_nickname.json`
 - `function_names.json`
 - `nikke_checklist_name_codes.json`
 
-Used for:
-- Nikke lookup tables
-- checklist preparation
-- character detail normalization
+用途：
+- Nikke 查詢表
+- 檢查清單準備
+- 角色詳情正規化
 
-### 2. Runtime Settings
+### 2. 運行時設定
 
-Important runtime files:
+重要運行時檔案：
 - `accounts.json`
 - `sessions.json`
 - `service_account.json`
 - `google_sheets_id.json`
 - `union_account_map.json`
 
-### 3. Generated Output
+### 3. 生成的輸出
 
-Output directories:
+輸出目錄：
 - `UnionRaid/`
 - `CharacterDetails/`
 
-### 4. Workflow Runtime Mapping
+### 4. 工作流運行時對應
 
-Files under `.github/runtime/` used by workflows and automation:
+`.github/runtime/` 底下的檔案供工作流與自動化使用：
 - `union_google_sheets_id.json`
 - `nikke_google_sheets_id.json`
 - `scheduler_config.json`
 
-## Runtime File Contracts
+## 運行時檔案契約
 
 ### `google_sheets_id.json`
 
-Core fields:
+核心欄位：
 - `type`
 - `sheet_name`
 - `sheet_id`
 - `union_id`
 
-Routing rules:
-- `type=UnionRaid` for union raid upload
-- `type=CharacterDetails` for nikke upload and sync upload
-- `union_id` is mandatory for routing
+路由規則：
+- `type=UnionRaid` 用於聯盟突襲上傳
+- `type=CharacterDetails` 用於 Nikke 上傳與同步上傳
+- `union_id` 為路由必填
 
-Example:
+例子：
 
 ```json
 [
@@ -83,16 +83,16 @@ Example:
 
 ### `union_account_map.json`
 
-Purpose:
-- map `union_id -> username`
-- define which accounts are included in `all` mode
+目的：
+- 對應 `union_id -> username`
+- 定義 `all` 模式包含哪些帳號
 
-Rules:
-- `username` is the login account key
-- pipelines de-duplicate by `username`
-- `union_id` is still used for union raid routing
+規則：
+- `username` 是登入帳號鍵值
+- 管線依 `username` 去重複
+- `union_id` 仍用於聯盟突襲路由
 
-Example:
+例子：
 
 ```json
 [
@@ -109,21 +109,22 @@ Example:
 
 ### `scheduler_config.json`
 
-Purpose:
-- source of truth for cloud scheduling
-- editable from GitHub UI or local git workflow
-- consumed by the Cloudflare Worker scheduler
+目的：
+- 雲端排程的真實來源
+- 可從 GitHub UI 或本地 git 工作流編輯
+- 由 Cloudflare Worker 排程器使用
 
-Core fields:
+核心欄位：
 - `version`
 - `timezone`
 - `jobs`
 
-Supported job types:
+支援的工作類型：
 - `daily`
 - `once`
+- `interval`
 
-`daily` fields:
+`daily` 欄位：
 - `name`
 - `enabled`
 - `type`
@@ -131,9 +132,9 @@ Supported job types:
 - `workflow`
 - `ref`
 - `inputs`
-- optional `days_of_week`
+- 選用 `days_of_week`
 
-`once` fields:
+`once` 欄位：
 - `name`
 - `enabled`
 - `type`
@@ -143,7 +144,18 @@ Supported job types:
 - `ref`
 - `inputs`
 
-Example:
+`interval` 欄位：
+- `name`
+- `enabled`
+- `type`
+- `start_date`
+- `time`
+- `interval_minutes`
+- `workflow`
+- `ref`
+- `inputs`
+
+例子：
 
 ```json
 {
@@ -163,10 +175,11 @@ Example:
     },
     {
       "name": "union_raid_pipeline_once",
-      "enabled": false,
-      "type": "once",
-      "date": "2026-12-31",
-      "time": "18:10",
+      "enabled": true,
+      "type": "interval",
+      "start_date": "2026-12-31",
+      "time": "04:00",
+      "interval_minutes": 5,
       "workflow": "union_raid_pipeline.yml",
       "ref": "main",
       "inputs": {
@@ -179,43 +192,43 @@ Example:
 }
 ```
 
-## Generated Output Contracts
+## 生成的輸出契約
 
-### Union Raid JSON
+### 聯盟突襲 JSON
 
-- upload routing uses the file content `union_id`
-- file name is not the only routing source
+- 上傳路由使用檔案內容 `union_id`
+- 檔案名稱不是唯一路由來源
 
-### Character Details JSON
+### 角色詳情 JSON
 
-- one file per member
-- file content must provide `nickname` and `character_details`
-- upload may target only selected `files`
+- 每個成員一個檔案
+- 檔案內容必須提供 `nickname` 和 `character_details`
+- 上傳可能只針對選定的 `files`
 
-## Routing Rules
+## 路由規則
 
-### Union Raid Upload
+### 聯盟突襲上傳
 
-- route by `type=UnionRaid + union_id`
+- 依 `type=UnionRaid + union_id` 路由
 
-### Nikke Upload
+### Nikke 上傳
 
-- route by `type=CharacterDetails + union_id`
+- 依 `type=CharacterDetails + union_id` 路由
 
-### Sync Upload
+### 同步上傳
 
-- route by `type=CharacterDetails + guild_id`
-- `guild_id` is treated as the same routing domain as `union_id`
+- 依 `type=CharacterDetails + guild_id` 路由
+- `guild_id` 與 `union_id` 視為相同路由域
 
-## Scheduling Rules
+## 排程規則
 
-- cloud schedule definitions must live in `scheduler_config.json`
-- GitHub workflow files should not be the primary source of production time schedules
-- editing schedule behavior means editing both worker logic and spec if the contract changes
+- 雲端排程定義必須存放在 `scheduler_config.json`
+- GitHub 工作流檔案不應是生產時間排程的主要來源
+- 編輯排程行為表示需要同時編輯 worker 邏輯與規格（若契約改變）
 
-## Out Of Scope
+## 範圍外
 
-This spec does not document:
-- cloud account setup walkthroughs
-- token creation walkthroughs
-- manual operations checklists
+本規格不涵蓋：
+- 雲端帳號設定教學
+- Token 建立教學
+- 手動操作檢查清單

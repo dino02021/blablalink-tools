@@ -106,11 +106,11 @@ def _serialize_result(result: JobResult) -> Dict[str, Any]:
 def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "成員名稱") -> JobResult:
     slug = resolve_account(account)
     if not slug:
-        return JobResult(ok=False, message="蝻箏?撣唾?")
+        return JobResult(ok=False, message="無法解析帳號")
 
     state = load_session(slug)
     if not state:
-        return JobResult(ok=False, message="?曆??啁??Session")
+        return JobResult(ok=False, message="找不到對應的 Session")
 
     try:
         guild_id, members = run_coro_sync(functools.partial(run_with_session_context, state, fetch_guild_members))
@@ -119,9 +119,9 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
         return JobResult(ok=False, message=str(exc))
 
     if not guild_id:
-        return JobResult(ok=False, message="?曆??啗??閮?")
+        return JobResult(ok=False, message="找不到工會資訊")
     if not isinstance(members, list) or not members:
-        return JobResult(ok=False, message="?曆??啗???∟???")
+        return JobResult(ok=False, message="找不到成員資訊")
 
     member_level_map: Dict[str, int] = {}
     for item in members:
@@ -137,12 +137,12 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
 
     total_count = len(member_level_map)
     if total_count == 0:
-        return JobResult(ok=False, message="瘝??臭??喟??郊蝑?鞈?")
+        return JobResult(ok=False, message="沒有符合條件的成員等級資料")
 
     try:
         sheet_id, _sheet_name = resolve_character_sheet_target(guild_id)
     except ValueError as exc:
-        return JobResult(ok=False, message=str(exc))
+        return JobResult(ok=True, message=f"試算表找不到: {str(exc)}")
 
     try:
         client = get_gspread_client()
@@ -168,7 +168,7 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
             matched_count += 1
 
         if matched_count == 0:
-            return JobResult(ok=False, message="閰衣?銵典?曆??啣?湔???∪?蝔?")
+            return JobResult(ok=False, message="沒有符合的成員名稱")
 
         ws.batch_update(updates, value_input_option="RAW")
     except Exception as exc:  # noqa: BLE001
@@ -177,7 +177,7 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
 
     return JobResult(
         ok=True,
-        message=f"銝?郊?? ({matched_count}/{total_count})",
+        message=f"上傳完成 ({matched_count}/{total_count})",
         stats={"account": slug, "matched_count": matched_count, "total_count": total_count},
         outputs={"sheet_id": sheet_id, "worksheet_name": worksheet_name, "union_id": guild_id},
     )
