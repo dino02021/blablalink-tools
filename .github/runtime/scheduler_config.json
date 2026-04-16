@@ -26,10 +26,11 @@
     },
     {
       "name": "union_raid_pipeline_once",
-      "enabled": false,
+      "enabled": true,
       "type": "interval",
       "start_date": "2026-04-16",
       "time": "04:00",
+      "interval_minutes": 5,
       "workflow": "union_raid_pipeline.yml",
       "ref": "main",
       "inputs": {
