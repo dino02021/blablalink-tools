@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from . import gui_main
 
 
-def start_union_raid_update(app: gui_main.App, mode: str) -> None:
+def start_union_raid_update(app: gui_main.App, mode: str, month: str) -> None:
     """Start union raid update (download + upload) from the GUI."""
     if mode not in ("single", "all"):
         app._set_status("模式錯誤", "red")
@@ -26,22 +26,22 @@ def start_union_raid_update(app: gui_main.App, mode: str) -> None:
     app.union_status_var.set("")
     app.update_union_btn.config(state="disabled")
     
-    threading.Thread(target=_update_worker, args=(app, mode), daemon=True).start()
+    threading.Thread(target=_update_worker, args=(app, mode, month), daemon=True).start()
 
 
-def _update_worker(app, mode: str) -> None:
+def _update_worker(app, mode: str, month: str) -> None:
     """背景執行緒：下載 + 上傳聯盟突襲資料。"""
     try:
         if mode == "single":
-            _process_single_account(app)
+            _process_single_account(app, month)
         elif mode == "all":
-            _process_all_accounts(app)
+            _process_all_accounts(app, month)
     except Exception as exc:
         log_exc(exc)
         app.root.after(0, functools.partial(_finish_update, app, False, str(exc)))
 
 
-def _process_single_account(app) -> None:
+def _process_single_account(app, month: str) -> None:
     """處理單一帳號：下載 + 上傳。"""
     if not getattr(app, "_last_slug", None):
         msg = "請先登入"
@@ -63,10 +63,6 @@ def _process_single_account(app) -> None:
         app.root.after(0, functools.partial(_finish_update, app, False, msg))
         return
 
-    from ..gui.dialogs.union_raid_upload import _get_default_month
-    from datetime import datetime
-    month = _get_default_month(datetime.now().strftime("%Y-%m-%d"))
-    
     upload_result = run_union_raid_upload(account=slug, month=month, data_path=data_path)
     ok = upload_result.ok
     msg = upload_result.message
@@ -74,7 +70,7 @@ def _process_single_account(app) -> None:
     app.root.after(0, functools.partial(_finish_update, app, ok, msg))
 
 
-def _process_all_accounts(app) -> None:
+def _process_all_accounts(app, month: str) -> None:
     """處理批次帳號：循環下載 + 上傳。"""
     account_map = load_union_account_map()
     if not account_map:
@@ -111,10 +107,6 @@ def _process_all_accounts(app) -> None:
             all_ok = False
             continue
 
-        from ..gui.dialogs.union_raid_upload import _get_default_month
-        from datetime import datetime
-        month = _get_default_month(datetime.now().strftime("%Y-%m-%d"))
-        
         upload_result = run_union_raid_upload(account=username, month=month, data_path=data_path)
         if upload_result.ok:
             messages.append(f"✅ {username}: 成功")

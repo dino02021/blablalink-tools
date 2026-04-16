@@ -406,8 +406,9 @@ class LoginApp:
         result = open_union_raid_update_dialog(self.root)
         if result:
             mode = result.get("mode")
+            month = result.get("month")
             from .gui.union_raid_update import start_union_raid_update
-            start_union_raid_update(self, mode)
+            start_union_raid_update(self, mode, month)
 
     def _on_download_nikke(self) -> None:
         start_download_nikke(self)
