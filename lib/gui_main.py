@@ -42,9 +42,6 @@ from .gui.dialogs.union_account_map import manage_union_account_map
 from .gui.dialogs.scheduler_config import open_scheduler_config_dialog
 from .gui.dialogs.union_raid_upload import open_upload_union_dialog
 from .gui.union_raid_download import start_download_union
-from .gui.nikke_download import start_download_nikke
-from .gui.dialogs.nikke_batch_download import open_batch_download_nikke
-from .gui.dialogs.nikke_upload import open_upload_nikke_dialog
 from .gui.login_flow import start_login
 from .api import fetch_function_names
 from .jobs.sync_upload import run_sync_upload
@@ -209,12 +206,8 @@ class LoginApp:
         nikke_frame.columnconfigure(3, weight=1)
         nikke_frame.columnconfigure(4, weight=0)
         self.nikke_frame = nikke_frame
-        self.download_nikke_btn = ttk.Button(nikke_frame, text="下載本帳號妮姬資料", command=self._on_download_nikke)
-        self.download_nikke_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
-        self.batch_download_nikke_btn = ttk.Button(nikke_frame, text="批次下載妮姬資料", command=self._on_batch_download_nikke)
-        self.batch_download_nikke_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
-        self.upload_nikke_btn = ttk.Button(nikke_frame, text="上傳妮姬資料", command=self._on_upload_nikke)
-        self.upload_nikke_btn.grid(row=0, column=2, sticky="w", padx=(0, gap))
+        self.update_nikke_btn = ttk.Button(nikke_frame, text="更新練度資料表", command=self._on_update_nikke)
+        self.update_nikke_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.upload_sync_btn = ttk.Button(nikke_frame, text="上傳同步", command=self._on_upload_sync)
         self.upload_sync_btn.grid(row=0, column=4, sticky="e", padx=(0, 0))
         self.nikke_status_var = tk.StringVar(value="")
@@ -224,9 +217,7 @@ class LoginApp:
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
         self.update_union_btn.grid_remove()
-        self.download_nikke_btn.grid_remove()
-        self.batch_download_nikke_btn.grid_remove()
-        self.upload_nikke_btn.grid_remove()
+        self.update_nikke_btn.grid_remove()
         self.upload_sync_btn.grid_remove()
         self.info_frame.grid_remove()
         self.sep_nikke.grid_remove()
@@ -336,10 +327,8 @@ class LoginApp:
         self.info_frame.grid()
         self.logout_btn.grid()
         self.update_union_btn.grid()
+        self.update_nikke_btn.grid()
         self.nikke_frame.grid()
-        self.download_nikke_btn.grid()
-        self.batch_download_nikke_btn.grid()
-        self.upload_nikke_btn.grid()
         self.upload_sync_btn.grid()
         self.manage_cloud_account_btn_logged.grid()
         self.manage_sheet_btn_logged.grid()
@@ -410,17 +399,16 @@ class LoginApp:
             from .gui.union_raid_update import start_union_raid_update
             start_union_raid_update(self, mode, month)
 
-    def _on_download_nikke(self) -> None:
-        start_download_nikke(self)
-
-    def _on_batch_download_nikke(self) -> None:
-        open_batch_download_nikke(self)
+    def _on_update_nikke(self) -> None:
+        from .gui.dialogs.nikke_update import open_nikke_update_dialog
+        result = open_nikke_update_dialog(self.root)
+        if result:
+            mode = result.get("mode")
+            from .gui.nikke_update import start_nikke_update
+            start_nikke_update(self, mode)
 
     def _on_upload_sheet(self) -> None:
         open_upload_union_dialog(self)
-
-    def _on_upload_nikke(self) -> None:
-        open_upload_nikke_dialog(self)
 
     def _open_manage_accounts(self) -> None:
         selected = choose_or_manage_accounts(self.root, self.accounts)
@@ -468,7 +456,7 @@ class LoginApp:
         self.info_frame.grid_remove()
         self.sep_nikke.grid_remove()
         self.nikke_frame.grid_remove()
-        self.update_union_btn.grid_remove()
+        self.update_nikke_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
         self.logout_btn.grid_remove()
