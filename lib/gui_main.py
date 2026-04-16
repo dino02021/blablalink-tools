@@ -180,10 +180,8 @@ class LoginApp:
         info_frame.columnconfigure(4, weight=0)
         info_frame.columnconfigure(5, weight=0)
         self.info_frame = info_frame
-        self.download_union_btn = ttk.Button(info_frame, text="下載聯盟突襲資料", command=self._on_download_union)
-        self.download_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
-        self.upload_sheet_btn = ttk.Button(info_frame, text="上傳聯盟突襲資料", command=self._on_upload_sheet)
-        self.upload_sheet_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
+        self.update_union_btn = ttk.Button(info_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
+        self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.manage_cloud_account_btn_logged = ttk.Button(
             info_frame,
             text="管理雲端帳號",
@@ -404,6 +402,14 @@ class LoginApp:
     # ------------------------------------------------------------
     def _on_download_union(self) -> None:
         start_download_union(self)
+
+    def _on_update_union_raid(self) -> None:
+        from .gui.dialogs.union_raid_update import open_union_raid_update_dialog
+        result = open_union_raid_update_dialog(self.root)
+        if result:
+            mode = result.get("mode")
+            from .gui.union_raid_update import start_union_raid_update
+            start_union_raid_update(self, mode)
 
     def _on_download_nikke(self) -> None:
         start_download_nikke(self)
