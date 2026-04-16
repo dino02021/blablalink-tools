@@ -1,4 +1,4 @@
-// Cloudflare Workers Scheduler - Auto-deployed
+// Cloudflare Workers Scheduler - Auto-deployed (v1.1)
 const DEFAULT_TIMEZONE = "Asia/Taipei"
 const DEFAULT_REF = "main"
 const DEFAULT_CONFIG_PATH = ".github/runtime/scheduler_config.json"
