@@ -1,5 +1,6 @@
 name = "blablalink-scheduler"
 main = "src/index.js"
+account_id = "1686d5441104846eb27dddca026821a1"
 compatibility_date = "2026-04-15"
 workers_dev = true
 
