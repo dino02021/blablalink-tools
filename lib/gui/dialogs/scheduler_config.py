@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import tkinter as tk
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -36,13 +37,13 @@ SCHEDULER_CONFIG_PATH = Path(__file__).parent.parent.parent.parent / ".github" /
 
 def open_scheduler_config_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     """開啟排程設定對話框。"""
-    dlg = create_dialog(parent, "排程設定", 360, 220)
+    dlg = create_dialog(parent, "排程設定", 360, 170)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
     
-    # 讀取雲端設定作為預設值
-    current_date, current_month = _load_current_config()
+    # 使用本地預設值，避免對話框出現延遲
+    current_date, current_month = _get_default_date(), _get_default_month(_get_default_date())
 
     # 日期與月份輸入框
     entry_frame = create_entry_frame(frame, row=0, column=0)
@@ -56,7 +57,14 @@ def open_scheduler_config_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     month_var = tk.StringVar(value=current_month)
     create_entry(entry_frame, month_var, row=1, column=1, sticky="ew")
 
-    date_var.trace("w", lambda *args: _on_date_change(date_var, month_var))
+    # 用 flag 控制是否執行自動月份更新
+    is_updating_from_cloud = tk.BooleanVar(value=False)
+    
+    def _on_date_change_with_flag(*args: Any) -> None:
+        if not is_updating_from_cloud.get():
+            _on_date_change(date_var, month_var)
+    
+    date_var.trace("w", _on_date_change_with_flag)
 
     # 按鈕框架
     btn_frame = create_btn_frame(frame, row=1, column=0)
@@ -73,6 +81,20 @@ def open_scheduler_config_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
 
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
+    
+    # 背景執行緒抓取雲端預設值
+    def _fetch_cloud_defaults() -> None:
+        cloud_date, cloud_month = _load_current_config()
+        # 在主執行緒中安全地更新值
+        if dlg.winfo_exists():
+            is_updating_from_cloud.set(True)
+            dlg.after(0, lambda: date_var.set(cloud_date) if dlg.winfo_exists() else None)
+            dlg.after(10, lambda: month_var.set(cloud_month) if dlg.winfo_exists() else None)
+            dlg.after(20, lambda: is_updating_from_cloud.set(False) if dlg.winfo_exists() else None)
+    
+    thread = threading.Thread(target=_fetch_cloud_defaults, daemon=True)
+    thread.start()
+    
     dlg.wait_window(dlg)
     
     return result if result["ok"] else None
@@ -85,25 +107,30 @@ def _on_date_change(date_var: tk.StringVar, month_var: tk.StringVar) -> None:
         month_var.set(_get_default_month(date_str))
 
 
-def _handle_save(date_var: tk.StringVar, month_var: tk.StringVar, result: Dict[str, Any], dlg: tk.Toplevel) -> None:
+def _handle_save(date_var: tk.StringVar, month_var: tk.StringVar, result: Dict[str, Any], dlg: tk.Toplevel, status_var: tk.StringVar, status_label: ttk.Label) -> None:
     """處理保存邏輯。"""
     date_str = date_var.get().strip()
     month_str = month_var.get().strip()
 
+    # 驗證邏輯，錯誤顯示在 status_label 而非 messagebox
     if not date_str:
-        messagebox.showerror("錯誤", "請輸入執行日期")
+        status_var.set("請輸入執行日期")
+        status_label.configure(foreground="red")
         return
 
     if not month_str:
-        messagebox.showerror("錯誤", "請輸入上傳月份")
+        status_var.set("請輸入上傳月份")
+        status_label.configure(foreground="red")
         return
 
     if not _validate_date(date_str):
-        messagebox.showerror("錯誤", "日期格式錯誤，請使用 YYYY-MM-DD")
+        status_var.set("日期格式錯誤，請使用 YYYY-MM-DD")
+        status_label.configure(foreground="red")
         return
 
     if not _validate_month(month_str):
-        messagebox.showerror("錯誤", "月份格式錯誤，請使用 YYYY/MM")
+        status_var.set("月份格式錯誤，請使用 YYYY/MM")
+        status_label.configure(foreground="red")
         return
 
     if _update_scheduler_config(date_str, month_str):
@@ -111,21 +138,30 @@ def _handle_save(date_var: tk.StringVar, month_var: tk.StringVar, result: Dict[s
         result["message"] = f"排程已更新: {date_str}"
         close_dialog(dlg)
     else:
-        messagebox.showerror("錯誤", "無法更新排程設定檔")
+        status_var.set("無法更新排程設定檔")
+        status_label.configure(foreground="red")
 
 
 def _load_current_config() -> tuple[str, str]:
-    """從 scheduler_config.json 讀取當前的 start_date 和 month。"""
-    try:
-        if not SCHEDULER_CONFIG_PATH.exists():
-            return _get_default_date(), _get_default_month(_get_default_date())
-
-        config = json.loads(SCHEDULER_CONFIG_PATH.read_text(encoding="utf-8"))
+    """從雲端 GitHub 讀取當前的 start_date 和 month。"""
+    # 先嘗試從雲端讀取
+    config = _fetch_scheduler_config_from_github()
+    if config:
         for job in config.get("jobs", []):
             if job.get("name") == "union_raid_pipeline_once":
                 start_date = job.get("start_date", _get_default_date())
                 month = job.get("inputs", {}).get("month", _get_default_month(start_date))
                 return start_date, month
+    
+    # 若雲端無法讀取，再試本地
+    try:
+        if SCHEDULER_CONFIG_PATH.exists():
+            config = json.loads(SCHEDULER_CONFIG_PATH.read_text(encoding="utf-8"))
+            for job in config.get("jobs", []):
+                if job.get("name") == "union_raid_pipeline_once":
+                    start_date = job.get("start_date", _get_default_date())
+                    month = job.get("inputs", {}).get("month", _get_default_month(start_date))
+                    return start_date, month
     except Exception:
         pass
     
@@ -215,10 +251,45 @@ def _get_github_token() -> str:
             capture_output=True,
             text=True,
             check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         return str(result.stdout or "").strip() if result.returncode == 0 else ""
     except Exception:
         return ""
+
+
+def _fetch_scheduler_config_from_github() -> Optional[dict]:
+    """從 GitHub 雲端讀取 scheduler_config.json。"""
+    try:
+        repo = _get_git_remote()
+        if not repo:
+            return None
+
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=PROJECT_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            )
+            branch = result.stdout.strip() if result.returncode == 0 else "main"
+        except Exception:
+            branch = "main"
+
+        url = f"https://api.github.com/repos/{repo}/contents/.github/runtime/scheduler_config.json?ref={branch}"
+        response = _request_json(url)
+        
+        # GitHub API 返回的內容是 base64 編碼的
+        if "content" in response:
+            content_b64 = str(response["content"]).replace("\n", "")
+            content = base64.b64decode(content_b64).decode("utf-8")
+            return json.loads(content)
+        return None
+    except Exception as exc:
+        log_exc(exc)
+        return None
 
 
 def _get_git_remote() -> Optional[str]:
@@ -230,6 +301,7 @@ def _get_git_remote() -> Optional[str]:
             capture_output=True,
             text=True,
             check=False,
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
         )
         if result.returncode != 0:
             return None
@@ -288,6 +360,7 @@ def _push_to_github(rel_path: str, content: str) -> bool:
                 capture_output=True,
                 text=True,
                 check=False,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
             )
             branch = result.stdout.strip() if result.returncode == 0 else "main"
         except Exception:
