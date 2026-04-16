@@ -146,8 +146,12 @@ function normalizeJob(rawJob) {
   
   let startDate = ""
   let endDate = ""
-  const intervalMinutes = 5
+  let intervalMinutes = 5
   if (type === "interval") {
+    intervalMinutes = Number(rawJob.interval_minutes || 5)
+    if (isNaN(intervalMinutes) || intervalMinutes < 1) {
+      intervalMinutes = 5
+    }
     startDate = parseDate(rawJob.start_date, name)
     const [year, month, day] = startDate.split("-").map(Number)
     const nextDay = new Date(year, month - 1, day + 1)
