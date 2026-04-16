@@ -1,0 +1,12 @@
+{
+  "name": "blablalink-scheduler",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers scheduler for BlaBlaLinkTool",
+  "main": "src/index.js",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.82.2"
+  }
+}
