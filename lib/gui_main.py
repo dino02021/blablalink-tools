@@ -221,27 +221,21 @@ class LoginApp:
         nikke_status_frame = ttk.Frame(nikke_frame)
         nikke_status_frame.grid(row=1, column=0, sticky="ew", pady=(gap // 2, 0))
         nikke_status_frame.columnconfigure(0, weight=1)
-        nikke_status_frame.columnconfigure(1, weight=1)
         self.nikke_status_frame = nikke_status_frame
 
-        self.union_status_var = tk.StringVar(value="")
-        self.union_status_label = ttk.Label(
+        self.action_status_var = tk.StringVar(value="")
+        self.action_status_label = ttk.Label(
             nikke_status_frame,
-            textvariable=self.union_status_var,
+            textvariable=self.action_status_var,
             foreground="green",
             anchor="w",
             justify="left",
         )
-        self.union_status_label.grid(row=0, column=0, sticky="w")
-        self.nikke_status_var = tk.StringVar(value="")
-        self.nikke_status_label = ttk.Label(
-            nikke_status_frame,
-            textvariable=self.nikke_status_var,
-            foreground="green",
-            anchor="w",
-            justify="left",
-        )
-        self.nikke_status_label.grid(row=0, column=1, sticky="w", padx=(gap, 0))
+        self.action_status_label.grid(row=0, column=0, sticky="w")
+        self.union_status_var = self.action_status_var
+        self.nikke_status_var = self.action_status_var
+        self.union_status_label = self.action_status_label
+        self.nikke_status_label = self.action_status_label
         self.logout_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
@@ -319,8 +313,8 @@ class LoginApp:
         self.status_label.configure(foreground=color)
 
     def _set_nikke_status(self, text: str, color: str = "green"):
-        self.nikke_status_var.set(text)
-        self.nikke_status_label.configure(foreground=color)
+        self.action_status_var.set(text)
+        self.action_status_label.configure(foreground=color)
 
     def _iter_main_buttons(self):
         return [
