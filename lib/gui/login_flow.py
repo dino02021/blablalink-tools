@@ -20,9 +20,7 @@ def start_login(app) -> None:
         return
 
     app._set_status("登入中...", "green")
-    app.manage_btn.config(state="disabled")
-    app.manage_sheet_btn.config(state="disabled")
-    app.login_btn.config(state="disabled")
+    app._set_busy(True)
     threading.Thread(target=_login_worker, args=(app, username, password), daemon=True).start()
 
 

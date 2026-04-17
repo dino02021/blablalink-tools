@@ -24,7 +24,7 @@ def start_nikke_update(app: gui_main.App, mode: str) -> None:
 
     app._set_nikke_status("正在更新練度資料表...", "green")
     app.nikke_status_label.configure(foreground="green")
-    app.update_nikke_btn.config(state="disabled")
+    app._set_busy(True)
     
     threading.Thread(target=_update_worker, args=(app, mode), daemon=True).start()
 
@@ -148,7 +148,7 @@ def _process_all_accounts(app) -> None:
 
 def _finish_update(app, ok: bool, msg: str) -> None:
     """完成更新，更新 UI 狀態。"""
-    app.update_nikke_btn.config(state="normal")
+    app._set_busy(False)
     if ok:
         app._set_nikke_status("練度資料表更新成功", "green")
         app.nikke_status_var.set(msg or "更新成功")

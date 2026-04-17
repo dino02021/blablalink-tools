@@ -24,7 +24,7 @@ def start_union_raid_update(app: gui_main.App, mode: str, month: str) -> None:
 
     app._set_status("正在更新聯盟突襲傷害表...", "green")
     app.union_status_var.set("")
-    app.update_union_btn.config(state="disabled")
+    app._set_busy(True)
     
     threading.Thread(target=_update_worker, args=(app, mode, month), daemon=True).start()
 
@@ -120,7 +120,7 @@ def _process_all_accounts(app, month: str) -> None:
 
 def _finish_update(app, ok: bool, msg: str) -> None:
     """完成更新，更新 UI 狀態。"""
-    app.update_union_btn.config(state="normal")
+    app._set_busy(False)
     if ok:
         app._set_status("聯盟突襲傷害表更新成功", "green")
         app.union_status_var.set(msg or "更新成功")

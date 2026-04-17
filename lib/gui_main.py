@@ -83,6 +83,7 @@ class LoginApp:
         self._last_role_name = None
         self._last_role_id = None
         self._last_slug = None
+        self._is_busy = False
 
         self._build_ui()
 
@@ -172,26 +173,25 @@ class LoginApp:
         info_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(gap, gap), pady=(gap, gap))
         info_frame.columnconfigure(0, weight=0)
         info_frame.columnconfigure(1, weight=0)
-        info_frame.columnconfigure(2, weight=1)  # 中間留彈性空間
+        info_frame.columnconfigure(2, weight=0)
         info_frame.columnconfigure(3, weight=0)
-        info_frame.columnconfigure(4, weight=0)
+        info_frame.columnconfigure(4, weight=1)
         info_frame.columnconfigure(5, weight=0)
         self.info_frame = info_frame
-        self.update_union_btn = ttk.Button(info_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
-        self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.manage_cloud_account_btn_logged = ttk.Button(
             info_frame,
             text="管理雲端帳號",
             command=self._open_manage_cloud_accounts,
         )
-        self.manage_cloud_account_btn_logged.grid(row=0, column=3, sticky="e", padx=(0, gap))
+        self.manage_cloud_account_btn_logged.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.manage_sheet_btn_logged = ttk.Button(info_frame, text="管理試算表", command=self._open_manage_sheets)
-        self.manage_sheet_btn_logged.grid(row=0, column=4, sticky="e", padx=(0, gap))
+        self.manage_sheet_btn_logged.grid(row=0, column=1, sticky="w", padx=(0, gap))
+        self.schedule_btn_logged = ttk.Button(info_frame, text="排程設定", command=self._open_scheduler_config)
+        self.schedule_btn_logged.grid(row=0, column=2, sticky="w", padx=(0, gap))
+        self.manage_btn_logged = ttk.Button(info_frame, text="選擇/管理帳號", command=self._open_manage_accounts)
+        self.manage_btn_logged.grid(row=0, column=3, sticky="w", padx=(0, gap))
         self.logout_btn = ttk.Button(info_frame, text="登出", command=self._on_logout)
         self.logout_btn.grid(row=0, column=5, sticky="e", padx=(0, 0))
-        self.union_status_var = tk.StringVar(value="")
-        self.union_status_label = ttk.Label(info_frame, textvariable=self.union_status_var, foreground="green", anchor="w", justify="left")
-        self.union_status_label.grid(row=3, column=0, columnspan=2, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
 
         # 分隔線
         self.sep_nikke = ttk.Separator(top, orient="horizontal")
@@ -202,20 +202,32 @@ class LoginApp:
         nikke_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
         nikke_frame.columnconfigure(0, weight=0)
         nikke_frame.columnconfigure(1, weight=0)
-        nikke_frame.columnconfigure(2, weight=0)
-        nikke_frame.columnconfigure(3, weight=1)
-        nikke_frame.columnconfigure(4, weight=0)
+        nikke_frame.columnconfigure(2, weight=1)
+        nikke_frame.columnconfigure(3, weight=0)
         self.nikke_frame = nikke_frame
+        self.update_union_btn = ttk.Button(nikke_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
+        self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.update_nikke_btn = ttk.Button(nikke_frame, text="更新練度資料表", command=self._on_update_nikke)
-        self.update_nikke_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
+        self.update_nikke_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
         self.upload_sync_btn = ttk.Button(nikke_frame, text="上傳同步", command=self._on_upload_sync)
-        self.upload_sync_btn.grid(row=0, column=4, sticky="e", padx=(0, 0))
+        self.upload_sync_btn.grid(row=0, column=3, sticky="e", padx=(0, 0))
+        self.union_status_var = tk.StringVar(value="")
+        self.union_status_label = ttk.Label(
+            nikke_frame,
+            textvariable=self.union_status_var,
+            foreground="green",
+            anchor="w",
+            justify="left",
+        )
+        self.union_status_label.grid(row=1, column=0, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
         self.nikke_status_var = tk.StringVar(value="")
         self.nikke_status_label = ttk.Label(nikke_frame, textvariable=self.nikke_status_var, foreground="green", anchor="w", justify="left")
-        self.nikke_status_label.grid(row=2, column=0, columnspan=2, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
+        self.nikke_status_label.grid(row=1, column=1, columnspan=3, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
         self.logout_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
+        self.schedule_btn_logged.grid_remove()
+        self.manage_btn_logged.grid_remove()
         self.update_union_btn.grid_remove()
         self.update_nikke_btn.grid_remove()
         self.upload_sync_btn.grid_remove()
@@ -291,6 +303,35 @@ class LoginApp:
         self.nikke_status_var.set(text)
         self.nikke_status_label.configure(foreground=color)
 
+    def _iter_main_buttons(self):
+        return [
+            self.manage_cloud_account_btn,
+            self.manage_sheet_btn,
+            self.schedule_btn,
+            self.manage_btn,
+            self.login_btn,
+            self.manage_cloud_account_btn_logged,
+            self.manage_sheet_btn_logged,
+            self.schedule_btn_logged,
+            self.manage_btn_logged,
+            self.update_union_btn,
+            self.update_nikke_btn,
+            self.upload_sync_btn,
+            self.logout_btn,
+        ]
+
+    def _set_busy(self, is_busy: bool) -> None:
+        self._is_busy = is_busy
+        self._refresh_button_states()
+
+    def _refresh_button_states(self) -> None:
+        disabled = "disabled" if self._is_busy else "normal"
+        for btn in self._iter_main_buttons():
+            try:
+                btn.config(state=disabled)
+            except Exception as exc:
+                log_exc(exc)
+
     def _run_coro_sync(self, coro_factory):
         """
         在子執行緒同步執行 coroutine，避免主 loop 衝突。
@@ -314,28 +355,25 @@ class LoginApp:
         start_login(self)
 
     def _reset_login_buttons(self):
-        self.login_btn.config(state="normal")
-        self.manage_btn.config(state="normal")
-        self.manage_cloud_account_btn.config(state="normal")
-        self.manage_sheet_btn.config(state="normal")
+        self._set_busy(False)
 
     def _on_login_success(self):
         self.status_var.set("")
         self.manage_btn.grid_remove()
         self.login_btn.grid_remove()
         self.manage_cloud_account_btn.grid_remove()
+        self.schedule_btn.grid_remove()
         self.info_frame.grid()
         self.logout_btn.grid()
-        self.update_union_btn.grid()
-        self.update_nikke_btn.grid()
-        self.nikke_frame.grid()
-        self.upload_sync_btn.grid()
         self.manage_cloud_account_btn_logged.grid()
         self.manage_sheet_btn_logged.grid()
+        self.schedule_btn_logged.grid()
+        self.manage_btn_logged.grid()
         self.manage_sheet_btn.grid_remove()
         self._set_nikke_status("", "green")
         self.union_status_var.set("")
         self._apply_layout(is_logged_in=True)
+        self._set_busy(False)
 
     def _trigger_fetch_function_names(self, username: str) -> None:
         """登入完成後異步取得 function_names，失敗不提示。"""
@@ -437,6 +475,8 @@ class LoginApp:
             self._set_status(result.get("message", "排程已更新"), "green")
 
     def _on_logout(self) -> None:
+        if self._is_busy:
+            return
         self._is_logged_in = False
         self._last_slug = None
         self._last_role_id = None
@@ -451,14 +491,18 @@ class LoginApp:
         self.manage_btn.grid()
         self.manage_cloud_account_btn.grid()
         self.manage_sheet_btn.grid()
+        self.schedule_btn.grid()
         self.login_btn.grid()
         self._reset_login_buttons()
         self.info_frame.grid_remove()
         self.sep_nikke.grid_remove()
         self.nikke_frame.grid_remove()
         self.update_nikke_btn.grid_remove()
+        self.update_union_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
+        self.schedule_btn_logged.grid_remove()
+        self.manage_btn_logged.grid_remove()
         self.logout_btn.grid_remove()
         self.nikke_status_var.set("")
         self._update_title()
@@ -468,7 +512,7 @@ class LoginApp:
             self._set_nikke_status("上傳同步失敗：尚未登入", "red")
             return
         self._set_nikke_status("上傳中...", "green")
-        self.upload_sync_btn.config(state="disabled")
+        self._set_busy(True)
         threading.Thread(target=self._upload_sync_worker, daemon=True).start()
 
     def _upload_sync_worker(self) -> None:
@@ -485,5 +529,5 @@ class LoginApp:
             self.root.after(0, lambda: self._finish_upload_sync(ok, message))
 
     def _finish_upload_sync(self, ok: bool, message: str) -> None:
-        self.upload_sync_btn.config(state="normal")
+        self._set_busy(False)
         self._set_nikke_status(message, "green" if ok else "red")
