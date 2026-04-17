@@ -13,7 +13,7 @@ from .constants import (
     UNION_ACCOUNT_MAP_FILE,
     UNION_RAID_TYPE,
 )
-from .github_data_sync import write_data_text_and_sync_if_changed
+from .github_data_sync import read_cloud_data_json, write_data_text_and_sync_if_changed
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
@@ -140,11 +140,7 @@ def save_union_account_map(items: List[Dict[str, str]]) -> None:
 
 def load_nikkes_info() -> List[Dict[str, Any]]:
     """Read nikkes_info.json and return normalized rows."""
-    try:
-        raw_info = json.loads(NIKKES_INFO_FILE.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return []
+    raw_info = read_cloud_data_json(NIKKES_INFO_FILE, default=[])
 
     if not isinstance(raw_info, list):
         return []
@@ -172,11 +168,7 @@ def _build_name_lookup() -> Dict[int, str]:
 
 def load_healthcheck_members() -> List[Dict[str, Any]]:
     """Read nikke_healthcheck_members.json."""
-    try:
-        raw_items = json.loads(NIKKE_HEALTHCHECK_MEMBERS_FILE.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return []
+    raw_items = read_cloud_data_json(NIKKE_HEALTHCHECK_MEMBERS_FILE, default=[])
 
     if not isinstance(raw_items, list):
         return []
@@ -215,7 +207,6 @@ def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
         normalized.append({"name_code": name_code, "type": member_type})
 
     try:
-        NIKKE_HEALTHCHECK_MEMBERS_FILE.parent.mkdir(parents=True, exist_ok=True)
         write_data_text_and_sync_if_changed(
             NIKKE_HEALTHCHECK_MEMBERS_FILE,
             json.dumps(normalized, ensure_ascii=False, indent=2),

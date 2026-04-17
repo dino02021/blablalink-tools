@@ -8,6 +8,7 @@
 - 將 GUI 能使用的流程轉換為可重複利用的 headless 工作
 - 回傳穩定的 `JobResult` 物件
 - 保持路由與失敗規則存在於 Python，而非 shell 腳本
+- data 類靜態檔案必須直接從 `BlaBlaLinkTool-data` 讀寫，不使用本地 `data/` 目錄作為來源
 
 共用基礎：
 - [lib/jobs/common.py](../../lib/jobs/common.py)

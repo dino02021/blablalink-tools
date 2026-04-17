@@ -49,9 +49,10 @@ GUI 只負責互動與狀態顯示。
 - [lib/utils.py](../../lib/utils.py)：工具函式
 
 ### 資料與運行時
-- [lib/data_store.py](../../lib/data_store.py)：記憶體內資料管理與快取
+- [lib/data_store.py](../../lib/data_store.py)：資料讀寫與轉換；data 類檔案來源為雲端 GitHub repo
 - [lib/constants.py](../../lib/constants.py)：全域常數與配置
 - [lib/log.py](../../lib/log.py)：日誌工具
+- [lib/github_data_sync.py](../../lib/github_data_sync.py)：直接存取 `BlaBlaLinkTool-data` 的資料層
 - [.github/runtime/](../../.github/runtime/)：排程工作配置檔
 
 ### Google Sheets 整合

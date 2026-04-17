@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Cloud sync helpers for public data files stored in GitHub."""
+"""Direct GitHub-backed data access helpers for public data files."""
 
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 import os
 import shutil
 import subprocess
-import threading
-import time
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 from urllib import error, request
@@ -20,7 +17,6 @@ from .constants import (
     NIKKE_HEALTHCHECK_MEMBERS_FILE,
     NIKKES_INFO_FILE,
     NIKKES_NICKNAME_FILE,
-    PROJECT_ROOT,
 )
 from .log import log_exc, log_msg
 
@@ -33,20 +29,10 @@ DATA_FILE_MAP: Dict[Path, str] = {
     NIKKE_HEALTHCHECK_MEMBERS_FILE.resolve(): "data/nikke_healthcheck_members.json",
 }
 
-_watcher_lock = threading.Lock()
-_watcher_started = False
-_known_hashes: Dict[Path, Optional[str]] = {}
-_pending_push_lock = threading.Lock()
-_pending_push_threads: set[threading.Thread] = set()
-_cached_github_token: Optional[str] = None
-_github_token_lock = threading.Lock()
-
 
 def _cloud_repo() -> str:
     value = str(os.getenv("BLABLALINK_CLOUD_DATA_REPO", "")).strip()
-    if value:
-        return value
-    return DEFAULT_CLOUD_DATA_REPO
+    return value or DEFAULT_CLOUD_DATA_REPO
 
 
 def _cloud_branch() -> str:
@@ -58,25 +44,6 @@ def _cloud_enabled() -> bool:
     return raw not in {"0", "false", "no", "off"}
 
 
-def _file_hash_from_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _write_text_exact(path: Path, content: str, encoding: str = "utf-8") -> None:
-    with path.open("w", encoding=encoding, newline="") as handle:
-        handle.write(content)
-
-
-def _read_text_if_exists(path: Path, encoding: str = "utf-8") -> Optional[str]:
-    try:
-        if not path.exists():
-            return None
-        return path.read_text(encoding=encoding)
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return None
-
-
 def _subprocess_run_kwargs() -> dict:
     kwargs: dict = {}
     if os.name == "nt":
@@ -85,15 +52,10 @@ def _subprocess_run_kwargs() -> dict:
 
 
 def _github_token() -> str:
-    global _cached_github_token
     for key in ("BLABLALINK_CLOUD_DATA_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
         value = str(os.getenv(key, "")).strip()
         if value:
             return value
-
-    with _github_token_lock:
-        if _cached_github_token is not None:
-            return _cached_github_token
 
     gh_path = shutil.which("gh")
     if not gh_path:
@@ -112,10 +74,7 @@ def _github_token() -> str:
 
     if result.returncode != 0:
         return ""
-    token = str(result.stdout or "").strip()
-    with _github_token_lock:
-        _cached_github_token = token
-    return token
+    return str(result.stdout or "").strip()
 
 
 def _request_json(url: str, method: str = "GET", body: object | None = None, auth_required: bool = False) -> dict:
@@ -140,16 +99,28 @@ def _request_json(url: str, method: str = "GET", body: object | None = None, aut
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _fetch_remote_file(path: Path) -> Optional[str]:
-    rel = DATA_FILE_MAP.get(path.resolve(), "")
-    if not rel:
-        return None
+def _resolve_repo_path(path_or_rel: Path | str) -> str:
+    if isinstance(path_or_rel, Path):
+        resolved = path_or_rel.resolve()
+        rel = DATA_FILE_MAP.get(resolved, "")
+        if not rel:
+            raise ValueError(f"Unsupported cloud data path: {path_or_rel}")
+        return rel
+    text = str(path_or_rel or "").strip()
+    if not text:
+        raise ValueError("Cloud data path is empty")
+    return text
 
+
+def _contents_url(rel_path: str) -> str:
     repo = _cloud_repo()
     branch = _cloud_branch()
-    url = f"https://api.github.com/repos/{repo}/contents/{rel}?ref={branch}"
+    return f"https://api.github.com/repos/{repo}/contents/{rel_path}?ref={branch}"
+
+
+def _fetch_remote_payload(rel_path: str) -> Optional[dict]:
     try:
-        payload = _request_json(url)
+        return _request_json(_contents_url(rel_path))
     except error.HTTPError as exc:
         if exc.code == 404:
             return None
@@ -159,164 +130,91 @@ def _fetch_remote_file(path: Path) -> Optional[str]:
         log_exc(exc)
         return None
 
+
+def read_cloud_data_text(path_or_rel: Path | str, encoding: str = "utf-8") -> Optional[str]:
+    if not _cloud_enabled():
+        return None
+    rel_path = _resolve_repo_path(path_or_rel)
+    payload = _fetch_remote_payload(rel_path)
+    if not payload:
+        return None
     content = str(payload.get("content", "") or "").replace("\n", "").strip()
     if not content:
-        return None
+        return ""
     try:
-        return base64.b64decode(content.encode("utf-8")).decode("utf-8")
+        return base64.b64decode(content.encode("utf-8")).decode(encoding)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return None
 
 
-def pull_cloud_data_files(paths: Iterable[Path] | None = None) -> None:
+def read_cloud_data_json(path_or_rel: Path | str, default: object | None = None) -> object | None:
+    text = read_cloud_data_text(path_or_rel, encoding="utf-8")
+    if text is None:
+        return default
+    try:
+        return json.loads(text)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return default
+
+
+def cloud_data_exists(path_or_rel: Path | str) -> bool:
     if not _cloud_enabled():
-        return
-
-    targets = list(paths) if paths is not None else list(DATA_FILE_MAP.keys())
-    for raw_path in targets:
-        path = raw_path.resolve()
-        rel = DATA_FILE_MAP.get(path, "")
-        if not rel:
-            continue
-        remote_text = _fetch_remote_file(path)
-        if remote_text is None:
-            continue
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            _write_text_exact(path, remote_text, encoding="utf-8")
-            _known_hashes[path] = _file_hash_from_text(remote_text)
-            log_msg(f"github data pulled: repo={_cloud_repo()} branch={_cloud_branch()} path={rel}")
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
+        return False
+    rel_path = _resolve_repo_path(path_or_rel)
+    return _fetch_remote_payload(rel_path) is not None
 
 
-def _push_data_file(path: Path, content: str) -> None:
-    rel = DATA_FILE_MAP.get(path.resolve(), "")
-    if not rel or not _cloud_enabled():
-        return
+def write_cloud_data_text(path_or_rel: Path | str, content: str, encoding: str = "utf-8") -> bool:
+    if not _cloud_enabled():
+        raise RuntimeError("Cloud data sync is disabled")
+
+    rel_path = _resolve_repo_path(path_or_rel)
+    existing_text = read_cloud_data_text(rel_path, encoding=encoding)
+    if existing_text == content:
+        return False
 
     repo = _cloud_repo()
     branch = _cloud_branch()
-    url = f"https://api.github.com/repos/{repo}/contents/{rel}"
-    sha = ""
-    try:
-        existing = _request_json(f"{url}?ref={branch}")
-        sha = str(existing.get("sha", "") or "").strip()
-    except error.HTTPError as exc:
-        if exc.code != 404:
-            raise
+    url = f"https://api.github.com/repos/{repo}/contents/{rel_path}"
 
-    payload = {
-        "message": f"Update {rel}",
-        "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+    sha = ""
+    payload = _fetch_remote_payload(rel_path)
+    if payload:
+        sha = str(payload.get("sha", "") or "").strip()
+
+    body = {
+        "message": f"Update {rel_path}",
+        "content": base64.b64encode(content.encode(encoding)).decode("ascii"),
         "branch": branch,
     }
     if sha:
-        payload["sha"] = sha
+        body["sha"] = sha
 
-    _request_json(url, method="PUT", body=payload, auth_required=True)
-    log_msg(f"github data pushed: repo={repo} branch={branch} path={rel}")
-
-
-def _push_data_file_worker(path: Path, content: str) -> None:
-    try:
-        _push_data_file(path, content)
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-    finally:
-        current = threading.current_thread()
-        with _pending_push_lock:
-            _pending_push_threads.discard(current)
-
-
-def schedule_data_sync_for_path(path: Path, content: str) -> None:
-    try:
-        resolved = path.resolve()
-    except Exception:
-        return
-    if resolved not in DATA_FILE_MAP:
-        return
-    try:
-        _known_hashes[resolved] = _file_hash_from_text(content)
-    except Exception:
-        pass
-    worker = threading.Thread(target=_push_data_file_worker, args=(resolved, content), daemon=True)
-    with _pending_push_lock:
-        _pending_push_threads.add(worker)
-    worker.start()
-
-
-def flush_cloud_data_sync(timeout_seconds: float = 60.0) -> None:
-    deadline = time.monotonic() + max(0.0, timeout_seconds)
-    while True:
-        with _pending_push_lock:
-            pending = [thread for thread in _pending_push_threads if thread.is_alive()]
-            _pending_push_threads.clear()
-            _pending_push_threads.update(pending)
-        if not pending:
-            return
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return
-        for thread in pending:
-            thread.join(timeout=max(0.0, min(1.0, remaining)))
-
-
-def write_data_text_and_sync_if_changed(path: Path, content: str, encoding: str = "utf-8") -> bool:
-    try:
-        existing = path.read_text(encoding=encoding) if path.exists() else None
-    except Exception:
-        existing = None
-
-    if existing == content:
-        return False
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_exact(path, content, encoding=encoding)
-    schedule_data_sync_for_path(path, content)
+    _request_json(url, method="PUT", body=body, auth_required=True)
+    log_msg(f"github data pushed directly: repo={repo} branch={branch} path={rel_path}")
     return True
 
 
-def _poll_data_files(interval_seconds: float) -> None:
-    while True:
-        try:
-            for raw_path in DATA_FILE_MAP.keys():
-                path = raw_path.resolve()
-                text = _read_text_if_exists(path)
-                current_hash = _file_hash_from_text(text) if text is not None else None
-                previous_hash = _known_hashes.get(path)
-                if path not in _known_hashes:
-                    _known_hashes[path] = current_hash
-                    continue
-                if current_hash == previous_hash:
-                    continue
-                _known_hashes[path] = current_hash
-                if text is None:
-                    continue
-                schedule_data_sync_for_path(path, text)
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-        time.sleep(interval_seconds)
+def write_data_text_and_sync_if_changed(path: Path | str, content: str, encoding: str = "utf-8") -> bool:
+    return write_cloud_data_text(path, content, encoding=encoding)
+
+
+def pull_cloud_data_files(paths: Iterable[Path] | None = None) -> None:
+    _ = paths
+    log_msg("pull_cloud_data_files skipped: data is read directly from GitHub")
+
+
+def schedule_data_sync_for_path(path: Path, content: str) -> None:
+    _ = (path, content)
+    log_msg("schedule_data_sync_for_path skipped: data writes go directly to GitHub")
+
+
+def flush_cloud_data_sync(timeout_seconds: float = 60.0) -> None:
+    _ = timeout_seconds
 
 
 def start_cloud_data_watcher(interval_seconds: float = 2.0) -> None:
-    global _watcher_started
-    if not _cloud_enabled():
-        return
-    with _watcher_lock:
-        if _watcher_started:
-            return
-        for raw_path in DATA_FILE_MAP.keys():
-            path = raw_path.resolve()
-            text = _read_text_if_exists(path)
-            _known_hashes[path] = _file_hash_from_text(text) if text is not None else None
-        threading.Thread(
-            target=_poll_data_files,
-            args=(interval_seconds,),
-            daemon=True,
-        ).start()
-        _watcher_started = True
-        log_msg(
-            f"github data watcher started: repo={_cloud_repo()} branch={_cloud_branch()} base={PROJECT_ROOT}"
-        )
+    _ = interval_seconds
+    log_msg("start_cloud_data_watcher skipped: data is read directly from GitHub")

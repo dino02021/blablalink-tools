@@ -4,7 +4,7 @@
 
 ### 1. 儲存庫靜態資料
 
-存放於 `data/`。
+實際來源為 `BlaBlaLinkTool-data` GitHub 儲存庫。
 
 重要檔案：
 - `nikkes_info.json`
@@ -16,6 +16,11 @@
 - Nikke 查詢表
 - 健檢名單設定
 - 角色詳情正規化
+
+規則：
+- 程式運行時不應直接依賴本地 `data/` 目錄
+- 讀取必須經由雲端資料層，直接從 `BlaBlaLinkTool-data` 取得
+- 寫入必須直接推送到 `BlaBlaLinkTool-data`
 
 ### 2. 運行時設定
 

@@ -50,8 +50,6 @@ from .constants import (
     LOG_PATH,
     SESSIONS_FILE,
     ACCOUNTS_FILE,
-    NIKKES_INFO_FILE,
-    FUNCTION_NAMES_FILE,
     GOOGLE_SHEETS_ID_FILE,
     CHAR_DETAILS_DIR,
     CHAR_DETAILS_TYPE,
@@ -92,8 +90,6 @@ class LoginApp:
         try:
             SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
             LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            NIKKES_INFO_FILE.parent.mkdir(parents=True, exist_ok=True)
-            FUNCTION_NAMES_FILE.parent.mkdir(parents=True, exist_ok=True)
             GOOGLE_SHEETS_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
             CHAR_DETAILS_DIR.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
@@ -101,10 +97,6 @@ class LoginApp:
 
         try:
             pull_cloud_data_files()
-        except Exception as exc:
-            log_exc(exc)
-
-        try:
             start_cloud_data_watcher()
         except Exception as exc:
             log_exc(exc)

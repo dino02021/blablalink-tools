@@ -5,7 +5,7 @@ import base64
 import json
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from .constants import ACCOUNTS_FILE, DATA_DIR, PASS_KEY, SESSIONS_FILE
+from .constants import ACCOUNTS_FILE, PASS_KEY, SESSIONS_FILE
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
@@ -99,7 +99,7 @@ def load_session(account: str) -> Optional[Dict[str, Any]]:
 def save_session(account: str, state_obj: Dict[str, Any]) -> None:
     """寫入 storage_state：同帳號會覆蓋舊資料，只存 cookies。"""
     try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return
@@ -165,7 +165,7 @@ def load_accounts() -> List[Dict[str, str]]:
 def save_accounts(accounts: List[Dict[str, str]]) -> None:
     """儲存帳號資料，密碼以 XOR 混淆後寫入。"""
     try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        ACCOUNTS_FILE.parent.mkdir(parents=True, exist_ok=True)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return
@@ -182,6 +182,10 @@ def save_accounts(accounts: List[Dict[str, str]]) -> None:
             }
         )
     try:
-        ACCOUNTS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_text_and_sync_if_changed(
+            ACCOUNTS_FILE,
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)

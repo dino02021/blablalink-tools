@@ -19,7 +19,6 @@ from .constants import (
     GUILDMEMBERS_URL,
     NIKKES_INFO_URL,
     FUNCTION_NAMES_URL,
-    DATA_DIR,
     NIKKES_INFO_FILE,
     FUNCTION_NAMES_FILE,
     UNION_RAID_TEMP_FILE,
@@ -281,7 +280,6 @@ async def fetch_nikkes_info(context: BrowserContext) -> bool:
             return False
 
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
             write_data_text_and_sync_if_changed(
                 NIKKES_INFO_FILE,
                 json.dumps(result, ensure_ascii=False, indent=2),
@@ -592,7 +590,6 @@ async def fetch_function_names(context: BrowserContext) -> bool:
             return False
 
         try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
             write_data_text_and_sync_if_changed(
                 FUNCTION_NAMES_FILE,
                 json.dumps(result, ensure_ascii=False, indent=2),

@@ -33,6 +33,7 @@ from ..layout import (
 )
 from ...jobs.union_raid_upload import run_union_raid_upload, resolve_union_sheet_target
 from ...constants import NIKKES_INFO_FILE, UNION_RAID_TEMP_FILE, UNION_WEB_APP_URL
+from ...github_data_sync import read_cloud_data_json
 from ...utils import col_letter
 from ...utils import load_session, run_with_session_context
 from ...google_sheets.auth import get_gspread_client
@@ -1040,13 +1041,7 @@ def _load_union_data(path: Optional[Path]) -> List[Dict[str, Any]]:
 
 
 def _load_nikke_id_map() -> Dict[int, str]:
-    if not NIKKES_INFO_FILE.exists():
-        return {}
-    try:
-        data = json.loads(NIKKES_INFO_FILE.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return {}
+    data = read_cloud_data_json(NIKKES_INFO_FILE, default=[])
     if not isinstance(data, list):
         return {}
     out: Dict[int, str] = {}
