@@ -93,7 +93,7 @@ Supported job types:
 - Starts at `start_date + time`
 - Runs for exactly 24 hours
 - Start time is inclusive
-- End time is exclusive
+- End time is inclusive
 
 ## Manual Preview
 

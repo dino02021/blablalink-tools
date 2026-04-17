@@ -147,7 +147,7 @@ function normalizeJob(rawJob) {
   let startDate = ""
   let endDate = ""
   let startDateTime = ""
-  let endDateTimeExclusive = ""
+  let endDateTimeInclusive = ""
   let intervalMinutes = 5
   if (type === "interval") {
     intervalMinutes = Number(rawJob.interval_minutes || 5)
@@ -157,7 +157,7 @@ function normalizeJob(rawJob) {
     startDate = parseDate(rawJob.start_date, name)
     endDate = addDaysToDateText(startDate, 1)
     startDateTime = `${startDate}T${time.text}:00`
-    endDateTimeExclusive = `${endDate}T${time.text}:00`
+    endDateTimeInclusive = `${endDate}T${time.text}:00`
   }
 
   return {
@@ -173,7 +173,7 @@ function normalizeJob(rawJob) {
     startDate,
     endDate,
     startDateTime,
-    endDateTimeExclusive,
+    endDateTimeInclusive,
     intervalMinutes,
   }
 }
@@ -264,7 +264,7 @@ function isJobDue(job, zoned) {
 
   if (job.type === "interval") {
     const currentDateTimeMinute = `${zoned.date}T${pad2(zoned.hour)}:${pad2(zoned.minute)}:00`
-    if (currentDateTimeMinute < job.startDateTime || currentDateTimeMinute >= job.endDateTimeExclusive) {
+    if (currentDateTimeMinute < job.startDateTime || currentDateTimeMinute > job.endDateTimeInclusive) {
       return false
     }
 
@@ -334,7 +334,7 @@ function summarizeJob(job) {
     summary.start_date = job.startDate
     summary.end_date = job.endDate
     summary.start_at = job.startDateTime
-    summary.end_at_exclusive = job.endDateTimeExclusive
+    summary.end_at_inclusive = job.endDateTimeInclusive
     summary.interval_minutes = job.intervalMinutes
     summary.timezone = "Asia/Taipei"
   }
