@@ -7,7 +7,6 @@ import argparse
 import json
 from typing import Callable
 
-from ..github_data_sync import flush_cloud_data_sync, pull_cloud_data_files
 from ..jobs.common import JobResult
 from ..jobs.nikke_batch_download import run_nikke_batch_download
 from ..jobs.nikke_pipeline import run_nikke_pipeline
@@ -83,7 +82,6 @@ def _emit_result(result: JobResult, as_json: bool) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    pull_cloud_data_files()
 
     fn: Callable[[], JobResult]
     if args.command == "union-raid-download":
@@ -134,10 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"Unknown command: {args.command}")
         return 2
 
-    try:
-        result = fn()
-    finally:
-        flush_cloud_data_sync()
+    result = fn()
     return _emit_result(result, args.as_json)
 
 

@@ -243,7 +243,7 @@ async def fetch_role_info(context: BrowserContext) -> Tuple[Optional[str], Optio
 
 
 async def fetch_nikkes_info(context: BrowserContext) -> bool:
-    """以 GET 取得 NIKKE 資訊並寫入 data/nikkes_info.json，成功回傳 True，其他狀況回傳 False。"""
+    """以 GET 取得 NIKKE 資訊並直接寫入雲端 data repo，成功回傳 True，其他狀況回傳 False。"""
     try:
         req = context.request
         resp = await req.get(NIKKES_INFO_URL)

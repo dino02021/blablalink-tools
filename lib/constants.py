@@ -11,7 +11,7 @@ from pathlib import Path
 # 路徑設定
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
-DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR = PROJECT_ROOT / "data"  # 僅作為雲端 data repo 的邏輯路徑鍵，不作為 runtime 本地來源
 LOG_DIR = PROJECT_ROOT / "logs"
 # 專門存放帳號 / Session 的設定資料夾（使用者文件目錄下）
 SETTINGS_DIR = Path.home() / "Documents" / "BlablalinkToolSettings"

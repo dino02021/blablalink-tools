@@ -21,6 +21,7 @@
 - 程式運行時不應直接依賴本地 `data/` 目錄
 - 讀取必須經由雲端資料層，直接從 `BlaBlaLinkTool-data` 取得
 - 寫入必須直接推送到 `BlaBlaLinkTool-data`
+- GUI 啟動與 CLI job 執行前不需要先同步本地 `data/`；資料會在實際讀取時直接向雲端抓取
 
 ### 2. 運行時設定
 
