@@ -172,6 +172,7 @@ CLI 入口點：
 - worker 必須保持配置驅動
 - 工作流檔案名稱是排程器使用的穩定識別符
 - 一次性聯盟突襲工作應表示為 `type=once` 或 `type=interval` 項目
+- `type=interval` 必須解讀為從 `start_date + time` 開始的 24 小時區間，終點為隔天同一時間且不包含終點
 
 ## 工作流開發規則
 

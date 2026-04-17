@@ -146,6 +146,8 @@ function normalizeJob(rawJob) {
   
   let startDate = ""
   let endDate = ""
+  let startDateTime = ""
+  let endDateTimeExclusive = ""
   let intervalMinutes = 5
   if (type === "interval") {
     intervalMinutes = Number(rawJob.interval_minutes || 5)
@@ -153,9 +155,9 @@ function normalizeJob(rawJob) {
       intervalMinutes = 5
     }
     startDate = parseDate(rawJob.start_date, name)
-    const [year, month, day] = startDate.split("-").map(Number)
-    const nextDay = new Date(year, month - 1, day + 1)
-    endDate = nextDay.toISOString().split("T")[0]
+    endDate = addDaysToDateText(startDate, 1)
+    startDateTime = `${startDate}T${time.text}:00`
+    endDateTimeExclusive = `${endDate}T${time.text}:00`
   }
 
   return {
@@ -170,6 +172,8 @@ function normalizeJob(rawJob) {
     date,
     startDate,
     endDate,
+    startDateTime,
+    endDateTimeExclusive,
     intervalMinutes,
   }
 }
@@ -259,32 +263,17 @@ function isJobDue(job, zoned) {
   }
 
   if (job.type === "interval") {
-    if (job.time.minute % job.intervalMinutes !== 0) {
-      return false
-    }
-    
-    const currentDate = zoned.date
-    const isDateInRange = currentDate >= job.startDate && currentDate <= job.endDate
-    if (!isDateInRange) {
+    const currentDateTimeMinute = `${zoned.date}T${pad2(zoned.hour)}:${pad2(zoned.minute)}:00`
+    if (currentDateTimeMinute < job.startDateTime || currentDateTimeMinute >= job.endDateTimeExclusive) {
       return false
     }
 
-    const startHour = job.time.hour
-    const currentHour = zoned.hour
-    const currentMinute = zoned.minute
-
-    let isTimeInRange = false
-    if (job.startDate === job.endDate) {
-      isTimeInRange = currentHour === startHour && currentMinute % job.intervalMinutes === 0
-    } else if (currentDate === job.startDate) {
-      isTimeInRange = currentHour >= startHour && currentMinute % job.intervalMinutes === 0
-    } else if (currentDate === job.endDate) {
-      isTimeInRange = currentHour <= startHour && currentMinute % job.intervalMinutes === 0
-    } else {
-      isTimeInRange = currentMinute % job.intervalMinutes === 0
+    const elapsedMinutes = diffMinutesBetweenDateTimes(job.startDateTime, currentDateTimeMinute)
+    if (elapsedMinutes < 0) {
+      return false
     }
 
-    return isTimeInRange
+    return elapsedMinutes % job.intervalMinutes === 0
   }
 
   return false
@@ -344,6 +333,8 @@ function summarizeJob(job) {
   if (job.type === "interval") {
     summary.start_date = job.startDate
     summary.end_date = job.endDate
+    summary.start_at = job.startDateTime
+    summary.end_at_exclusive = job.endDateTimeExclusive
     summary.interval_minutes = job.intervalMinutes
     summary.timezone = "Asia/Taipei"
   }
@@ -410,6 +401,31 @@ function requireEnv(env, key) {
     throw new Error(`Missing environment variable: ${key}`)
   }
   return value
+}
+
+function addDaysToDateText(dateText, days) {
+  const [year, month, day] = dateText.split("-").map(Number)
+  const utc = new Date(Date.UTC(year, month - 1, day + days))
+  return `${utc.getUTCFullYear()}-${pad2(utc.getUTCMonth() + 1)}-${pad2(utc.getUTCDate())}`
+}
+
+function diffMinutesBetweenDateTimes(startText, endText) {
+  const start = parseDateTimeText(startText)
+  const end = parseDateTimeText(endText)
+  return Math.floor((end.getTime() - start.getTime()) / 60000)
+}
+
+function parseDateTimeText(text) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(String(text || "").trim())
+  if (!match) {
+    throw new Error(`Invalid datetime text: ${text}`)
+  }
+  const [, year, month, day, hour, minute, second] = match
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second)))
+}
+
+function pad2(value) {
+  return String(value).padStart(2, "0")
 }
 
 function encodeURIComponentPath(path) {

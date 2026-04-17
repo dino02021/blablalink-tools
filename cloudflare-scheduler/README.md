@@ -56,6 +56,7 @@ You can edit it:
 Supported job types:
 - `daily`
 - `once`
+- `interval`
 
 `daily` fields:
 - `name`
@@ -76,6 +77,23 @@ Supported job types:
 - `workflow`
 - `ref`
 - `inputs`
+
+`interval` fields:
+- `name`
+- `enabled`
+- `type`
+- `start_date`
+- `time`
+- `interval_minutes`
+- `workflow`
+- `ref`
+- `inputs`
+
+`interval` semantics:
+- Starts at `start_date + time`
+- Runs for exactly 24 hours
+- Start time is inclusive
+- End time is exclusive
 
 ## Manual Preview
 
