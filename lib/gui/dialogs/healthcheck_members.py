@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
 from typing import Any, Dict, List, Optional
 
 from ..layout import (
@@ -31,6 +30,10 @@ from ...data_store import (
 
 ALL_FILTER = "全部"
 TYPE_VALUES = ["輸出", "輔助"]
+
+
+def _with_left_pad(values: List[str]) -> List[str]:
+    return [f" {str(value)}" for value in values]
 
 
 def open_healthcheck_members_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
@@ -164,8 +167,8 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
                 if str(item.get(field, "") or "").strip()
             }
         )
-        var = tk.StringVar(value=ALL_FILTER)
-        create_combobox(filter_frame, var, [ALL_FILTER] + values, row=row, column=1)
+        var = tk.StringVar(value=f" {ALL_FILTER}")
+        create_combobox(filter_frame, var, _with_left_pad([ALL_FILTER] + values), row=row, column=1)
         filter_vars[field] = var
 
     listbox = create_listbox(frame, row=1, column=0)
@@ -174,7 +177,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     type_frame.columnconfigure(1, weight=1)
     create_entry_label(type_frame, "Type:", row=0, column=0)
     type_var = tk.StringVar(value="")
-    create_combobox(type_frame, type_var, TYPE_VALUES, row=0, column=1)
+    create_combobox(type_frame, type_var, _with_left_pad(TYPE_VALUES), row=0, column=1)
 
     btn_frame = create_btn_frame(frame, row=3, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -271,8 +274,8 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
     name_entry.configure(state="readonly")
 
     create_entry_label(entry_frame, "Type", row=1, column=0)
-    type_var = tk.StringVar(value=str(row.get("type", "") or "").strip())
-    create_combobox(entry_frame, type_var, TYPE_VALUES, row=1, column=1)
+    type_var = tk.StringVar(value=f" {str(row.get('type', '') or '').strip()}")
+    create_combobox(entry_frame, type_var, _with_left_pad(TYPE_VALUES), row=1, column=1)
 
     btn_frame = create_btn_frame(frame, row=1, column=0)
     btn_frame.columnconfigure(0, weight=1)
