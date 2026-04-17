@@ -134,7 +134,7 @@ def open_healthcheck_members_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]
 
 def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     """Open add healthcheck member dialog."""
-    dlg = create_dialog(parent, "新增健檢妮姬", 520, 500)
+    dlg = create_dialog(parent, "新增健檢妮姬", 420, 560)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
@@ -144,7 +144,6 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
 
     filter_frame = create_entry_frame(frame, row=0, column=0)
     filter_frame.columnconfigure(1, weight=1)
-    filter_frame.columnconfigure(3, weight=1)
 
     filter_specs = [
         ("class", "Class"),
@@ -156,9 +155,8 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
 
     filter_vars: Dict[str, tk.StringVar] = {}
     for idx, (field, label_text) in enumerate(filter_specs):
-        row = idx // 2
-        col = (idx % 2) * 2
-        create_entry_label(filter_frame, label_text, row=row, column=col)
+        row = idx
+        create_entry_label(filter_frame, f"{label_text}:", row=row, column=0)
         values = sorted(
             {
                 str(item.get(field, "") or "").strip()
@@ -167,22 +165,23 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
             }
         )
         var = tk.StringVar(value=ALL_FILTER)
-        create_combobox(filter_frame, var, [ALL_FILTER] + values, row=row, column=col + 1)
+        create_combobox(filter_frame, var, [ALL_FILTER] + values, row=row, column=1)
         filter_vars[field] = var
-
-    type_row = (len(filter_specs) + 1) // 2
-    create_entry_label(filter_frame, "Type", row=type_row, column=0)
-    type_var = tk.StringVar(value="")
-    create_combobox(filter_frame, type_var, TYPE_VALUES, row=type_row, column=1)
 
     listbox = create_listbox(frame, row=1, column=0)
 
-    btn_frame = create_btn_frame(frame, row=2, column=0)
+    type_frame = create_entry_frame(frame, row=2, column=0)
+    type_frame.columnconfigure(1, weight=1)
+    create_entry_label(type_frame, "Type:", row=0, column=0)
+    type_var = tk.StringVar(value="")
+    create_combobox(type_frame, type_var, TYPE_VALUES, row=0, column=1)
+
+    btn_frame = create_btn_frame(frame, row=3, column=0)
     btn_frame.columnconfigure(0, weight=1)
     btn_frame.columnconfigure(1, weight=1)
 
     msg_var = tk.StringVar(value="")
-    msg_label = create_msg_label(frame, msg_var, row=3, column=0, sticky="w")
+    msg_label = create_msg_label(frame, msg_var, row=4, column=0, sticky="w")
     msg_label.configure(foreground="red", anchor="w", justify="left")
 
     state: Dict[str, Any] = {"rows": []}
