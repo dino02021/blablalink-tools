@@ -20,7 +20,7 @@ from ..layout import (
 
 def open_nikke_update_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     """開啟妮姬資料更新對話框。"""
-    dlg = create_dialog(parent, "更新練度資料表", 280, 100)
+    dlg = create_dialog(parent, "更新練度資料表", 280, 70)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
