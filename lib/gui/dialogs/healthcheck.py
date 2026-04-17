@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
 from typing import Any, Dict, Optional
 
 from ..layout import (
@@ -18,9 +17,10 @@ from ..layout import (
 from .healthcheck_members import open_healthcheck_members_dialog
 
 
-def open_healthcheck_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
+def open_healthcheck_dialog(app: Any) -> Optional[Dict[str, Any]]:
     """Open healthcheck management entry dialog."""
-    dlg = create_dialog(parent, "管理健檢表", 320, 120)
+    parent = app.root if hasattr(app, "root") else app
+    dlg = create_dialog(parent, "健檢管理", 320, 120)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
@@ -35,7 +35,7 @@ def open_healthcheck_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     result: Dict[str, Any] = {"ok": False, "message": ""}
 
     def _open_members() -> None:
-        sub_result = open_healthcheck_members_dialog(dlg)
+        sub_result = open_healthcheck_members_dialog(app, dlg)
         if not sub_result:
             return
         result["ok"] = True

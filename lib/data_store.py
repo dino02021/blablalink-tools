@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Helpers for runtime JSON-backed settings and lookup data."""
+"""Helpers for runtime JSON-backed settings and cloud data."""
 
 from __future__ import annotations
 
@@ -16,6 +16,15 @@ from .constants import (
 from .github_data_sync import read_cloud_data_json, write_data_text_and_sync_if_changed
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
+
+HEALTHCHECK_TYPE_VALUES = ("輸出", "輔助")
+ELEMENT_ZH_MAP = {
+    "Fire": "燃燒",
+    "Water": "水冷",
+    "Iron": "鐵甲",
+    "Wind": "風壓",
+    "Electronic": "電擊",
+}
 
 
 def load_sheets() -> Tuple[List[Dict[str, str]], List[str]]:
@@ -141,70 +150,100 @@ def save_union_account_map(items: List[Dict[str, str]]) -> None:
 def load_nikkes_info() -> List[Dict[str, Any]]:
     """Read nikkes_info.json and return normalized rows."""
     raw_info = read_cloud_data_json(NIKKES_INFO_FILE, default=[])
-
     if not isinstance(raw_info, list):
         return []
 
     result: List[Dict[str, Any]] = []
     for item in raw_info:
-        if not isinstance(item, dict):
-            continue
-        result.append(dict(item))
+        if isinstance(item, dict):
+            result.append(dict(item))
     return result
 
 
-def _build_name_lookup() -> Dict[int, str]:
-    lookup: Dict[int, str] = {}
+def _build_nikke_info_lookup() -> Dict[int, Dict[str, Any]]:
+    lookup: Dict[int, Dict[str, Any]] = {}
     for item in load_nikkes_info():
         try:
             name_code = int(item.get("name_code"))
         except Exception:
             continue
+        lookup[name_code] = item
+    return lookup
+
+
+def _build_name_lookup() -> Dict[int, str]:
+    lookup: Dict[int, str] = {}
+    for name_code, item in _build_nikke_info_lookup().items():
         name = str(item.get("name", "") or "").strip()
         if name:
             lookup[name_code] = name
     return lookup
 
 
-def load_healthcheck_members() -> List[Dict[str, Any]]:
-    """Read nikke_healthcheck_members.json."""
-    raw_items = read_cloud_data_json(NIKKE_HEALTHCHECK_MEMBERS_FILE, default=[])
+def translate_nikke_element(raw_element: Any) -> str:
+    text = str(raw_element or "").strip()
+    if not text:
+        return ""
+    return ELEMENT_ZH_MAP.get(text, text)
 
+
+def _normalize_healthcheck_member(
+    item: Dict[str, Any],
+    info_lookup: Dict[int, Dict[str, Any]],
+) -> Dict[str, Any] | None:
+    try:
+        name_code = int(item.get("name_code"))
+    except Exception:
+        return None
+
+    member_type = str(item.get("type", "") or "").strip()
+    if member_type not in HEALTHCHECK_TYPE_VALUES:
+        return None
+
+    info = info_lookup.get(name_code, {})
+    raw_element = str(item.get("element", "") or "").strip()
+    element = translate_nikke_element(raw_element or info.get("element"))
+    return {
+        "name_code": name_code,
+        "element": element,
+        "type": member_type,
+    }
+
+
+def load_healthcheck_members() -> List[Dict[str, Any]]:
+    """Read nikke_healthcheck_members.json from cloud data repo."""
+    raw_items = read_cloud_data_json(NIKKE_HEALTHCHECK_MEMBERS_FILE, default=[])
     if not isinstance(raw_items, list):
         return []
 
+    info_lookup = _build_nikke_info_lookup()
     result: List[Dict[str, Any]] = []
     for item in raw_items:
         if not isinstance(item, dict):
             continue
-        try:
-            name_code = int(item.get("name_code"))
-        except Exception:
+        normalized = _normalize_healthcheck_member(item, info_lookup)
+        if normalized is None:
             continue
-        member_type = str(item.get("type", "") or "").strip()
-        if member_type not in {"輸出", "輔助"}:
-            continue
-        result.append({"name_code": name_code, "type": member_type})
+        result.append(normalized)
     return result
 
 
 def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
     """Write nikke_healthcheck_members.json in normalized format."""
+    info_lookup = _build_nikke_info_lookup()
     normalized: List[Dict[str, Any]] = []
     seen: set[tuple[int, str]] = set()
     for item in items:
-        try:
-            name_code = int(item.get("name_code"))
-        except Exception:
+        if not isinstance(item, dict):
             continue
-        member_type = str(item.get("type", "") or "").strip()
-        if member_type not in {"輸出", "輔助"}:
+        normalized_item = _normalize_healthcheck_member(item, info_lookup)
+        if normalized_item is None:
             continue
-        key = (name_code, member_type)
+        key = (int(normalized_item["name_code"]), str(normalized_item["type"]))
         if key in seen:
             continue
         seen.add(key)
-        normalized.append({"name_code": name_code, "type": member_type})
+        normalized.append(normalized_item)
 
     try:
         write_data_text_and_sync_if_changed(
@@ -218,21 +257,42 @@ def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
 
 def load_healthcheck_display_items() -> List[Dict[str, Any]]:
     """Return display rows for healthcheck list dialogs."""
-    name_lookup = _build_name_lookup()
+    info_lookup = _build_nikke_info_lookup()
     result: List[Dict[str, Any]] = []
     for item in load_healthcheck_members():
         name_code = int(item["name_code"])
-        member_type = str(item["type"])
-        name = name_lookup.get(name_code) or f"未知角色({name_code})"
+        info = info_lookup.get(name_code, {})
+        name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
+        element = str(item.get("element", "") or "").strip()
+        member_type = str(item.get("type", "") or "").strip()
         result.append(
             {
                 "name_code": name_code,
-                "type": member_type,
                 "name": name,
+                "element": element,
+                "type": member_type,
                 "display": f"{name} | {member_type}",
             }
         )
     return result
+
+
+def build_healthcheck_upload_rows() -> List[Dict[str, str]]:
+    """Return normalized rows for healthcheck sheet upload."""
+    info_lookup = _build_nikke_info_lookup()
+    rows: List[Dict[str, str]] = []
+    for item in load_healthcheck_members():
+        name_code = int(item["name_code"])
+        info = info_lookup.get(name_code, {})
+        name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
+        rows.append(
+            {
+                "name": name,
+                "element": str(item.get("element", "") or "").strip(),
+                "type": str(item.get("type", "") or "").strip(),
+            }
+        )
+    return rows
 
 
 def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
@@ -242,7 +302,6 @@ def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
         return False, [], "nikke_healthcheck_members.json 格式錯誤、不存在或沒有可用資料"
 
     name_lookup = _build_name_lookup()
-
     seen_codes: set[int] = set()
     checklist_items: List[Tuple[int, str]] = []
     for item in raw_items:

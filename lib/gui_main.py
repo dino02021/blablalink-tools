@@ -202,7 +202,7 @@ class LoginApp:
         self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.update_nikke_btn = ttk.Button(nikke_btn_frame, text="更新練度資料表", command=self._on_update_nikke)
         self.update_nikke_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
-        self.manage_healthcheck_btn = ttk.Button(nikke_btn_frame, text="管理健檢表", command=self._open_manage_healthcheck)
+        self.manage_healthcheck_btn = ttk.Button(nikke_btn_frame, text="健檢管理", command=self._open_manage_healthcheck)
         self.manage_healthcheck_btn.grid(row=0, column=2, sticky="w", padx=(0, gap))
         self.upload_sync_btn = ttk.Button(nikke_btn_frame, text="上傳同步", command=self._on_upload_sync)
         self.upload_sync_btn.grid(row=0, column=4, sticky="e", padx=(0, 0))
@@ -483,9 +483,9 @@ class LoginApp:
             self._set_status(result.get("message", "排程已更新"), "green")
 
     def _open_manage_healthcheck(self) -> None:
-        result = open_healthcheck_dialog(self.root)
+        result = open_healthcheck_dialog(self)
         if result:
-            self._set_nikke_status(result.get("message", "健檢表已更新"), "green")
+            self._set_nikke_status(result.get("message", "健檢管理已更新"), "green")
 
     def _on_logout(self) -> None:
         if self._is_busy:

@@ -274,3 +274,31 @@
 - 雲端帳號設定教學
 - Token 建立教學
 - 手動操作檢查清單
+## 健檢管理補充規格
+
+- `nikke_healthcheck_members.json` 為唯一健檢妮姬來源，格式固定為：
+
+```json
+[
+  {
+    "name_code": 5007,
+    "element": "水冷",
+    "type": "輸出"
+  }
+]
+```
+
+- 欄位規則固定如下：
+  - `name_code`：妮姬 `name_code`
+  - `element`：由 `nikkes_info.json.element` 轉中文後存入，允許值固定為 `電擊`、`水冷`、`燃燒`、`風壓`、`鐵甲`
+  - `type`：允許值固定為 `輸出`、`輔助`
+- `prepare_checklist_items()` 下載前仍只按 `name_code` 去重，`element` / `type` 不參與下載決策。
+- 健檢名單上傳目標沿用既有 `type=CharacterDetails + union_id` 路由，不新增新的 sheet type。
+- 健檢名單同步寫入目標 worksheet 名稱固定為 `健檢名單`。
+- `健檢名單` worksheet 的欄位契約固定為：
+  - A：名稱
+  - B：屬性
+  - C：類型
+  - D：暱稱
+  - E：優先度
+- `BlaBlaLinkTool` 上傳時只維護 A-C；D/E 由試算表端沿用既有資料並跟隨整列搬移。
