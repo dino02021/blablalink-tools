@@ -197,32 +197,51 @@ class LoginApp:
         self.sep_nikke = ttk.Separator(top, orient="horizontal")
         self.sep_nikke.grid(row=1, column=0, columnspan=2, sticky="ew", padx=(0, gap), pady=(gap, gap))
 
-        # 妮姬按鈕區塊
+        # 妮姬按鈕與狀態區塊
         nikke_frame = ttk.Frame(top, padding=(gap, gap * 2, gap, gap // 2))
         nikke_frame.grid(row=2, column=0, columnspan=2, sticky="ew")
-        nikke_frame.columnconfigure(0, weight=0)
-        nikke_frame.columnconfigure(1, weight=0)
-        nikke_frame.columnconfigure(2, weight=1)
-        nikke_frame.columnconfigure(3, weight=0)
+        nikke_frame.columnconfigure(0, weight=1)
         self.nikke_frame = nikke_frame
-        self.update_union_btn = ttk.Button(nikke_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
+
+        nikke_btn_frame = ttk.Frame(nikke_frame)
+        nikke_btn_frame.grid(row=0, column=0, sticky="ew")
+        nikke_btn_frame.columnconfigure(0, weight=0)
+        nikke_btn_frame.columnconfigure(1, weight=0)
+        nikke_btn_frame.columnconfigure(2, weight=1)
+        nikke_btn_frame.columnconfigure(3, weight=0)
+        self.nikke_btn_frame = nikke_btn_frame
+
+        self.update_union_btn = ttk.Button(nikke_btn_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
         self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
-        self.update_nikke_btn = ttk.Button(nikke_frame, text="更新練度資料表", command=self._on_update_nikke)
+        self.update_nikke_btn = ttk.Button(nikke_btn_frame, text="更新練度資料表", command=self._on_update_nikke)
         self.update_nikke_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
-        self.upload_sync_btn = ttk.Button(nikke_frame, text="上傳同步", command=self._on_upload_sync)
+        self.upload_sync_btn = ttk.Button(nikke_btn_frame, text="上傳同步", command=self._on_upload_sync)
         self.upload_sync_btn.grid(row=0, column=3, sticky="e", padx=(0, 0))
+
+        nikke_status_frame = ttk.Frame(nikke_frame)
+        nikke_status_frame.grid(row=1, column=0, sticky="ew", pady=(gap // 2, 0))
+        nikke_status_frame.columnconfigure(0, weight=1)
+        nikke_status_frame.columnconfigure(1, weight=1)
+        self.nikke_status_frame = nikke_status_frame
+
         self.union_status_var = tk.StringVar(value="")
         self.union_status_label = ttk.Label(
-            nikke_frame,
+            nikke_status_frame,
             textvariable=self.union_status_var,
             foreground="green",
             anchor="w",
             justify="left",
         )
-        self.union_status_label.grid(row=1, column=0, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
+        self.union_status_label.grid(row=0, column=0, sticky="w")
         self.nikke_status_var = tk.StringVar(value="")
-        self.nikke_status_label = ttk.Label(nikke_frame, textvariable=self.nikke_status_var, foreground="green", anchor="w", justify="left")
-        self.nikke_status_label.grid(row=1, column=1, columnspan=3, sticky="w", padx=(0, gap), pady=(gap // 2, 0))
+        self.nikke_status_label = ttk.Label(
+            nikke_status_frame,
+            textvariable=self.nikke_status_var,
+            foreground="green",
+            anchor="w",
+            justify="left",
+        )
+        self.nikke_status_label.grid(row=0, column=1, sticky="w", padx=(gap, 0))
         self.logout_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
