@@ -10,11 +10,11 @@
 - `nikkes_info.json`
 - `nikkes_nickname.json`
 - `function_names.json`
-- `nikke_checklist_name_codes.json`
+- `nikke_healthcheck_members.json`
 
 用途：
 - Nikke 查詢表
-- 檢查清單準備
+- 健檢名單設定
 - 角色詳情正規化
 
 ### 2. 運行時設定
@@ -103,6 +103,33 @@
   {
     "union_id": "example-union-b",
     "username": "example-account-b"
+  }
+]
+```
+
+### `nikke_healthcheck_members.json`
+
+目的：
+- 定義健檢表使用的妮姬名單
+- 作為 Nikke 批次下載的 checklist 來源
+
+規則：
+- 每筆資料固定包含 `name_code` 與 `type`
+- `type` 只允許 `輸出` 或 `輔助`
+- 同一 `name_code + type` 不可重複
+- 下載流程目前只使用 `name_code`，不使用 `type` 參與路由
+
+例子：
+
+```json
+[
+  {
+    "name_code": 5007,
+    "type": "輸出"
+  },
+  {
+    "name_code": 5124,
+    "type": "輔助"
   }
 ]
 ```

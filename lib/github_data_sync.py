@@ -17,7 +17,7 @@ from urllib import error, request
 
 from .constants import (
     FUNCTION_NAMES_FILE,
-    NIKKE_CHECKLIST_NAME_CODES_FILE,
+    NIKKE_HEALTHCHECK_MEMBERS_FILE,
     NIKKES_INFO_FILE,
     NIKKES_NICKNAME_FILE,
     PROJECT_ROOT,
@@ -30,7 +30,7 @@ DATA_FILE_MAP: Dict[Path, str] = {
     NIKKES_INFO_FILE.resolve(): "data/nikkes_info.json",
     NIKKES_NICKNAME_FILE.resolve(): "data/nikkes_nickname.json",
     FUNCTION_NAMES_FILE.resolve(): "data/function_names.json",
-    NIKKE_CHECKLIST_NAME_CODES_FILE.resolve(): "data/nikke_checklist_name_codes.json",
+    NIKKE_HEALTHCHECK_MEMBERS_FILE.resolve(): "data/nikke_healthcheck_members.json",
 }
 
 _watcher_lock = threading.Lock()

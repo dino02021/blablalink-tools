@@ -52,7 +52,7 @@ GUI 不應負責：
 登入後主畫面採固定三段式：
 - 第一排放登入前即可使用的管理按鈕：`管理雲端帳號`、`管理試算表`、`排程設定`、`選擇/管理帳號`
 - 第一排最右側固定保留 `登出`
-- 第二排放主要工作按鈕，順序固定為 `更新聯盟突襲傷害表`、`更新練度資料表`、`上傳同步`
+- 第二排放主要工作按鈕，順序固定為 `更新聯盟突襲傷害表`、`更新練度資料表`、`管理健檢表`、`上傳同步`
 - 第三排只保留一個共用訊息欄位，所有登入後主流程按鈕都回寫到同一個狀態區
 - 第二排按鈕列與第三排訊息列必須使用獨立容器；狀態文字長度不得改變第二排按鈕位置
 
@@ -81,6 +81,8 @@ GUI 不應負責：
   直接依目前 account 的 `union_id` 路由到對應 `CharacterDetails` 試算表，不再先跳選擇視窗。
 - 上傳同步等級
   直接依 `guild_id -> CharacterDetails` 試算表路由。
+- 管理健檢表
+  透過對話框管理 `nikke_healthcheck_members.json`，支援健檢妮姬名單的新增、刪除與篩選。
 
 ### 管理對話框
 
@@ -88,6 +90,7 @@ GUI 不應負責：
 - [lib/gui/dialogs/accounts.py](../../lib/gui/dialogs/accounts.py)
 - [lib/gui/dialogs/sheets.py](../../lib/gui/dialogs/sheets.py)
 - [lib/gui/dialogs/union_account_map.py](../../lib/gui/dialogs/union_account_map.py)
+- `管理健檢表` 入口對話框與 `健檢妮姬名單` 對話框
 
 規則：
 - `sheet` 管理視窗新增試算表時，`union_id` 為必填欄位。

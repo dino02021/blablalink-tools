@@ -40,6 +40,7 @@ from .gui.dialogs.accounts import choose_or_manage_accounts
 from .gui.dialogs.sheets import manage_sheet_types, manage_sheets
 from .gui.dialogs.union_account_map import manage_union_account_map
 from .gui.dialogs.scheduler_config import open_scheduler_config_dialog
+from .gui.dialogs.healthcheck import open_healthcheck_dialog
 from .gui.dialogs.union_raid_upload import open_upload_union_dialog
 from .gui.union_raid_download import start_download_union
 from .gui.login_flow import start_login
@@ -207,16 +208,19 @@ class LoginApp:
         nikke_btn_frame.grid(row=0, column=0, sticky="ew")
         nikke_btn_frame.columnconfigure(0, weight=0)
         nikke_btn_frame.columnconfigure(1, weight=0)
-        nikke_btn_frame.columnconfigure(2, weight=1)
-        nikke_btn_frame.columnconfigure(3, weight=0)
+        nikke_btn_frame.columnconfigure(2, weight=0)
+        nikke_btn_frame.columnconfigure(3, weight=1)
+        nikke_btn_frame.columnconfigure(4, weight=0)
         self.nikke_btn_frame = nikke_btn_frame
 
         self.update_union_btn = ttk.Button(nikke_btn_frame, text="更新聯盟突襲傷害表", command=self._on_update_union_raid)
         self.update_union_btn.grid(row=0, column=0, sticky="w", padx=(0, gap))
         self.update_nikke_btn = ttk.Button(nikke_btn_frame, text="更新練度資料表", command=self._on_update_nikke)
         self.update_nikke_btn.grid(row=0, column=1, sticky="w", padx=(0, gap))
+        self.manage_healthcheck_btn = ttk.Button(nikke_btn_frame, text="管理健檢表", command=self._open_manage_healthcheck)
+        self.manage_healthcheck_btn.grid(row=0, column=2, sticky="w", padx=(0, gap))
         self.upload_sync_btn = ttk.Button(nikke_btn_frame, text="上傳同步", command=self._on_upload_sync)
-        self.upload_sync_btn.grid(row=0, column=3, sticky="e", padx=(0, 0))
+        self.upload_sync_btn.grid(row=0, column=4, sticky="e", padx=(0, 0))
 
         nikke_status_frame = ttk.Frame(nikke_frame)
         nikke_status_frame.grid(row=1, column=0, sticky="ew", pady=(gap // 2, 0))
@@ -243,6 +247,7 @@ class LoginApp:
         self.manage_btn_logged.grid_remove()
         self.update_union_btn.grid_remove()
         self.update_nikke_btn.grid_remove()
+        self.manage_healthcheck_btn.grid_remove()
         self.upload_sync_btn.grid_remove()
         self.info_frame.grid_remove()
         self.sep_nikke.grid_remove()
@@ -329,6 +334,7 @@ class LoginApp:
             self.manage_btn_logged,
             self.update_union_btn,
             self.update_nikke_btn,
+            self.manage_healthcheck_btn,
             self.upload_sync_btn,
             self.logout_btn,
         ]
@@ -385,6 +391,7 @@ class LoginApp:
         self.manage_sheet_btn.grid_remove()
         self.update_union_btn.grid()
         self.update_nikke_btn.grid()
+        self.manage_healthcheck_btn.grid()
         self.upload_sync_btn.grid()
         self._set_nikke_status("", "green")
         self.union_status_var.set("")
@@ -490,6 +497,11 @@ class LoginApp:
         if result:
             self._set_status(result.get("message", "排程已更新"), "green")
 
+    def _open_manage_healthcheck(self) -> None:
+        result = open_healthcheck_dialog(self.root)
+        if result:
+            self._set_nikke_status(result.get("message", "健檢表已更新"), "green")
+
     def _on_logout(self) -> None:
         if self._is_busy:
             return
@@ -515,6 +527,7 @@ class LoginApp:
         self.nikke_frame.grid_remove()
         self.update_nikke_btn.grid_remove()
         self.update_union_btn.grid_remove()
+        self.manage_healthcheck_btn.grid_remove()
         self.manage_cloud_account_btn_logged.grid_remove()
         self.manage_sheet_btn_logged.grid_remove()
         self.schedule_btn_logged.grid_remove()

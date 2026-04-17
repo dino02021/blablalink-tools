@@ -4,15 +4,16 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from .constants import (
     GOOGLE_SHEETS_ID_FILE,
-    NIKKE_CHECKLIST_NAME_CODES_FILE,
+    NIKKE_HEALTHCHECK_MEMBERS_FILE,
     NIKKES_INFO_FILE,
     UNION_ACCOUNT_MAP_FILE,
     UNION_RAID_TYPE,
 )
+from .github_data_sync import write_data_text_and_sync_if_changed
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
@@ -137,40 +138,129 @@ def save_union_account_map(items: List[Dict[str, str]]) -> None:
         log_exc(exc)
 
 
-def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
-    """Load checklist name_code values and map them to Nikke names."""
-    try:
-        raw_codes = json.loads(NIKKE_CHECKLIST_NAME_CODES_FILE.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        raw_codes = None
-
-    if not isinstance(raw_codes, list):
-        return False, [], "nikke_checklist_name_codes.json 格式錯誤或不存在"
-
-    name_lookup: Dict[str, str] = {}
+def load_nikkes_info() -> List[Dict[str, Any]]:
+    """Read nikkes_info.json and return normalized rows."""
     try:
         raw_info = json.loads(NIKKES_INFO_FILE.read_text(encoding="utf-8"))
-        if isinstance(raw_info, list):
-            for item in raw_info:
-                if not isinstance(item, dict):
-                    continue
-                name_code = item.get("name_code")
-                name = item.get("name")
-                if name_code is None or name is None:
-                    continue
-                name_lookup[str(name_code)] = str(name)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+
+    if not isinstance(raw_info, list):
+        return []
+
+    result: List[Dict[str, Any]] = []
+    for item in raw_info:
+        if not isinstance(item, dict):
+            continue
+        result.append(dict(item))
+    return result
+
+
+def _build_name_lookup() -> Dict[int, str]:
+    lookup: Dict[int, str] = {}
+    for item in load_nikkes_info():
+        try:
+            name_code = int(item.get("name_code"))
+        except Exception:
+            continue
+        name = str(item.get("name", "") or "").strip()
+        if name:
+            lookup[name_code] = name
+    return lookup
+
+
+def load_healthcheck_members() -> List[Dict[str, Any]]:
+    """Read nikke_healthcheck_members.json."""
+    try:
+        raw_items = json.loads(NIKKE_HEALTHCHECK_MEMBERS_FILE.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+
+    if not isinstance(raw_items, list):
+        return []
+
+    result: List[Dict[str, Any]] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            name_code = int(item.get("name_code"))
+        except Exception:
+            continue
+        member_type = str(item.get("type", "") or "").strip()
+        if member_type not in {"輸出", "輔助"}:
+            continue
+        result.append({"name_code": name_code, "type": member_type})
+    return result
+
+
+def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
+    """Write nikke_healthcheck_members.json in normalized format."""
+    normalized: List[Dict[str, Any]] = []
+    seen: set[tuple[int, str]] = set()
+    for item in items:
+        try:
+            name_code = int(item.get("name_code"))
+        except Exception:
+            continue
+        member_type = str(item.get("type", "") or "").strip()
+        if member_type not in {"輸出", "輔助"}:
+            continue
+        key = (name_code, member_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append({"name_code": name_code, "type": member_type})
+
+    try:
+        NIKKE_HEALTHCHECK_MEMBERS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        write_data_text_and_sync_if_changed(
+            NIKKE_HEALTHCHECK_MEMBERS_FILE,
+            json.dumps(normalized, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
 
+
+def load_healthcheck_display_items() -> List[Dict[str, Any]]:
+    """Return display rows for healthcheck list dialogs."""
+    name_lookup = _build_name_lookup()
+    result: List[Dict[str, Any]] = []
+    for item in load_healthcheck_members():
+        name_code = int(item["name_code"])
+        member_type = str(item["type"])
+        name = name_lookup.get(name_code) or f"未知角色({name_code})"
+        result.append(
+            {
+                "name_code": name_code,
+                "type": member_type,
+                "name": name,
+                "display": f"{name} | {member_type}",
+            }
+        )
+    return result
+
+
+def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
+    """Load healthcheck members and map to unique checklist items."""
+    raw_items = load_healthcheck_members()
+    if not raw_items:
+        return False, [], "nikke_healthcheck_members.json 格式錯誤、不存在或沒有可用資料"
+
+    name_lookup = _build_name_lookup()
+
+    seen_codes: set[int] = set()
     checklist_items: List[Tuple[int, str]] = []
-    for raw_code in raw_codes:
-        try:
-            name_code_int = int(raw_code)
-        except Exception:
+    for item in raw_items:
+        name_code_int = int(item["name_code"])
+        if name_code_int in seen_codes:
             continue
-        checklist_items.append((name_code_int, name_lookup.get(str(name_code_int), "")))
+        seen_codes.add(name_code_int)
+        checklist_items.append((name_code_int, name_lookup.get(name_code_int, "")))
 
     if not checklist_items:
-        return False, [], "nikke_checklist_name_codes.json 沒有可用的角色代碼"
+        return False, [], "nikke_healthcheck_members.json 沒有可用的角色代碼"
     return True, checklist_items, ""
