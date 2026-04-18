@@ -59,6 +59,15 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
 
     state: Dict[str, Any] = {"rows": []}
     result: Dict[str, Any] = {"ok": False, "message": ""}
+    action_buttons: List[tk.Widget] = []
+
+    def _set_dialog_busy(is_busy: bool) -> None:
+        new_state = "disabled" if is_busy else "normal"
+        for btn in action_buttons:
+            try:
+                btn.configure(state=new_state)
+            except Exception:
+                continue
 
     def _refresh() -> None:
         rows = load_healthcheck_display_items()
@@ -123,6 +132,7 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         _set_success("已刪除健檢妮姬")
 
     def _finish_upload(ok: bool, message: str) -> None:
+        _set_dialog_busy(False)
         try:
             app._set_busy(False)
         except Exception:
@@ -154,6 +164,7 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         if not slug:
             _set_error("請先登入")
             return
+        _set_dialog_busy(True)
         try:
             app._set_busy(True)
         except Exception:
@@ -162,10 +173,11 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         msg_label.configure(foreground="green")
         threading.Thread(target=_upload_worker, daemon=True).start()
 
-    create_btn_between(btn_frame, "新增", _on_add, row=0, column=0, sticky="we")
-    create_btn_between(btn_frame, "編輯", _on_edit, row=0, column=1, sticky="e")
-    create_btn_between(btn_frame, "刪除", _on_delete, row=0, column=2, sticky="e")
-    create_btn_last(btn_frame, "上傳妮姬名單", _on_upload, row=0, column=3, sticky="e")
+    add_btn = create_btn_between(btn_frame, "新增", _on_add, row=0, column=0, sticky="we")
+    edit_btn = create_btn_between(btn_frame, "編輯", _on_edit, row=0, column=1, sticky="e")
+    delete_btn = create_btn_between(btn_frame, "刪除", _on_delete, row=0, column=2, sticky="e")
+    upload_btn = create_btn_last(btn_frame, "上傳妮姬名單", _on_upload, row=0, column=3, sticky="e")
+    action_buttons.extend([add_btn, edit_btn, delete_btn, upload_btn])
 
     _refresh()
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
