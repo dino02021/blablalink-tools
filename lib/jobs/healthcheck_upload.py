@@ -141,31 +141,20 @@ def _get_merged_profile(ws, row: int, start_col: int) -> dict[str, Any]:
     return {"groups": groups, "labels": labels, "end_col": start_col + len(segment) - 1, "values": segment}
 
 
-def _find_insert_col(
+def _find_insert_col_after_previous(
     existing_names: list[str],
     existing_groups: list[dict[str, int]],
     desired_names: list[str],
     desired_name: str,
-    fallback_col: int,
+    group_start_col: int,
 ) -> int:
     idx = desired_names.index(desired_name)
-    for next_name in desired_names[idx + 1 :]:
-        if next_name in existing_names:
-            return existing_groups[existing_names.index(next_name)]["start"]
-    return fallback_col
-
-
-def _clamp_insert_after_anchor(
-    insert_col: int,
-    existing_names: list[str],
-    existing_groups: list[dict[str, int]],
-    anchor_name: str = "麗塔",
-) -> int:
-    if anchor_name not in existing_names:
-        return insert_col
-    anchor_group = existing_groups[existing_names.index(anchor_name)]
-    anchor_after = int(anchor_group["end"]) + 1
-    return max(insert_col, anchor_after)
+    for prev_name in reversed(desired_names[:idx]):
+        if prev_name not in existing_names:
+            continue
+        prev_group = existing_groups[existing_names.index(prev_name)]
+        return int(prev_group["end"]) + 1
+    return group_start_col
 
 
 def _ensure_min_columns(ws, width: int) -> None:
@@ -776,9 +765,14 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
         for name in desired_names:
             if name in existing_names:
                 continue
-            fallback_col = existing_groups[-1]["end"] + 1
-            insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col)
-            insert_col = _clamp_insert_after_anchor(insert_col, existing_names, existing_groups)
+            group_start_col = int(existing_groups[0]["start"])
+            insert_col = _find_insert_col_after_previous(
+                existing_names,
+                existing_groups,
+                desired_names,
+                name,
+                group_start_col,
+            )
             used_last_row = max(_get_used_last_row(ws), 3)
             _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
             _set_training_element_template(ws, insert_col, name, used_last_row)
@@ -831,9 +825,14 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
             for name in desired_names:
                 if name in element_names:
                     continue
-                fallback_col = element_groups[-1]["end"] + 1
-                insert_col = _find_insert_col(element_names, element_groups, desired_names, name, fallback_col)
-                insert_col = _clamp_insert_after_anchor(insert_col, element_names, element_groups)
+                group_start_col = int(element_groups[0]["start"])
+                insert_col = _find_insert_col_after_previous(
+                    element_names,
+                    element_groups,
+                    desired_names,
+                    name,
+                    group_start_col,
+                )
                 used_last_row = max(_get_used_last_row(ws), 4)
                 _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
                 _set_training_change_template(ws, insert_col, name, used_last_row)
@@ -874,9 +873,14 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
         for name in desired_names:
             if name in existing_names:
                 continue
-            fallback_col = existing_groups[-1]["end"] + 1 if existing_groups else 2
-            insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col) if existing_groups else fallback_col
-            insert_col = _clamp_insert_after_anchor(insert_col, existing_names, existing_groups)
+            group_start_col = int(existing_groups[0]["start"]) if existing_groups else 2
+            insert_col = _find_insert_col_after_previous(
+                existing_names,
+                existing_groups,
+                desired_names,
+                name,
+                group_start_col,
+            ) if existing_groups else group_start_col
             _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
             _set_standard_template(ws, insert_col, name, 5)
             inserted += 1
