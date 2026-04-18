@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
+from collections import defaultdict
+from typing import Any, Dict, Iterable, List
 from urllib import error, request
+
+from gspread.utils import rowcol_to_a1
 
 from ..constants import WEB_APP_URL
 from ..data_store import build_healthcheck_upload_rows
@@ -16,20 +19,24 @@ from .nikke_upload import resolve_character_sheet_for_account
 
 HEALTHCHECK_WORKSHEET = "健檢名單"
 SCORE_RESULT_WORKSHEET = "練度評分結果"
+HEALTHCHECK_HEADERS = ["名稱", "屬性", "類型", "暱稱", "優先度"]
 HEALTHCHECK_TYPE_ORDER = ("輸出", "輔助")
 HEALTHCHECK_ELEMENT_ORDER = ("電擊", "水冷", "燃燒", "風壓", "鐵甲")
-TOTAL_LABELS = {"總分"}
-RANK_LABELS = {"排名"}
+TRAINING_SHEET_PREFIX = "角色練度_"
+TRAINING_CHANGE_WORKSHEET = "角色練度_變化"
+STANDARD_WORKSHEET = "練度標準"
+TOTAL_LABEL = "總分"
+RANK_LABEL = "排名"
+STANDARD_ROW2_VALUES = ["技能", "技能", "技能", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "收藏品", "詞條(優/攻/彈)", "詞條(優/攻/彈)", "詞條(優/攻/彈)"]
 
 
-def _post_healthcheck_sync(sheet_id: str, rows: list[Dict[str, str]]) -> tuple[bool, str]:
+def _post_healthcheck_nickname_sync(sheet_id: str) -> tuple[bool, str]:
     if not WEB_APP_URL:
         return False, "WEB_APP_URL 未設定"
 
     payload = {
         "kind": "sync_healthcheck_members",
         "sheet_id": sheet_id,
-        "rows": rows,
     }
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = request.Request(
@@ -59,55 +66,537 @@ def _normalize_label(value: Any) -> str:
     return _normalize_text(value).replace(" ", "").replace("：", ":")
 
 
-def _load_healthcheck_sheet_rows(sheet) -> list[dict[str, str]]:
-    values = sheet.get_all_values()
-    if len(values) < 2:
-        return []
+def _build_group_key(member_type: str, element: str) -> str:
+    return f"{_normalize_text(member_type)}\u0001{_normalize_text(element)}"
 
-    rows: list[dict[str, str]] = []
-    for raw_row in values[1:]:
-        row = list(raw_row[:5])
-        while len(row) < 5:
-            row.append("")
+
+def _pad_row(row: Iterable[Any], width: int) -> List[str]:
+    values = [str(item or "") for item in row]
+    if len(values) < width:
+        values.extend([""] * (width - len(values)))
+    return values[:width]
+
+
+def _get_used_values(ws) -> list[list[str]]:
+    return ws.get_all_values()
+
+
+def _get_used_last_row(ws) -> int:
+    return max(len(_get_used_values(ws)), 1)
+
+
+def _get_row_values(ws, row: int) -> list[str]:
+    return ws.row_values(row)
+
+
+def _get_header_groups(values: list[str], start_col: int) -> list[dict[str, int]]:
+    groups: list[dict[str, int]] = []
+    if not values:
+        return groups
+    group_start = start_col
+    for idx in range(1, len(values)):
+        value = values[idx]
+        if value != "" and value is not None:
+            end = start_col + idx - 1
+            groups.append({"start": group_start, "end": end, "width": end - group_start + 1})
+            group_start = start_col + idx
+    end = start_col + len(values) - 1
+    groups.append({"start": group_start, "end": end, "width": end - group_start + 1})
+    return groups
+
+
+def _get_group_labels(values: list[str], start_col: int, groups: list[dict[str, int]]) -> list[str]:
+    labels: list[str] = []
+    for group in groups:
+        idx = group["start"] - start_col
+        labels.append(_normalize_text(values[idx]) if 0 <= idx < len(values) else "")
+    return labels
+
+
+def _get_merged_profile(ws, row: int, start_col: int) -> dict[str, Any]:
+    values = _get_row_values(ws, row)
+    if len(values) < start_col:
+        return {"groups": [], "labels": [], "end_col": start_col - 1, "values": []}
+    segment = values[start_col - 1 :]
+    while segment and _normalize_text(segment[-1]) == "":
+        segment.pop()
+    if not segment:
+        return {"groups": [], "labels": [], "end_col": start_col - 1, "values": []}
+    groups = _get_header_groups(segment, start_col)
+    labels = _get_group_labels(segment, start_col, groups)
+    return {"groups": groups, "labels": labels, "end_col": start_col + len(segment) - 1, "values": segment}
+
+
+def _find_insert_col(
+    existing_names: list[str],
+    existing_groups: list[dict[str, int]],
+    desired_names: list[str],
+    desired_name: str,
+    fallback_col: int,
+) -> int:
+    idx = desired_names.index(desired_name)
+    for next_name in desired_names[idx + 1 :]:
+        if next_name in existing_names:
+            return existing_groups[existing_names.index(next_name)]["start"]
+    return fallback_col
+
+
+def _ensure_min_columns(ws, width: int) -> None:
+    if ws.col_count < width:
+        ws.add_cols(width - ws.col_count)
+
+
+def _batch_update(spreadsheet, requests: list[dict[str, Any]]) -> None:
+    if not requests:
+        return
+    spreadsheet.batch_update({"requests": requests})
+
+
+def _insert_columns_copy_template(
+    ws,
+    insert_col: int,
+    width: int,
+    template_start_col: int,
+    used_last_row: int,
+) -> None:
+    source_start_col = template_start_col + width if insert_col <= template_start_col else template_start_col
+    source_end_col = source_start_col + width - 1
+    requests = [
+        {
+            "insertDimension": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": insert_col - 1,
+                    "endIndex": insert_col - 1 + width,
+                },
+                "inheritFromBefore": insert_col > 1,
+            }
+        },
+        {
+            "copyPaste": {
+                "source": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 0,
+                    "endRowIndex": used_last_row,
+                    "startColumnIndex": source_start_col - 1,
+                    "endColumnIndex": source_end_col,
+                },
+                "destination": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 0,
+                    "endRowIndex": used_last_row,
+                    "startColumnIndex": insert_col - 1,
+                    "endColumnIndex": insert_col - 1 + width,
+                },
+                "pasteType": "PASTE_NORMAL",
+                "pasteOrientation": "NORMAL",
+            }
+        },
+    ]
+    _batch_update(ws.spreadsheet, requests)
+
+
+def _clear_inserted_content(ws, start_row: int, start_col: int, end_row: int, width: int) -> None:
+    if end_row < start_row or width <= 0:
+        return
+    start = rowcol_to_a1(start_row, start_col)
+    end = rowcol_to_a1(end_row, start_col + width - 1)
+    ws.batch_clear([f"{start}:{end}"])
+
+
+def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    ws = spreadsheet.worksheet(HEALTHCHECK_WORKSHEET)
+    existing_values = _get_used_values(ws)
+    width = max(max((len(row) for row in existing_values), default=0), len(HEALTHCHECK_HEADERS))
+    _ensure_min_columns(ws, width)
+
+    existing_rows = [_pad_row(row, width) for row in existing_values[1:]] if existing_values else []
+    existing_by_name: dict[str, list[str]] = {}
+    for row in existing_rows:
         name = _normalize_text(row[0])
-        element = _normalize_text(row[1])
-        member_type = _normalize_text(row[2])
-        nickname = _normalize_text(row[3])
-        if not name and not element and not member_type and not nickname and not _normalize_text(row[4]):
-            continue
-        if not name or not element or not member_type:
-            continue
-        rows.append(
+        if name and name not in existing_by_name:
+            existing_by_name[name] = row[:]
+
+    output_rows: list[list[str]] = []
+    synced_entries: list[dict[str, str]] = []
+    for row in rows:
+        name = _normalize_text(row.get("name"))
+        element = _normalize_text(row.get("element"))
+        member_type = _normalize_text(row.get("type"))
+        full_row = existing_by_name.get(name, [""] * width)[:]
+        while len(full_row) < width:
+            full_row.append("")
+        full_row[0] = name
+        full_row[1] = element
+        full_row[2] = member_type
+        output_rows.append(full_row)
+        synced_entries.append(
             {
                 "name": name,
                 "element": element,
                 "type": member_type,
-                "nickname": nickname or name,
+                "nickname": _normalize_text(full_row[3]) or name,
+                "priority": _normalize_text(full_row[4]),
             }
         )
-    return rows
+
+    header_range = f"A1:{rowcol_to_a1(1, len(HEALTHCHECK_HEADERS))}"
+    ws.update(header_range, [HEALTHCHECK_HEADERS])
+    if output_rows:
+        ws.update(f"A2:{rowcol_to_a1(len(output_rows) + 1, width)}", output_rows)
+
+    old_count = len(existing_rows)
+    if old_count > len(output_rows):
+        ws.delete_rows(len(output_rows) + 2, old_count - len(output_rows))
+    elif not output_rows and ws.row_count > 1 and len(existing_values) > 1:
+        ws.delete_rows(2, len(existing_values) - 1)
+
+    return synced_entries
 
 
-def _group_healthcheck_rows(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
-    grouped: dict[str, list[dict[str, str]]] = {}
-    for row in rows:
-        key = f"{_normalize_text(row.get('type'))}\u0001{_normalize_text(row.get('element'))}"
-        grouped.setdefault(key, []).append(row)
-    return grouped
+def _build_desired_names_by_element(entries: list[dict[str, str]]) -> dict[str, list[str]]:
+    desired_by_element: dict[str, list[str]] = defaultdict(list)
+    seen: dict[str, set[str]] = defaultdict(set)
+    for row in entries:
+        element = _normalize_text(row.get("element"))
+        name = _normalize_text(row.get("name"))
+        if not element or not name or name in seen[element]:
+            continue
+        seen[element].add(name)
+        desired_by_element[element].append(name)
+    return desired_by_element
 
 
-def _build_score_result_blocks(sheet) -> dict[str, dict[str, Any]]:
-    values = sheet.get_all_values()
+def _build_desired_standard_names(entries: list[dict[str, str]]) -> list[str]:
+    names: list[str] = []
+    seen: set[str] = set()
+    for row in entries:
+        name = _normalize_text(row.get("name"))
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    return names
+
+
+def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[str]) -> int:
+    if not desired_names:
+        return 0
+    ws = spreadsheet.worksheet(f"{TRAINING_SHEET_PREFIX}{element}")
+    inserted = 0
+
+    for _ in range(len(desired_names)):
+        profile = _get_merged_profile(ws, 1, 2)
+        existing_names = [_normalize_text(label) for label in profile["labels"]]
+        existing_groups = profile["groups"]
+        if not existing_groups:
+            return inserted
+        template_group = existing_groups[0]
+        width = int(template_group["width"])
+        template_row2 = _pad_row(_get_row_values(ws, 2), profile["end_col"])[template_group["start"] - 1 : template_group["end"]]
+        changed = False
+
+        for name in desired_names:
+            if name in existing_names:
+                continue
+            fallback_col = existing_groups[-1]["end"] + 1
+            insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col)
+            used_last_row = max(_get_used_last_row(ws), 3)
+            _insert_columns_copy_template(ws, insert_col, width, template_group["start"], used_last_row)
+            _batch_update(
+                spreadsheet,
+                [
+                    {
+                        "unmergeCells": {
+                            "range": {
+                                "sheetId": ws.id,
+                                "startRowIndex": 0,
+                                "endRowIndex": 1,
+                                "startColumnIndex": insert_col - 1,
+                                "endColumnIndex": insert_col - 1 + width,
+                            }
+                        }
+                    },
+                    {
+                        "mergeCells": {
+                            "range": {
+                                "sheetId": ws.id,
+                                "startRowIndex": 0,
+                                "endRowIndex": 1,
+                                "startColumnIndex": insert_col - 1,
+                                "endColumnIndex": insert_col - 1 + width,
+                            },
+                            "mergeType": "MERGE_ALL",
+                        }
+                    },
+                ],
+            )
+            ws.update(f"{rowcol_to_a1(1, insert_col)}:{rowcol_to_a1(2, insert_col + width - 1)}", [[name] + [""] * (width - 1), template_row2])
+            _clear_inserted_content(ws, 3, insert_col, used_last_row, width)
+            inserted += 1
+            changed = True
+            break
+        if not changed:
+            break
+    return inserted
+
+
+def _group_label_by_col(row_values: list[str], start_col: int, target_col: int) -> str:
+    current = ""
+    for col in range(start_col, target_col + 1):
+        idx = col - start_col
+        if 0 <= idx < len(row_values):
+            value = row_values[idx]
+            if value not in ("", None):
+                current = _normalize_text(value)
+    return current
+
+
+def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[str]]) -> int:
+    ws = spreadsheet.worksheet(TRAINING_CHANGE_WORKSHEET)
+    inserted = 0
+    for _ in range(sum(len(items) for items in desired_by_element.values()) or 1):
+        row2 = _get_merged_profile(ws, 2, 2)
+        if not row2["groups"]:
+            return inserted
+        row1_values = _get_row_values(ws, 1)[1 : row2["end_col"]]
+        changed = False
+
+        for element in HEALTHCHECK_ELEMENT_ORDER:
+            desired_names = desired_by_element.get(element) or []
+            if not desired_names:
+                continue
+            element_groups: list[dict[str, int]] = []
+            element_names: list[str] = []
+            for idx, group in enumerate(row2["groups"]):
+                owner = _group_label_by_col(row1_values, 2, group["start"])
+                if owner != element:
+                    continue
+                element_groups.append(group)
+                element_names.append(_normalize_text(row2["labels"][idx]))
+            if not element_groups:
+                continue
+            template_group = element_groups[0]
+            width = int(template_group["width"])
+            template_row3 = _pad_row(_get_row_values(ws, 3), row2["end_col"])[template_group["start"] - 1 : template_group["end"]]
+
+            for name in desired_names:
+                if name in element_names:
+                    continue
+                fallback_col = element_groups[-1]["end"] + 1
+                insert_col = _find_insert_col(element_names, element_groups, desired_names, name, fallback_col)
+                used_last_row = max(_get_used_last_row(ws), 4)
+                _insert_columns_copy_template(ws, insert_col, width, template_group["start"], used_last_row)
+                _batch_update(
+                    spreadsheet,
+                    [
+                        {
+                            "unmergeCells": {
+                                "range": {
+                                    "sheetId": ws.id,
+                                    "startRowIndex": 1,
+                                    "endRowIndex": 2,
+                                    "startColumnIndex": insert_col - 1,
+                                    "endColumnIndex": insert_col - 1 + width,
+                                }
+                            }
+                        },
+                        {
+                            "mergeCells": {
+                                "range": {
+                                    "sheetId": ws.id,
+                                    "startRowIndex": 1,
+                                    "endRowIndex": 2,
+                                    "startColumnIndex": insert_col - 1,
+                                    "endColumnIndex": insert_col - 1 + width,
+                                },
+                                "mergeType": "MERGE_ALL",
+                            }
+                        },
+                    ],
+                )
+                ws.update(
+                    f"{rowcol_to_a1(2, insert_col)}:{rowcol_to_a1(3, insert_col + width - 1)}",
+                    [[name] + [""] * (width - 1), template_row3],
+                )
+                _clear_inserted_content(ws, 4, insert_col, used_last_row, width)
+                inserted += 1
+                changed = True
+                break
+            if changed:
+                break
+        if not changed:
+            break
+    return inserted
+
+
+def _set_standard_template(ws, start_col: int, name: str) -> None:
+    requests = [
+        {
+            "unmergeCells": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 2,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": start_col + 10,
+                }
+            }
+        },
+        {
+            "mergeCells": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": start_col + 10,
+                },
+                "mergeType": "MERGE_ALL",
+            }
+        },
+        {
+            "mergeCells": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 1,
+                    "endRowIndex": 2,
+                    "startColumnIndex": start_col - 1,
+                    "endColumnIndex": start_col + 2,
+                },
+                "mergeType": "MERGE_ALL",
+            }
+        },
+        {
+            "mergeCells": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 1,
+                    "endRowIndex": 2,
+                    "startColumnIndex": start_col + 2,
+                    "endColumnIndex": start_col + 6,
+                },
+                "mergeType": "MERGE_ALL",
+            }
+        },
+        {
+            "mergeCells": {
+                "range": {
+                    "sheetId": ws.id,
+                    "startRowIndex": 1,
+                    "endRowIndex": 2,
+                    "startColumnIndex": start_col + 7,
+                    "endColumnIndex": start_col + 10,
+                },
+                "mergeType": "MERGE_ALL",
+            }
+        },
+        {
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": start_col - 1,
+                    "endIndex": start_col + 6,
+                },
+                "properties": {"pixelSize": 30},
+                "fields": "pixelSize",
+            }
+        },
+        {
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": start_col + 6,
+                    "endIndex": start_col + 7,
+                },
+                "properties": {"pixelSize": 47},
+                "fields": "pixelSize",
+            }
+        },
+        {
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": start_col + 7,
+                    "endIndex": start_col + 10,
+                },
+                "properties": {"pixelSize": 50},
+                "fields": "pixelSize",
+            }
+        },
+    ]
+    _batch_update(ws.spreadsheet, requests)
+    ws.update(
+        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + 10)}",
+        [
+            [name] + [""] * 10,
+            STANDARD_ROW2_VALUES,
+        ],
+    )
+
+
+def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
+    if not desired_names:
+        return 0
+    ws = spreadsheet.worksheet(STANDARD_WORKSHEET)
+    inserted = 0
+    for _ in range(len(desired_names)):
+        profile = _get_merged_profile(ws, 1, 2)
+        existing_names = [_normalize_text(label) for label in profile["labels"]]
+        existing_groups = profile["groups"]
+        changed = False
+
+        for name in desired_names:
+            if name in existing_names:
+                continue
+            fallback_col = existing_groups[-1]["end"] + 1 if existing_groups else 2
+            insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col) if existing_groups else fallback_col
+            used_last_row = max(_get_used_last_row(ws), 3)
+            template_start = existing_groups[0]["start"] if existing_groups else insert_col
+            if existing_groups:
+                _insert_columns_copy_template(ws, insert_col, 11, template_start, used_last_row)
+            else:
+                _batch_update(
+                    spreadsheet,
+                    [
+                        {
+                            "insertDimension": {
+                                "range": {
+                                    "sheetId": ws.id,
+                                    "dimension": "COLUMNS",
+                                    "startIndex": insert_col - 1,
+                                    "endIndex": insert_col + 10,
+                                },
+                                "inheritFromBefore": insert_col > 1,
+                            }
+                        }
+                    ],
+                )
+            _set_standard_template(ws, insert_col, name)
+            _clear_inserted_content(ws, 3, insert_col, used_last_row, 11)
+            inserted += 1
+            changed = True
+            break
+        if not changed:
+            break
+    return inserted
+
+
+def _build_score_result_blocks(ws) -> dict[str, dict[str, Any]]:
+    values = _get_used_values(ws)
     if len(values) < 3:
         return {}
-
     row1 = values[0]
     row2 = values[1]
     row3 = values[2]
     width = max(len(row1), len(row2), len(row3))
-    row1 += [""] * (width - len(row1))
-    row2 += [""] * (width - len(row2))
-    row3 += [""] * (width - len(row3))
+    row1 = _pad_row(row1, width)
+    row2 = _pad_row(row2, width)
+    row3 = _pad_row(row3, width)
 
     blocks: dict[str, dict[str, Any]] = {}
     current_type = ""
@@ -123,7 +612,7 @@ def _build_score_result_blocks(sheet) -> dict[str, dict[str, Any]]:
         if not current_type or not current_element:
             continue
 
-        key = f"{current_type}\u0001{current_element}"
+        key = _build_group_key(current_type, current_element)
         block = blocks.setdefault(
             key,
             {
@@ -134,105 +623,84 @@ def _build_score_result_blocks(sheet) -> dict[str, dict[str, Any]]:
                 "rank_col": None,
             },
         )
-
         label = _normalize_text(row3[idx])
-        norm = _normalize_label(label)
-        if norm in {_normalize_label(item) for item in TOTAL_LABELS}:
+        label_norm = _normalize_label(label)
+        if label_norm == _normalize_label(TOTAL_LABEL):
             block["total_col"] = col
             continue
-        if norm in {_normalize_label(item) for item in RANK_LABELS}:
+        if label_norm == _normalize_label(RANK_LABEL):
             block["rank_col"] = col
             continue
         block["char_cols"].append({"col": col, "label": label})
     return blocks
 
 
-def _find_score_insert_col(block: dict[str, Any], desired_nickname: str, desired_rows: list[dict[str, str]]) -> int:
-    desired_labels = [_normalize_text(item.get("nickname") or item.get("name") or "") for item in desired_rows]
-    actual_by_norm = {
-        _normalize_label(item.get("label")): int(item["col"])
-        for item in block.get("char_cols", [])
-        if _normalize_text(item.get("label"))
-    }
-    desired_idx = desired_labels.index(desired_nickname)
-    for next_label in desired_labels[desired_idx + 1 :]:
-        next_norm = _normalize_label(next_label)
-        if next_norm in actual_by_norm:
-            return actual_by_norm[next_norm]
-    if block.get("total_col"):
-        return int(block["total_col"])
-    if block.get("rank_col"):
-        return int(block["rank_col"])
-    char_cols = block.get("char_cols", [])
-    if char_cols:
-        return int(char_cols[-1]["col"]) + 1
-    raise ValueError(
-        f"練度評分結果找不到可插入位置: type={block.get('type')} element={block.get('element')}"
-    )
+def _insert_score_result_column(ws, insert_col: int, template_col: int, nickname: str) -> None:
+    used_last_row = max(_get_used_last_row(ws), 3)
+    _insert_columns_copy_template(ws, insert_col, 1, template_col, used_last_row)
+    ws.update_cell(3, insert_col, nickname)
+    _clear_inserted_content(ws, 4, insert_col, used_last_row, 1)
 
 
-def _insert_score_result_column(sheet, insert_col: int, nickname: str) -> None:
-    requests = [
-        {
-            "insertDimension": {
-                "range": {
-                    "sheetId": sheet.id,
-                    "dimension": "COLUMNS",
-                    "startIndex": insert_col - 1,
-                    "endIndex": insert_col,
-                },
-                "inheritFromBefore": insert_col > 1,
-            }
-        }
-    ]
-    sheet.spreadsheet.batch_update({"requests": requests})
-    sheet.update_cell(3, insert_col, nickname)
+def _sync_score_result_columns(spreadsheet, entries: list[dict[str, str]]) -> int:
+    ws = spreadsheet.worksheet(SCORE_RESULT_WORKSHEET)
+    grouped: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for entry in entries:
+        key = _build_group_key(entry.get("type", ""), entry.get("element", ""))
+        grouped[key].append(entry)
 
-
-def _sync_score_result_columns(spreadsheet) -> int:
-    healthcheck_ws = spreadsheet.worksheet(HEALTHCHECK_WORKSHEET)
-    score_result_ws = spreadsheet.worksheet(SCORE_RESULT_WORKSHEET)
-
-    desired_rows = _load_healthcheck_sheet_rows(healthcheck_ws)
-    if not desired_rows:
-        return 0
-
-    desired_by_block = _group_healthcheck_rows(desired_rows)
     inserted = 0
-
     for member_type in HEALTHCHECK_TYPE_ORDER:
         for element in HEALTHCHECK_ELEMENT_ORDER:
-            key = f"{member_type}\u0001{element}"
-            wanted_rows = desired_by_block.get(key) or []
-            if not wanted_rows:
+            key = _build_group_key(member_type, element)
+            desired_entries = grouped.get(key) or []
+            if not desired_entries:
                 continue
-
             while True:
-                blocks = _build_score_result_blocks(score_result_ws)
+                blocks = _build_score_result_blocks(ws)
                 block = blocks.get(key)
                 if not block:
                     raise ValueError(f"練度評分結果找不到區塊: type={member_type} element={element}")
-
-                actual_cols = block.get("char_cols", [])
-                if len(actual_cols) >= len(wanted_rows):
+                current_labels = [_normalize_label(item["label"]) for item in block["char_cols"]]
+                desired_nicknames = [_normalize_text(item.get("nickname") or item.get("name")) for item in desired_entries]
+                if len(block["char_cols"]) >= len(desired_entries):
                     break
-
-                actual_norms = {_normalize_label(item.get("label")) for item in actual_cols}
-                missing_row = None
-                for row in wanted_rows:
-                    nickname = _normalize_text(row.get("nickname") or row.get("name"))
-                    if _normalize_label(nickname) not in actual_norms:
-                        missing_row = row
-                        break
-                if missing_row is None:
+                missing = next((nickname for nickname in desired_nicknames if _normalize_label(nickname) not in current_labels), None)
+                if not missing:
                     break
-
-                nickname = _normalize_text(missing_row.get("nickname") or missing_row.get("name"))
-                insert_col = _find_score_insert_col(block, nickname, wanted_rows)
-                _insert_score_result_column(score_result_ws, insert_col, nickname)
+                desired_idx = desired_nicknames.index(missing)
+                insert_col = int(block["total_col"] or block["rank_col"] or (block["char_cols"][-1]["col"] + 1 if block["char_cols"] else 4))
+                for next_nickname in desired_nicknames[desired_idx + 1 :]:
+                    next_norm = _normalize_label(next_nickname)
+                    for item in block["char_cols"]:
+                        if _normalize_label(item["label"]) == next_norm:
+                            insert_col = int(item["col"])
+                            break
+                    else:
+                        continue
+                    break
+                template_col = int(block["char_cols"][0]["col"]) if block["char_cols"] else max(1, insert_col - 1)
+                _insert_score_result_column(ws, insert_col, template_col, missing)
                 inserted += 1
-
     return inserted
+
+
+def _sync_all_structural_sheets(spreadsheet, entries: list[dict[str, str]]) -> dict[str, int]:
+    desired_by_element = _build_desired_names_by_element(entries)
+    desired_standard_names = _build_desired_standard_names(entries)
+
+    stats = {
+        "training_element_columns": 0,
+        "training_change_columns": 0,
+        "standard_columns": 0,
+        "score_result_columns": 0,
+    }
+    for element, desired_names in desired_by_element.items():
+        stats["training_element_columns"] += _sync_training_element_sheet(spreadsheet, element, desired_names)
+    stats["training_change_columns"] = _sync_training_change_sheet(spreadsheet, desired_by_element)
+    stats["standard_columns"] = _sync_standard_sheet(spreadsheet, desired_standard_names)
+    stats["score_result_columns"] = _sync_score_result_columns(spreadsheet, entries)
+    return stats
 
 
 def run_healthcheck_upload(account: str | None = None) -> JobResult:
@@ -245,27 +713,27 @@ def run_healthcheck_upload(account: str | None = None) -> JobResult:
     except ValueError as exc:
         return JobResult(ok=False, message=str(exc))
 
-    ok, message = _post_healthcheck_sync(target_sheet_id, rows)
     outputs = {
         "union_id": union_id,
         "sheet_id": target_sheet_id,
         "sheet_name": target_sheet_name,
         "row_count": len(rows),
     }
-    if not ok:
-        return JobResult(ok=False, message=message or "健檢名單同步失敗", outputs=outputs)
 
-    inserted_score_columns = 0
     try:
         cli = get_gspread_client()
         spreadsheet = cli.open_by_key(target_sheet_id)
-        inserted_score_columns = _sync_score_result_columns(spreadsheet)
+        synced_entries = _sync_healthcheck_sheet(spreadsheet, rows)
+        structure_stats = _sync_all_structural_sheets(spreadsheet, synced_entries)
+        outputs.update(structure_stats)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        outputs["score_result_inserted_columns"] = inserted_score_columns
-        return JobResult(ok=False, message=f"健檢名單已同步，但練度評分結果補欄失敗: {exc}", outputs=outputs)
+        return JobResult(ok=False, message=f"健檢名單同步失敗: {exc}", outputs=outputs)
 
-    outputs["score_result_inserted_columns"] = inserted_score_columns
+    ok, message = _post_healthcheck_nickname_sync(target_sheet_id)
+    if not ok:
+        return JobResult(ok=False, message=message or "健檢名單已同步，但 gs 暱稱同步失敗", outputs=outputs)
+
     return JobResult(
         ok=True,
         message=f"健檢名單已同步 ({len(rows)})",
