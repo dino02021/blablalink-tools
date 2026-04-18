@@ -141,6 +141,43 @@ def _get_merged_profile(ws, row: int, start_col: int) -> dict[str, Any]:
     return {"groups": groups, "labels": labels, "end_col": start_col + len(segment) - 1, "values": segment}
 
 
+def _last_nonempty_col(values: list[str]) -> int:
+    for idx in range(len(values) - 1, -1, -1):
+        if _normalize_text(values[idx]):
+            return idx + 1
+    return 0
+
+
+def _get_fixed_width_profile(
+    ws,
+    label_row: int,
+    start_col: int,
+    width: int,
+    extent_rows: tuple[int, ...],
+) -> dict[str, Any]:
+    row_values = {row: _get_row_values(ws, row) for row in extent_rows}
+    end_col = max((_last_nonempty_col(values) for values in row_values.values()), default=0)
+    if end_col < start_col:
+        return {"groups": [], "labels": [], "end_col": start_col - 1, "values": []}
+    block_count = ((end_col - start_col + 1) + width - 1) // width
+    groups: list[dict[str, int]] = []
+    labels: list[str] = []
+    label_values = row_values.get(label_row, [])
+    for idx in range(block_count):
+        block_start = start_col + idx * width
+        block_end = block_start + width - 1
+        groups.append({"start": block_start, "end": block_end, "width": width})
+        label_idx = block_start - 1
+        label = label_values[label_idx] if 0 <= label_idx < len(label_values) else ""
+        labels.append(_normalize_text(label))
+    return {
+        "groups": groups,
+        "labels": labels,
+        "end_col": start_col + block_count * width - 1,
+        "values": [],
+    }
+
+
 def _find_insert_col_after_previous(
     existing_names: list[str],
     existing_groups: list[dict[str, int]],
@@ -170,6 +207,9 @@ def _batch_update(spreadsheet, requests: list[dict[str, Any]]) -> None:
 
 def _insert_blank_columns(ws, insert_col: int, width: int) -> None:
     _invalidate_column_width_cache(ws)
+    if insert_col > ws.col_count:
+        ws.add_cols(width)
+        return
     _batch_update(
         ws.spreadsheet,
         [
@@ -186,6 +226,22 @@ def _insert_blank_columns(ws, insert_col: int, width: int) -> None:
             }
         ],
     )
+
+
+def _ensure_blank_slot(ws, insert_col: int, width: int, header_rows: tuple[int, ...]) -> None:
+    max_row = max(header_rows, default=1)
+    if insert_col + width - 1 <= ws.col_count:
+        range_values = ws.get(f"{rowcol_to_a1(1, insert_col)}:{rowcol_to_a1(max_row, insert_col + width - 1)}")
+        is_blank = True
+        for row_idx in header_rows:
+            rel = row_idx - 1
+            row = range_values[rel] if 0 <= rel < len(range_values) else []
+            if any(_normalize_text(cell) for cell in row):
+                is_blank = False
+                break
+        if is_blank:
+            return
+    _insert_blank_columns(ws, insert_col, width)
 
 
 def _insert_columns_copy_template(
@@ -455,22 +511,69 @@ def _unmerge_cells(ws, start_row: int, end_row: int, start_col: int, end_col: in
     )
 
 
+def _unmerge_intersecting_merges(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    if end_col <= start_col:
+        return
+    metadata = ws.spreadsheet.fetch_sheet_metadata(params={"fields": "sheets(properties(sheetId),merges)"})
+    requests: list[dict[str, Any]] = []
+    target_row_start = start_row - 1
+    target_row_end = end_row
+    target_col_start = start_col - 1
+    target_col_end = end_col
+    for sheet in metadata.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("sheetId") != ws.id:
+            continue
+        for merge in sheet.get("merges", []):
+            merge_row_start = int(merge.get("startRowIndex", 0))
+            merge_row_end = int(merge.get("endRowIndex", 0))
+            merge_col_start = int(merge.get("startColumnIndex", 0))
+            merge_col_end = int(merge.get("endColumnIndex", 0))
+            row_intersects = merge_row_start < target_row_end and merge_row_end > target_row_start
+            col_intersects = merge_col_start < target_col_end and merge_col_end > target_col_start
+            if not (row_intersects and col_intersects):
+                continue
+            requests.append({"unmergeCells": {"range": merge}})
+        break
+    _batch_update(ws.spreadsheet, requests)
+
+
 def _format_template_data_rows(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
     if end_row < start_row:
         return
+    requests: list[dict[str, Any]] = []
     for row in range(start_row, end_row + 1):
         color = DATA_BG_ODD if row % 2 else DATA_BG_EVEN
-        _set_range_background(ws, row, row, start_col, end_col, color)
+        requests.append(
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": row - 1,
+                        "endRowIndex": row,
+                        "startColumnIndex": start_col - 1,
+                        "endColumnIndex": end_col,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": color,
+                        }
+                    },
+                    "fields": "userEnteredFormat.backgroundColor",
+                }
+            }
+        )
+    _batch_update(ws.spreadsheet, requests)
 
 
 def _set_training_element_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
-    _unmerge_cells(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _unmerge_intersecting_merges(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
-    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     for offset, width, _label in TEMPLATE_GROUPS:
         if width > 1:
-            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width)
+            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width - 1)
     values = [
         [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
         [""] * TEMPLATE_BLOCK_WIDTH,
@@ -490,12 +593,12 @@ def _set_training_element_template(ws, start_col: int, name: str, end_row: int) 
 
 def _set_training_change_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
-    _unmerge_cells(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _unmerge_intersecting_merges(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     _set_range_background(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
-    _merge_cells(ws, 2, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _merge_cells(ws, 2, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     for offset, width, _label in TEMPLATE_GROUPS:
         if width > 1:
-            _merge_cells(ws, 3, 3, start_col + offset, start_col + offset + width)
+            _merge_cells(ws, 3, 3, start_col + offset, start_col + offset + width - 1)
     values = [
         [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
         [""] * TEMPLATE_BLOCK_WIDTH,
@@ -515,12 +618,12 @@ def _set_training_change_template(ws, start_col: int, name: str, end_row: int) -
 
 def _set_standard_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
-    _unmerge_cells(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _unmerge_intersecting_merges(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
-    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
     for offset, width, _label in TEMPLATE_GROUPS:
         if width > 1:
-            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width)
+            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width - 1)
     values = [
         [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
         [""] * TEMPLATE_BLOCK_WIDTH,
@@ -630,7 +733,7 @@ def _append_template_block_and_move(
 
 def _trim_training_element_trailing_columns(ws, expected_width: int) -> None:
     while True:
-        profile = _get_merged_profile(ws, 1, 2)
+        profile = _get_fixed_width_profile(ws, 1, 2, expected_width, (1, 2))
         groups = profile["groups"]
         labels = profile["labels"]
         if not groups:
@@ -643,7 +746,7 @@ def _trim_training_element_trailing_columns(ws, expected_width: int) -> None:
 
 
 def _repair_training_element_widths(ws) -> None:
-    profile = _get_merged_profile(ws, 1, 2)
+    profile = _get_fixed_width_profile(ws, 1, 2, TEMPLATE_BLOCK_WIDTH, (1, 2))
     for group in profile["groups"]:
         if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
@@ -652,7 +755,7 @@ def _repair_training_element_widths(ws) -> None:
 
 def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
     while True:
-        profile = _get_merged_profile(ws, 2, 2)
+        profile = _get_fixed_width_profile(ws, 2, 2, expected_width, (1, 2, 3))
         groups = profile["groups"]
         labels = profile["labels"]
         if not groups:
@@ -665,7 +768,7 @@ def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
 
 
 def _repair_training_change_widths(ws) -> None:
-    profile = _get_merged_profile(ws, 2, 2)
+    profile = _get_fixed_width_profile(ws, 2, 2, TEMPLATE_BLOCK_WIDTH, (1, 2, 3))
     for group in profile["groups"]:
         if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
@@ -755,7 +858,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
 
     for _ in range(len(desired_names)):
         _trim_training_element_trailing_columns(ws, TEMPLATE_BLOCK_WIDTH)
-        profile = _get_merged_profile(ws, 1, 2)
+        profile = _get_fixed_width_profile(ws, 1, 2, TEMPLATE_BLOCK_WIDTH, (1, 2))
         existing_names = [_normalize_text(label) for label in profile["labels"]]
         existing_groups = profile["groups"]
         if not existing_groups:
@@ -774,7 +877,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
                 group_start_col,
             )
             used_last_row = max(_get_used_last_row(ws), 3)
-            _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+            _ensure_blank_slot(ws, insert_col, TEMPLATE_BLOCK_WIDTH, (1, 2))
             _set_training_element_template(ws, insert_col, name, used_last_row)
             inserted += 1
             changed = True
@@ -801,10 +904,10 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
     inserted = 0
     for _ in range(sum(len(items) for items in desired_by_element.values()) or 1):
         _trim_training_change_trailing_columns(ws, TEMPLATE_BLOCK_WIDTH)
-        row2 = _get_merged_profile(ws, 2, 2)
+        row2 = _get_fixed_width_profile(ws, 2, 2, TEMPLATE_BLOCK_WIDTH, (1, 2, 3))
         if not row2["groups"]:
             return inserted
-        row1_values = _get_row_values(ws, 1)[1 : row2["end_col"]]
+        row1_values = _pad_row(_get_row_values(ws, 1), row2["end_col"])[1 : row2["end_col"]]
         changed = False
 
         for element in HEALTHCHECK_ELEMENT_ORDER:
@@ -834,7 +937,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                     group_start_col,
                 )
                 used_last_row = max(_get_used_last_row(ws), 4)
-                _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+                _ensure_blank_slot(ws, insert_col, TEMPLATE_BLOCK_WIDTH, (1, 2, 3))
                 _set_training_change_template(ws, insert_col, name, used_last_row)
                 inserted += 1
                 changed = True
@@ -852,7 +955,7 @@ def _set_standard_column_widths(ws, start_col: int) -> None:
 
 
 def _repair_standard_column_widths(ws) -> None:
-    profile = _get_merged_profile(ws, 1, 2)
+    profile = _get_fixed_width_profile(ws, 1, 2, TEMPLATE_BLOCK_WIDTH, (1, 2))
     for group in profile["groups"]:
         if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
@@ -865,7 +968,7 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
     ws = spreadsheet.worksheet(STANDARD_WORKSHEET)
     inserted = 0
     for _ in range(len(desired_names)):
-        profile = _get_merged_profile(ws, 1, 2)
+        profile = _get_fixed_width_profile(ws, 1, 2, TEMPLATE_BLOCK_WIDTH, (1, 2))
         existing_names = [_normalize_text(label) for label in profile["labels"]]
         existing_groups = profile["groups"]
         changed = False
@@ -881,7 +984,7 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
                 name,
                 group_start_col,
             ) if existing_groups else group_start_col
-            _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+            _ensure_blank_slot(ws, insert_col, TEMPLATE_BLOCK_WIDTH, (1, 2))
             _set_standard_template(ws, insert_col, name, 5)
             inserted += 1
             changed = True
