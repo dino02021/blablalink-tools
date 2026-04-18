@@ -400,8 +400,8 @@ def _set_group_borders(ws, start_row: int, end_row: int, start_col: int) -> None
                         "sheetId": ws.id,
                         "startRowIndex": start_row - 1,
                         "endRowIndex": end_row,
-                        "startColumnIndex": col,
-                        "endColumnIndex": col + 1,
+                        "startColumnIndex": col - 1,
+                        "endColumnIndex": col,
                     },
                     "left": BORDER_STYLE,
                 }
@@ -432,6 +432,27 @@ def _merge_cells(ws, start_row: int, end_row: int, start_col: int, end_col: int)
     )
 
 
+def _unmerge_cells(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    if end_col <= start_col:
+        return
+    _batch_update(
+        ws.spreadsheet,
+        [
+            {
+                "unmergeCells": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": start_col - 1,
+                        "endColumnIndex": end_col,
+                    }
+                }
+            }
+        ],
+    )
+
+
 def _format_template_data_rows(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
     if end_row < start_row:
         return
@@ -442,6 +463,7 @@ def _format_template_data_rows(ws, start_row: int, end_row: int, start_col: int,
 
 def _set_training_element_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _unmerge_cells(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
     _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     for offset, width, _label in TEMPLATE_GROUPS:
@@ -466,6 +488,7 @@ def _set_training_element_template(ws, start_col: int, name: str, end_row: int) 
 
 def _set_training_change_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _unmerge_cells(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     _set_range_background(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
     _merge_cells(ws, 2, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     for offset, width, _label in TEMPLATE_GROUPS:
@@ -490,6 +513,7 @@ def _set_training_change_template(ws, start_col: int, name: str, end_row: int) -
 
 def _set_standard_template(ws, start_col: int, name: str, end_row: int) -> None:
     _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _unmerge_cells(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
     _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
     for offset, width, _label in TEMPLATE_GROUPS:
