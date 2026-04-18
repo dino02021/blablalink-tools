@@ -642,7 +642,7 @@ def _set_standard_template(ws, start_col: int, name: str) -> None:
                     "sheetId": ws.id,
                     "dimension": "COLUMNS",
                     "startIndex": start_col - 1,
-                    "endIndex": start_col + 6,
+                    "endIndex": start_col + 7,
                 },
                 "properties": {"pixelSize": 30},
                 "fields": "pixelSize",
