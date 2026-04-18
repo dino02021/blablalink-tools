@@ -17,6 +17,8 @@ from ..log import log_exc
 from .common import JobResult
 from .nikke_upload import resolve_character_sheet_for_account
 
+_COLUMN_WIDTH_CACHE: dict[int, list[int]] = {}
+
 HEALTHCHECK_WORKSHEET = "健檢名單"
 SCORE_RESULT_WORKSHEET = "練度評分結果"
 HEALTHCHECK_HEADERS = ["名稱", "屬性", "類型", "暱稱", "優先度"]
@@ -209,9 +211,99 @@ def _clear_inserted_content(ws, start_row: int, start_col: int, end_row: int, wi
     ws.batch_clear([f"{start}:{end}"])
 
 
+def _invalidate_column_width_cache(ws) -> None:
+    _COLUMN_WIDTH_CACHE.pop(ws.id, None)
+
+
+def _get_sheet_column_widths(ws) -> list[int]:
+    cached = _COLUMN_WIDTH_CACHE.get(ws.id)
+    if cached is not None:
+        return cached
+    meta = ws.spreadsheet.fetch_sheet_metadata(
+        params={
+            "ranges": [ws.title],
+            "includeGridData": True,
+        }
+    )
+    for sheet in meta.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("sheetId") != ws.id:
+            continue
+        data = sheet.get("data", [])
+        if not data:
+            break
+        column_meta = data[0].get("columnMetadata", [])
+        widths = [int(col.get("pixelSize") or 100) for col in column_meta]
+        _COLUMN_WIDTH_CACHE[ws.id] = widths
+        return widths
+    _COLUMN_WIDTH_CACHE[ws.id] = []
+    return []
+
+
+def _get_column_widths(ws, start_col: int, width: int) -> list[int]:
+    if width <= 0:
+        return []
+    all_widths = _get_sheet_column_widths(ws)
+    if not all_widths:
+        return [100] * width
+    start_idx = max(start_col - 1, 0)
+    end_idx = start_idx + width
+    sliced = all_widths[start_idx:end_idx]
+    if len(sliced) < width:
+        sliced.extend([100] * (width - len(sliced)))
+    return sliced
+
+
+def _set_column_widths(ws, start_col: int, widths: list[int]) -> None:
+    if not widths:
+        return
+    requests: list[dict[str, Any]] = []
+    run_start = start_col
+    run_width = widths[0]
+    run_len = 1
+    for offset in range(1, len(widths)):
+        current = widths[offset]
+        if current == run_width:
+            run_len += 1
+            continue
+        requests.append(
+            {
+                "updateDimensionProperties": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "dimension": "COLUMNS",
+                        "startIndex": run_start - 1,
+                        "endIndex": run_start - 1 + run_len,
+                    },
+                    "properties": {"pixelSize": run_width},
+                    "fields": "pixelSize",
+                }
+            }
+        )
+        run_start = start_col + offset
+        run_width = current
+        run_len = 1
+    requests.append(
+        {
+            "updateDimensionProperties": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": run_start - 1,
+                    "endIndex": run_start - 1 + run_len,
+                },
+                "properties": {"pixelSize": run_width},
+                "fields": "pixelSize",
+            }
+        }
+    )
+    _batch_update(ws.spreadsheet, requests)
+
+
 def _delete_columns(ws, start_col: int, end_col: int) -> None:
     if end_col < start_col:
         return
+    _invalidate_column_width_cache(ws)
     _batch_update(
         ws.spreadsheet,
         [
@@ -237,6 +329,7 @@ def _append_template_block_and_move(
     used_last_row: int,
 ) -> int:
     append_start_col = ws.col_count + 1
+    _invalidate_column_width_cache(ws)
     ws.add_cols(width)
     _batch_update(
         ws.spreadsheet,
@@ -298,6 +391,18 @@ def _trim_training_element_trailing_columns(ws, expected_width: int) -> None:
         _delete_columns(ws, int(last_group["start"]), int(last_group["end"]))
 
 
+def _repair_training_element_widths(ws) -> None:
+    profile = _get_merged_profile(ws, 1, 2)
+    template_group = next((group for group in profile["groups"] if int(group["width"]) == 11), None)
+    if not template_group:
+        return
+    template_widths = _get_column_widths(ws, int(template_group["start"]), 11)
+    for group in profile["groups"]:
+        if int(group["width"]) != 11:
+            continue
+        _set_column_widths(ws, int(group["start"]), template_widths)
+
+
 def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
     while True:
         profile = _get_merged_profile(ws, 2, 2)
@@ -310,6 +415,18 @@ def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
         if last_group["width"] == expected_width or last_label:
             return
         _delete_columns(ws, int(last_group["start"]), int(last_group["end"]))
+
+
+def _repair_training_change_widths(ws) -> None:
+    profile = _get_merged_profile(ws, 2, 2)
+    template_group = next((group for group in profile["groups"] if int(group["width"]) == 11), None)
+    if not template_group:
+        return
+    template_widths = _get_column_widths(ws, int(template_group["start"]), 11)
+    for group in profile["groups"]:
+        if int(group["width"]) != 11:
+            continue
+        _set_column_widths(ws, int(group["start"]), template_widths)
 
 
 def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -402,6 +519,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
             return inserted
         template_group = existing_groups[0]
         width = int(template_group["width"])
+        template_widths = _get_column_widths(ws, int(template_group["start"]), width)
         template_row2 = _pad_row(_get_row_values(ws, 2), profile["end_col"])[template_group["start"] - 1 : template_group["end"]]
         changed = False
 
@@ -413,6 +531,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
             used_last_row = max(_get_used_last_row(ws), 3)
             if insert_col >= fallback_col:
                 append_start_col = ws.col_count + 1
+                _invalidate_column_width_cache(ws)
                 ws.add_cols(width)
                 _batch_update(
                     ws.spreadsheet,
@@ -448,6 +567,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
                     template_group["start"],
                     used_last_row,
                 )
+            _set_column_widths(ws, insert_col, template_widths)
             ws.update(f"{rowcol_to_a1(1, insert_col)}:{rowcol_to_a1(2, insert_col + width - 1)}", [[name] + [""] * (width - 1), template_row2])
             _clear_inserted_content(ws, 3, insert_col, used_last_row, width)
             inserted += 1
@@ -455,6 +575,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
             break
         if not changed:
             break
+    _repair_training_element_widths(ws)
     return inserted
 
 
@@ -496,6 +617,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 continue
             template_group = element_groups[0]
             width = int(template_group["width"])
+            template_widths = _get_column_widths(ws, int(template_group["start"]), width)
             template_row3 = _pad_row(_get_row_values(ws, 3), row2["end_col"])[template_group["start"] - 1 : template_group["end"]]
 
             for name in desired_names:
@@ -506,6 +628,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 used_last_row = max(_get_used_last_row(ws), 4)
                 if insert_col >= fallback_col and element_groups[-1]["end"] == row2["end_col"]:
                     append_start_col = ws.col_count + 1
+                    _invalidate_column_width_cache(ws)
                     ws.add_cols(width)
                     _batch_update(
                         ws.spreadsheet,
@@ -546,6 +669,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                     )
                     insert_col = append_start_col
                 else:
+                    _invalidate_column_width_cache(ws)
                     _insert_columns_copy_template(
                         ws,
                         insert_col,
@@ -571,6 +695,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                             },
                         ],
                     )
+                _set_column_widths(ws, insert_col, template_widths)
                 ws.update(
                     f"{rowcol_to_a1(2, insert_col)}:{rowcol_to_a1(3, insert_col + width - 1)}",
                     [[name] + [""] * (width - 1), template_row3],
@@ -583,6 +708,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 break
         if not changed:
             break
+    _repair_training_change_widths(ws)
     return inserted
 
 
@@ -716,9 +842,11 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
             insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col) if existing_groups else fallback_col
             used_last_row = max(_get_used_last_row(ws), 3)
             if insert_col >= fallback_col and (not existing_groups or existing_groups[-1]["end"] == profile["end_col"]):
+                _invalidate_column_width_cache(ws)
                 ws.add_cols(11)
                 insert_col = ws.col_count - 10
             else:
+                _invalidate_column_width_cache(ws)
                 _batch_update(
                     spreadsheet,
                     [
