@@ -300,6 +300,47 @@ def _set_column_widths(ws, start_col: int, widths: list[int]) -> None:
     _batch_update(ws.spreadsheet, requests)
 
 
+def _apply_border_box(
+    ws,
+    start_row: int,
+    end_row: int,
+    start_col: int,
+    end_col: int,
+    style: str = "SOLID",
+) -> None:
+    _batch_update(
+        ws.spreadsheet,
+        [
+            {
+                "updateBorders": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": start_col - 1,
+                        "endColumnIndex": end_col,
+                    },
+                    "top": {"style": style},
+                    "bottom": {"style": style},
+                    "left": {"style": style},
+                    "right": {"style": style},
+                }
+            }
+        ],
+    )
+
+
+def _pick_template_group(profile: dict[str, Any], preferred_labels: tuple[str, ...] = ()) -> dict[str, int] | None:
+    groups = profile.get("groups") or []
+    labels = [_normalize_text(label) for label in profile.get("labels") or []]
+    for preferred in preferred_labels:
+        if preferred in labels:
+            return groups[labels.index(preferred)]
+    if groups:
+        return groups[-1]
+    return None
+
+
 def _delete_columns(ws, start_col: int, end_col: int) -> None:
     if end_col < start_col:
         return
@@ -517,7 +558,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
         existing_groups = profile["groups"]
         if not existing_groups:
             return inserted
-        template_group = existing_groups[0]
+        template_group = _pick_template_group(profile, ("麗塔",)) or existing_groups[0]
         width = int(template_group["width"])
         template_widths = _get_column_widths(ws, int(template_group["start"]), width)
         template_row2 = _pad_row(_get_row_values(ws, 2), profile["end_col"])[template_group["start"] - 1 : template_group["end"]]
@@ -615,7 +656,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 element_names.append(_normalize_text(row2["labels"][idx]))
             if not element_groups:
                 continue
-            template_group = element_groups[0]
+            template_group = _pick_template_group(row2, ("麗塔",)) or element_groups[0]
             width = int(template_group["width"])
             template_widths = _get_column_widths(ws, int(template_group["start"]), width)
             template_row3 = _pad_row(_get_row_values(ws, 3), row2["end_col"])[template_group["start"] - 1 : template_group["end"]]
@@ -696,6 +737,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                         ],
                     )
                 _set_column_widths(ws, insert_col, template_widths)
+                _apply_border_box(ws, start_row=1, end_row=3, start_col=insert_col, end_col=insert_col + width - 1)
                 ws.update(
                     f"{rowcol_to_a1(2, insert_col)}:{rowcol_to_a1(3, insert_col + width - 1)}",
                     [[name] + [""] * (width - 1), template_row3],
@@ -772,6 +814,7 @@ def _set_standard_template(ws, start_col: int, name: str) -> None:
         ],
     )
     _set_standard_column_widths(ws, start_col)
+    _apply_border_box(ws, start_row=1, end_row=5, start_col=start_col, end_col=start_col + 10)
 
 
 def _set_standard_column_widths(ws, start_col: int) -> None:
