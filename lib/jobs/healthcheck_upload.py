@@ -155,6 +155,19 @@ def _find_insert_col(
     return fallback_col
 
 
+def _clamp_insert_after_anchor(
+    insert_col: int,
+    existing_names: list[str],
+    existing_groups: list[dict[str, int]],
+    anchor_name: str = "麗塔",
+) -> int:
+    if anchor_name not in existing_names:
+        return insert_col
+    anchor_group = existing_groups[existing_names.index(anchor_name)]
+    anchor_after = int(anchor_group["end"]) + 1
+    return max(insert_col, anchor_after)
+
+
 def _ensure_min_columns(ws, width: int) -> None:
     if ws.col_count < width:
         ws.add_cols(width - ws.col_count)
@@ -765,6 +778,7 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
                 continue
             fallback_col = existing_groups[-1]["end"] + 1
             insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col)
+            insert_col = _clamp_insert_after_anchor(insert_col, existing_names, existing_groups)
             used_last_row = max(_get_used_last_row(ws), 3)
             _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
             _set_training_element_template(ws, insert_col, name, used_last_row)
@@ -819,6 +833,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                     continue
                 fallback_col = element_groups[-1]["end"] + 1
                 insert_col = _find_insert_col(element_names, element_groups, desired_names, name, fallback_col)
+                insert_col = _clamp_insert_after_anchor(insert_col, element_names, element_groups)
                 used_last_row = max(_get_used_last_row(ws), 4)
                 _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
                 _set_training_change_template(ws, insert_col, name, used_last_row)
@@ -861,6 +876,7 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
                 continue
             fallback_col = existing_groups[-1]["end"] + 1 if existing_groups else 2
             insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col) if existing_groups else fallback_col
+            insert_col = _clamp_insert_after_anchor(insert_col, existing_names, existing_groups)
             _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
             _set_standard_template(ws, insert_col, name, 5)
             inserted += 1
