@@ -636,6 +636,20 @@ def _set_standard_template(ws, start_col: int, name: str) -> None:
                 "mergeType": "MERGE_ALL",
             }
         },
+    ]
+    _batch_update(ws.spreadsheet, requests)
+    ws.update(
+        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + 10)}",
+        [
+            [name] + [""] * 10,
+            STANDARD_ROW2_VALUES,
+        ],
+    )
+    _set_standard_column_widths(ws, start_col)
+
+
+def _set_standard_column_widths(ws, start_col: int) -> None:
+    requests = [
         {
             "updateDimensionProperties": {
                 "range": {
@@ -674,13 +688,14 @@ def _set_standard_template(ws, start_col: int, name: str) -> None:
         },
     ]
     _batch_update(ws.spreadsheet, requests)
-    ws.update(
-        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + 10)}",
-        [
-            [name] + [""] * 10,
-            STANDARD_ROW2_VALUES,
-        ],
-    )
+
+
+def _repair_standard_column_widths(ws) -> None:
+    profile = _get_merged_profile(ws, 1, 2)
+    for group in profile["groups"]:
+        if int(group["width"]) != 11:
+            continue
+        _set_standard_column_widths(ws, int(group["start"]))
 
 
 def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
@@ -727,6 +742,7 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
             break
         if not changed:
             break
+    _repair_standard_column_widths(ws)
     return inserted
 
 
