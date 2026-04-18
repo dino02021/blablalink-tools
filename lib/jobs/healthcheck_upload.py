@@ -30,6 +30,18 @@ STANDARD_WORKSHEET = "練度標準"
 TOTAL_LABEL = "總分"
 RANK_LABEL = "排名"
 STANDARD_ROW2_VALUES = ["技能", "技能", "技能", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "裝備(頭/手/身/腳)", "收藏品", "詞條(優/攻/彈)", "詞條(優/攻/彈)", "詞條(優/攻/彈)"]
+TEMPLATE_BLOCK_WIDTH = 11
+TEMPLATE_COLUMN_WIDTHS = [30, 30, 30, 30, 30, 30, 30, 47, 50, 50, 50]
+TEMPLATE_GROUPS = (
+    (0, 3, "技能"),
+    (3, 4, "裝備(頭/手/身/腳)"),
+    (7, 1, "收藏品"),
+    (8, 3, "詞條(優/攻/彈)"),
+)
+HEADER_BG = {"red": 244 / 255, "green": 193 / 255, "blue": 69 / 255}
+DATA_BG_ODD = {"red": 1.0, "green": 1.0, "blue": 1.0}
+DATA_BG_EVEN = {"red": 250 / 255, "green": 243 / 255, "blue": 224 / 255}
+BORDER_STYLE = {"style": "SOLID"}
 
 
 def _post_healthcheck_nickname_sync(sheet_id: str) -> tuple[bool, str]:
@@ -154,6 +166,26 @@ def _batch_update(spreadsheet, requests: list[dict[str, Any]]) -> None:
     spreadsheet.batch_update({"requests": requests})
 
 
+def _insert_blank_columns(ws, insert_col: int, width: int) -> None:
+    _invalidate_column_width_cache(ws)
+    _batch_update(
+        ws.spreadsheet,
+        [
+            {
+                "insertDimension": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "dimension": "COLUMNS",
+                        "startIndex": insert_col - 1,
+                        "endIndex": insert_col - 1 + width,
+                    },
+                    "inheritFromBefore": False,
+                }
+            }
+        ],
+    )
+
+
 def _insert_columns_copy_template(
     ws,
     insert_col: int,
@@ -161,6 +193,7 @@ def _insert_columns_copy_template(
     template_start_col: int,
     used_last_row: int,
     copy_start_row: int = 1,
+    copy_end_row: int | None = None,
 ) -> None:
     source_start_col = template_start_col + width if insert_col <= template_start_col else template_start_col
     source_end_col = source_start_col + width - 1
@@ -177,21 +210,22 @@ def _insert_columns_copy_template(
             }
         }
     ]
-    if used_last_row >= copy_start_row:
+    end_row = copy_end_row or used_last_row
+    if end_row >= copy_start_row:
         requests.append(
             {
             "copyPaste": {
                 "source": {
                     "sheetId": ws.id,
                     "startRowIndex": copy_start_row - 1,
-                    "endRowIndex": used_last_row,
+                    "endRowIndex": end_row,
                     "startColumnIndex": source_start_col - 1,
                     "endColumnIndex": source_end_col,
                 },
                 "destination": {
                     "sheetId": ws.id,
                     "startRowIndex": copy_start_row - 1,
-                    "endRowIndex": used_last_row,
+                    "endRowIndex": end_row,
                     "startColumnIndex": insert_col - 1,
                     "endColumnIndex": insert_col - 1 + width,
                 },
@@ -330,6 +364,154 @@ def _apply_border_box(
     )
 
 
+def _set_range_background(ws, start_row: int, end_row: int, start_col: int, end_col: int, color: dict[str, float]) -> None:
+    _batch_update(
+        ws.spreadsheet,
+        [
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": start_col - 1,
+                        "endColumnIndex": end_col,
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": color,
+                        }
+                    },
+                    "fields": "userEnteredFormat.backgroundColor",
+                }
+            }
+        ],
+    )
+
+
+def _set_group_borders(ws, start_row: int, end_row: int, start_col: int) -> None:
+    requests: list[dict[str, Any]] = []
+    for offset in (2, 6, 7):
+        col = start_col + offset
+        requests.append(
+            {
+                "updateBorders": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": col,
+                        "endColumnIndex": col + 1,
+                    },
+                    "left": BORDER_STYLE,
+                }
+            }
+        )
+    _batch_update(ws.spreadsheet, requests)
+
+
+def _merge_cells(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    if end_col <= start_col:
+        return
+    _batch_update(
+        ws.spreadsheet,
+        [
+            {
+                "mergeCells": {
+                    "range": {
+                        "sheetId": ws.id,
+                        "startRowIndex": start_row - 1,
+                        "endRowIndex": end_row,
+                        "startColumnIndex": start_col - 1,
+                        "endColumnIndex": end_col,
+                    },
+                    "mergeType": "MERGE_ALL",
+                }
+            }
+        ],
+    )
+
+
+def _format_template_data_rows(ws, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    if end_row < start_row:
+        return
+    for row in range(start_row, end_row + 1):
+        color = DATA_BG_ODD if row % 2 else DATA_BG_EVEN
+        _set_range_background(ws, row, row, start_col, end_col, color)
+
+
+def _set_training_element_template(ws, start_col: int, name: str, end_row: int) -> None:
+    _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
+    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    for offset, width, _label in TEMPLATE_GROUPS:
+        if width > 1:
+            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width)
+    values = [
+        [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
+        [""] * TEMPLATE_BLOCK_WIDTH,
+    ]
+    values[1][0] = "技能"
+    values[1][3] = "裝備(頭/手/身/腳)"
+    values[1][7] = "收藏品"
+    values[1][8] = "詞條(優/攻/彈)"
+    ws.update(
+        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + TEMPLATE_BLOCK_WIDTH - 1)}",
+        values,
+    )
+    _format_template_data_rows(ws, 3, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _apply_border_box(ws, 1, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _set_group_borders(ws, 1, end_row, start_col)
+
+
+def _set_training_change_template(ws, start_col: int, name: str, end_row: int) -> None:
+    _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _set_range_background(ws, 2, 3, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
+    _merge_cells(ws, 2, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    for offset, width, _label in TEMPLATE_GROUPS:
+        if width > 1:
+            _merge_cells(ws, 3, 3, start_col + offset, start_col + offset + width)
+    values = [
+        [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
+        [""] * TEMPLATE_BLOCK_WIDTH,
+    ]
+    values[1][0] = "技能"
+    values[1][3] = "裝備(頭/手/身/腳)"
+    values[1][7] = "收藏品"
+    values[1][8] = "詞條(優/攻/彈)"
+    ws.update(
+        f"{rowcol_to_a1(2, start_col)}:{rowcol_to_a1(3, start_col + TEMPLATE_BLOCK_WIDTH - 1)}",
+        values,
+    )
+    _format_template_data_rows(ws, 4, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _apply_border_box(ws, 2, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _set_group_borders(ws, 2, end_row, start_col)
+
+
+def _set_standard_template(ws, start_col: int, name: str, end_row: int) -> None:
+    _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
+    _set_range_background(ws, 1, 2, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1, HEADER_BG)
+    _merge_cells(ws, 1, 1, start_col, start_col + TEMPLATE_BLOCK_WIDTH)
+    for offset, width, _label in TEMPLATE_GROUPS:
+        if width > 1:
+            _merge_cells(ws, 2, 2, start_col + offset, start_col + offset + width)
+    values = [
+        [name] + [""] * (TEMPLATE_BLOCK_WIDTH - 1),
+        [""] * TEMPLATE_BLOCK_WIDTH,
+    ]
+    values[1][0] = "技能"
+    values[1][3] = "裝備(頭/手/身/腳)"
+    values[1][7] = "收藏品"
+    values[1][8] = "詞條(優/攻/彈)"
+    ws.update(
+        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + TEMPLATE_BLOCK_WIDTH - 1)}",
+        values,
+    )
+    _format_template_data_rows(ws, 3, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _apply_border_box(ws, 1, end_row, start_col, start_col + TEMPLATE_BLOCK_WIDTH - 1)
+    _set_group_borders(ws, 1, end_row, start_col)
+
+
 def _pick_template_group(profile: dict[str, Any], preferred_labels: tuple[str, ...] = ()) -> dict[str, int] | None:
     groups = profile.get("groups") or []
     labels = [_normalize_text(label) for label in profile.get("labels") or []]
@@ -368,6 +550,8 @@ def _append_template_block_and_move(
     width: int,
     template_start_col: int,
     used_last_row: int,
+    copy_start_row: int = 1,
+    copy_end_row: int | None = None,
 ) -> int:
     append_start_col = ws.col_count + 1
     _invalidate_column_width_cache(ws)
@@ -379,15 +563,15 @@ def _append_template_block_and_move(
                 "copyPaste": {
                     "source": {
                         "sheetId": ws.id,
-                        "startRowIndex": 0,
-                        "endRowIndex": used_last_row,
+                        "startRowIndex": copy_start_row - 1,
+                        "endRowIndex": copy_end_row or used_last_row,
                         "startColumnIndex": template_start_col - 1,
                         "endColumnIndex": template_start_col - 1 + width,
                     },
                     "destination": {
                         "sheetId": ws.id,
-                        "startRowIndex": 0,
-                        "endRowIndex": used_last_row,
+                        "startRowIndex": copy_start_row - 1,
+                        "endRowIndex": copy_end_row or used_last_row,
                         "startColumnIndex": append_start_col - 1,
                         "endColumnIndex": append_start_col - 1 + width,
                     },
@@ -434,14 +618,10 @@ def _trim_training_element_trailing_columns(ws, expected_width: int) -> None:
 
 def _repair_training_element_widths(ws) -> None:
     profile = _get_merged_profile(ws, 1, 2)
-    template_group = next((group for group in profile["groups"] if int(group["width"]) == 11), None)
-    if not template_group:
-        return
-    template_widths = _get_column_widths(ws, int(template_group["start"]), 11)
     for group in profile["groups"]:
-        if int(group["width"]) != 11:
+        if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
-        _set_column_widths(ws, int(group["start"]), template_widths)
+        _set_column_widths(ws, int(group["start"]), TEMPLATE_COLUMN_WIDTHS)
 
 
 def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
@@ -460,14 +640,10 @@ def _trim_training_change_trailing_columns(ws, expected_width: int) -> None:
 
 def _repair_training_change_widths(ws) -> None:
     profile = _get_merged_profile(ws, 2, 2)
-    template_group = next((group for group in profile["groups"] if int(group["width"]) == 11), None)
-    if not template_group:
-        return
-    template_widths = _get_column_widths(ws, int(template_group["start"]), 11)
     for group in profile["groups"]:
-        if int(group["width"]) != 11:
+        if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
-        _set_column_widths(ws, int(group["start"]), template_widths)
+        _set_column_widths(ws, int(group["start"]), TEMPLATE_COLUMN_WIDTHS)
 
 
 def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -552,16 +728,12 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
     inserted = 0
 
     for _ in range(len(desired_names)):
-        _trim_training_element_trailing_columns(ws, 11)
+        _trim_training_element_trailing_columns(ws, TEMPLATE_BLOCK_WIDTH)
         profile = _get_merged_profile(ws, 1, 2)
         existing_names = [_normalize_text(label) for label in profile["labels"]]
         existing_groups = profile["groups"]
         if not existing_groups:
             return inserted
-        template_group = _pick_template_group(profile, ("麗塔",)) or existing_groups[0]
-        width = int(template_group["width"])
-        template_widths = _get_column_widths(ws, int(template_group["start"]), width)
-        template_row2 = _pad_row(_get_row_values(ws, 2), profile["end_col"])[template_group["start"] - 1 : template_group["end"]]
         changed = False
 
         for name in desired_names:
@@ -570,47 +742,8 @@ def _sync_training_element_sheet(spreadsheet, element: str, desired_names: list[
             fallback_col = existing_groups[-1]["end"] + 1
             insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col)
             used_last_row = max(_get_used_last_row(ws), 3)
-            if insert_col >= fallback_col:
-                append_start_col = ws.col_count + 1
-                _invalidate_column_width_cache(ws)
-                ws.add_cols(width)
-                _batch_update(
-                    ws.spreadsheet,
-                    [
-                        {
-                            "copyPaste": {
-                                "source": {
-                                    "sheetId": ws.id,
-                                    "startRowIndex": 0,
-                                    "endRowIndex": used_last_row,
-                                    "startColumnIndex": template_group["start"] - 1,
-                                    "endColumnIndex": template_group["start"] - 1 + width,
-                                },
-                                "destination": {
-                                    "sheetId": ws.id,
-                                    "startRowIndex": 0,
-                                    "endRowIndex": used_last_row,
-                                    "startColumnIndex": append_start_col - 1,
-                                    "endColumnIndex": append_start_col - 1 + width,
-                                },
-                                "pasteType": "PASTE_NORMAL",
-                                "pasteOrientation": "NORMAL",
-                            }
-                        }
-                    ],
-                )
-                insert_col = append_start_col
-            else:
-                insert_col = _append_template_block_and_move(
-                    ws,
-                    insert_col,
-                    width,
-                    template_group["start"],
-                    used_last_row,
-                )
-            _set_column_widths(ws, insert_col, template_widths)
-            ws.update(f"{rowcol_to_a1(1, insert_col)}:{rowcol_to_a1(2, insert_col + width - 1)}", [[name] + [""] * (width - 1), template_row2])
-            _clear_inserted_content(ws, 3, insert_col, used_last_row, width)
+            _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+            _set_training_element_template(ws, insert_col, name, used_last_row)
             inserted += 1
             changed = True
             break
@@ -635,7 +768,7 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
     ws = spreadsheet.worksheet(TRAINING_CHANGE_WORKSHEET)
     inserted = 0
     for _ in range(sum(len(items) for items in desired_by_element.values()) or 1):
-        _trim_training_change_trailing_columns(ws, 11)
+        _trim_training_change_trailing_columns(ws, TEMPLATE_BLOCK_WIDTH)
         row2 = _get_merged_profile(ws, 2, 2)
         if not row2["groups"]:
             return inserted
@@ -656,10 +789,6 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 element_names.append(_normalize_text(row2["labels"][idx]))
             if not element_groups:
                 continue
-            template_group = _pick_template_group(row2, ("麗塔",)) or element_groups[0]
-            width = int(template_group["width"])
-            template_widths = _get_column_widths(ws, int(template_group["start"]), width)
-            template_row3 = _pad_row(_get_row_values(ws, 3), row2["end_col"])[template_group["start"] - 1 : template_group["end"]]
 
             for name in desired_names:
                 if name in element_names:
@@ -667,82 +796,8 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
                 fallback_col = element_groups[-1]["end"] + 1
                 insert_col = _find_insert_col(element_names, element_groups, desired_names, name, fallback_col)
                 used_last_row = max(_get_used_last_row(ws), 4)
-                if insert_col >= fallback_col and element_groups[-1]["end"] == row2["end_col"]:
-                    append_start_col = ws.col_count + 1
-                    _invalidate_column_width_cache(ws)
-                    ws.add_cols(width)
-                    _batch_update(
-                        ws.spreadsheet,
-                        [
-                            {
-                                "copyPaste": {
-                                    "source": {
-                                        "sheetId": ws.id,
-                                        "startRowIndex": 2,
-                                        "endRowIndex": used_last_row,
-                                        "startColumnIndex": template_group["start"] - 1,
-                                        "endColumnIndex": template_group["start"] - 1 + width,
-                                    },
-                                    "destination": {
-                                        "sheetId": ws.id,
-                                        "startRowIndex": 2,
-                                        "endRowIndex": used_last_row,
-                                        "startColumnIndex": append_start_col - 1,
-                                        "endColumnIndex": append_start_col - 1 + width,
-                                    },
-                                    "pasteType": "PASTE_NORMAL",
-                                    "pasteOrientation": "NORMAL",
-                                }
-                            },
-                            {
-                                "mergeCells": {
-                                    "range": {
-                                        "sheetId": ws.id,
-                                        "startRowIndex": 1,
-                                        "endRowIndex": 2,
-                                        "startColumnIndex": append_start_col - 1,
-                                        "endColumnIndex": append_start_col - 1 + width,
-                                    },
-                                    "mergeType": "MERGE_ALL",
-                                }
-                            },
-                        ],
-                    )
-                    insert_col = append_start_col
-                else:
-                    _invalidate_column_width_cache(ws)
-                    _insert_columns_copy_template(
-                        ws,
-                        insert_col,
-                        width,
-                        template_group["start"],
-                        used_last_row,
-                        copy_start_row=3,
-                    )
-                    _batch_update(
-                        spreadsheet,
-                        [
-                            {
-                                "mergeCells": {
-                                    "range": {
-                                        "sheetId": ws.id,
-                                        "startRowIndex": 1,
-                                        "endRowIndex": 2,
-                                        "startColumnIndex": insert_col - 1,
-                                        "endColumnIndex": insert_col - 1 + width,
-                                    },
-                                    "mergeType": "MERGE_ALL",
-                                }
-                            },
-                        ],
-                    )
-                _set_column_widths(ws, insert_col, template_widths)
-                _apply_border_box(ws, start_row=1, end_row=3, start_col=insert_col, end_col=insert_col + width - 1)
-                ws.update(
-                    f"{rowcol_to_a1(2, insert_col)}:{rowcol_to_a1(3, insert_col + width - 1)}",
-                    [[name] + [""] * (width - 1), template_row3],
-                )
-                _clear_inserted_content(ws, 4, insert_col, used_last_row, width)
+                _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+                _set_training_change_template(ws, insert_col, name, used_last_row)
                 inserted += 1
                 changed = True
                 break
@@ -754,115 +809,14 @@ def _sync_training_change_sheet(spreadsheet, desired_by_element: dict[str, list[
     return inserted
 
 
-def _set_standard_template(ws, start_col: int, name: str) -> None:
-    requests = [
-        {
-            "mergeCells": {
-                "range": {
-                    "sheetId": ws.id,
-                    "startRowIndex": 0,
-                    "endRowIndex": 1,
-                    "startColumnIndex": start_col - 1,
-                    "endColumnIndex": start_col + 10,
-                },
-                "mergeType": "MERGE_ALL",
-            }
-        },
-        {
-            "mergeCells": {
-                "range": {
-                    "sheetId": ws.id,
-                    "startRowIndex": 1,
-                    "endRowIndex": 2,
-                    "startColumnIndex": start_col - 1,
-                    "endColumnIndex": start_col + 2,
-                },
-                "mergeType": "MERGE_ALL",
-            }
-        },
-        {
-            "mergeCells": {
-                "range": {
-                    "sheetId": ws.id,
-                    "startRowIndex": 1,
-                    "endRowIndex": 2,
-                    "startColumnIndex": start_col + 2,
-                    "endColumnIndex": start_col + 6,
-                },
-                "mergeType": "MERGE_ALL",
-            }
-        },
-        {
-            "mergeCells": {
-                "range": {
-                    "sheetId": ws.id,
-                    "startRowIndex": 1,
-                    "endRowIndex": 2,
-                    "startColumnIndex": start_col + 7,
-                    "endColumnIndex": start_col + 10,
-                },
-                "mergeType": "MERGE_ALL",
-            }
-        },
-    ]
-    _batch_update(ws.spreadsheet, requests)
-    ws.update(
-        f"{rowcol_to_a1(1, start_col)}:{rowcol_to_a1(2, start_col + 10)}",
-        [
-            [name] + [""] * 10,
-            STANDARD_ROW2_VALUES,
-        ],
-    )
-    _set_standard_column_widths(ws, start_col)
-    _apply_border_box(ws, start_row=1, end_row=5, start_col=start_col, end_col=start_col + 10)
-
-
 def _set_standard_column_widths(ws, start_col: int) -> None:
-    requests = [
-        {
-            "updateDimensionProperties": {
-                "range": {
-                    "sheetId": ws.id,
-                    "dimension": "COLUMNS",
-                    "startIndex": start_col - 1,
-                    "endIndex": start_col + 7,
-                },
-                "properties": {"pixelSize": 30},
-                "fields": "pixelSize",
-            }
-        },
-        {
-            "updateDimensionProperties": {
-                "range": {
-                    "sheetId": ws.id,
-                    "dimension": "COLUMNS",
-                    "startIndex": start_col + 6,
-                    "endIndex": start_col + 7,
-                },
-                "properties": {"pixelSize": 47},
-                "fields": "pixelSize",
-            }
-        },
-        {
-            "updateDimensionProperties": {
-                "range": {
-                    "sheetId": ws.id,
-                    "dimension": "COLUMNS",
-                    "startIndex": start_col + 7,
-                    "endIndex": start_col + 10,
-                },
-                "properties": {"pixelSize": 50},
-                "fields": "pixelSize",
-            }
-        },
-    ]
-    _batch_update(ws.spreadsheet, requests)
+    _set_column_widths(ws, start_col, TEMPLATE_COLUMN_WIDTHS)
 
 
 def _repair_standard_column_widths(ws) -> None:
     profile = _get_merged_profile(ws, 1, 2)
     for group in profile["groups"]:
-        if int(group["width"]) != 11:
+        if int(group["width"]) != TEMPLATE_BLOCK_WIDTH:
             continue
         _set_standard_column_widths(ws, int(group["start"]))
 
@@ -883,31 +837,8 @@ def _sync_standard_sheet(spreadsheet, desired_names: list[str]) -> int:
                 continue
             fallback_col = existing_groups[-1]["end"] + 1 if existing_groups else 2
             insert_col = _find_insert_col(existing_names, existing_groups, desired_names, name, fallback_col) if existing_groups else fallback_col
-            used_last_row = max(_get_used_last_row(ws), 3)
-            if insert_col >= fallback_col and (not existing_groups or existing_groups[-1]["end"] == profile["end_col"]):
-                _invalidate_column_width_cache(ws)
-                ws.add_cols(11)
-                insert_col = ws.col_count - 10
-            else:
-                _invalidate_column_width_cache(ws)
-                _batch_update(
-                    spreadsheet,
-                    [
-                        {
-                            "insertDimension": {
-                                "range": {
-                                    "sheetId": ws.id,
-                                    "dimension": "COLUMNS",
-                                    "startIndex": insert_col - 1,
-                                    "endIndex": insert_col + 10,
-                                },
-                                "inheritFromBefore": False,
-                            }
-                        }
-                    ],
-                )
-            _set_standard_template(ws, insert_col, name)
-            _clear_inserted_content(ws, 3, insert_col, used_last_row, 11)
+            _insert_blank_columns(ws, insert_col, TEMPLATE_BLOCK_WIDTH)
+            _set_standard_template(ws, insert_col, name, 5)
             inserted += 1
             changed = True
             break
