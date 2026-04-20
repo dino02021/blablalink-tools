@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'cloudflare-scheduler/**'
+      - '.github/runtime/scheduler_config.json'
       - '.github/workflows/deploy-cloudflare-scheduler.yml'
 
 jobs:
