@@ -97,6 +97,7 @@ def run_union_raid_pipeline(
     scope: str = "single",
     account: str | None = None,
     month: str | None = None,
+    season_id: str | None = None,
 ) -> JobResult:
     mode_text = str(mode or "download").strip().lower() or "download"
     if mode_text not in {"download", "full"}:
@@ -113,6 +114,7 @@ def run_union_raid_pipeline(
         return JobResult(ok=False, message="Missing account")
 
     requested_month = str(month or "").strip()
+    requested_season_id = str(season_id or "").strip()
     results: List[Dict[str, Any]] = []
     ok_count = 0
 
@@ -120,10 +122,11 @@ def run_union_raid_pipeline(
         entry: Dict[str, Any] = {
             "account": slug,
             "mode": mode_text,
+            "season_id": requested_season_id,
             "ok": False,
         }
 
-        download_result = run_union_raid_download(account=slug)
+        download_result = run_union_raid_download(account=slug, season_id=requested_season_id or None)
         entry["download"] = _serialize_result(download_result)
         entry["message"] = download_result.message
 
@@ -167,6 +170,7 @@ def run_union_raid_pipeline(
     summary = {
         "mode": mode_text,
         "scope": scope_text,
+        "season_id": requested_season_id,
         "total": len(results),
         "ok_count": ok_count,
         "failed_count": failed_count,

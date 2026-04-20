@@ -14,6 +14,7 @@ from .constants import (
     ROLEINFO_URL,
     UNIONINFO_URL,
     UNION_RAID_URL,
+    UNION_RAID_SEASON_URL,
     CHAR_DETAILS_URL,
     USER_CHARACTERS_URL,
     GUILDMEMBERS_URL,
@@ -99,6 +100,109 @@ def _decode_intl_open_id(raw_value: str | None) -> str | None:
     return parts[1]
 
 
+def _build_union_raid_output(data: dict, union_id: str) -> dict | None:
+    if not isinstance(data, dict):
+        return None
+
+    data_field = data.get("data")
+    if not isinstance(data_field, dict):
+        return None
+
+    participate = data_field.get("participate_data")
+    if not isinstance(participate, list):
+        return None
+
+    merged: Dict[str, Dict[str, Any]] = {}
+    for item in participate:
+        if not isinstance(item, dict):
+            continue
+        if item.get("day") == 0:
+            continue
+        username = item.get("nickname") or item.get("username")
+        squad_raw = item.get("squad")
+        if squad_raw is None:
+            squad_raw = item.get("squad_id")
+        if not isinstance(squad_raw, list):
+            continue
+
+        tid_list: List[Any] = []
+        lv_val = None
+        for elem in squad_raw:
+            if not isinstance(elem, dict):
+                continue
+            tid = elem.get("tid")
+            if tid is not None:
+                tid_list.append(int(str(tid)[:4]))
+            lv_candidate = elem.get("lv")
+            if not isinstance(lv_candidate, (int, float)):
+                continue
+            if lv_val is None or lv_candidate > lv_val:
+                lv_val = lv_candidate
+
+        if not username:
+            continue
+
+        entry = {
+            "damage": item.get("total_damage"),
+            "level": item.get("level"),
+            "step": item.get("step"),
+            "is_final_hit": item.get("is_final_hit"),
+            "squad_id": tid_list,
+        }
+
+        if username not in merged:
+            merged[username] = {"username": username, "lv": lv_val, "data": [entry]}
+            continue
+        if lv_val is not None:
+            prev_lv = merged[username].get("lv")
+            if prev_lv is None or (isinstance(prev_lv, (int, float)) and lv_val > prev_lv):
+                merged[username]["lv"] = lv_val
+        merged[username]["data"].append(entry)
+
+    if not merged:
+        return None
+
+    out_list = []
+    for item in merged.values():
+        if isinstance(item.get("data"), list):
+            item["data"] = list(reversed(item["data"]))
+        out_list.append(item)
+    return {"union_id": union_id, "participate_data": out_list}
+
+
+def _write_union_raid_output(wrapped: dict, union_id: str) -> bool:
+    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    out_path = UNION_RAID_TEMP_FILE.parent / f"{UNION_RAID_TEMP_FILE.stem}_{union_id}_{ts}{UNION_RAID_TEMP_FILE.suffix}"
+    try:
+        UNION_RAID_TEMP_FILE.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(wrapped, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False
+    return True
+
+
+async def _fetch_and_store_union_raid_data(
+    req: APIRequestContext,
+    url: str,
+    payload: dict[str, Any],
+    union_id: str,
+) -> bool:
+    resp = await req.post(url, data=payload)
+    if resp.status != 200:
+        return False
+    try:
+        data = await resp.json()
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False
+
+    wrapped = _build_union_raid_output(data, union_id)
+    if not wrapped:
+        return False
+    return _write_union_raid_output(wrapped, union_id)
+
+
 async def fetch_union_raid_data(
     context: BrowserContext,
     union_id: str,
@@ -120,90 +224,27 @@ async def fetch_union_raid_data(
             "intl_open_id": intl_open_id,
             "nikke_area_id": nikke_area_id,
         }
-        resp = await req.post(UNION_RAID_URL, data=payload)
-        if resp.status != 200:
-            return False
-        try:
-            data = await resp.json()
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            return False
+        return await _fetch_and_store_union_raid_data(req, UNION_RAID_URL, payload, union_id)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False
 
-        if not isinstance(data, dict):
-            return False
 
-        data_field = data.get("data")
-        if not isinstance(data_field, dict):
-            return False
-
-        participate = data_field.get("participate_data")
-        if not isinstance(participate, list):
-            return False
-
-        merged: Dict[str, Dict[str, Any]] = {}
-        for item in participate:
-            if not isinstance(item, dict):
-                continue
-            day = item.get("day")
-            if day == 0:
-                continue
-            username = item.get("nickname")
-            squad_raw = item.get("squad")
-            tid_list: List[Any] = []
-            lv_val = None
-            if not isinstance(squad_raw, list):
-                continue
-            for elem in squad_raw:
-                if not isinstance(elem, dict):
-                    continue
-                tid = elem.get("tid")
-                if tid is not None:
-                    tid_list.append(int(str(tid)[:4]))
-                lv_candidate = elem.get("lv")
-                if lv_candidate is None:
-                    continue
-                if not isinstance(lv_candidate, (int, float)):
-                    continue
-                if lv_val is None or lv_candidate > lv_val:
-                    lv_val = lv_candidate
-            entry = {
-                "damage": item.get("total_damage"),
-                "level": item.get("level"),
-                "step": item.get("step"),
-                "is_final_hit": item.get("is_final_hit"),
-                "squad_id": tid_list,
-            }
-
-            if not username:
-                continue
-            if username not in merged:
-                merged[username] = {"username": username, "lv": lv_val, "data": [entry]}
-            else:
-                if lv_val is not None:
-                    prev_lv = merged[username].get("lv")
-                    if prev_lv is None or (isinstance(prev_lv, (int, float)) and lv_val > prev_lv):
-                        merged[username]["lv"] = lv_val
-                merged[username]["data"].append(entry)
-
-        if not merged:
-            return False
-
-        out_list = []
-        for item in merged.values():
-            # data 倒序
-            if isinstance(item.get("data"), list):
-                item["data"] = list(reversed(item["data"]))
-            out_list.append(item)
-        wrapped = {"union_id": union_id, "participate_data": out_list}
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        out_path = UNION_RAID_TEMP_FILE.parent / f"{UNION_RAID_TEMP_FILE.stem}_{union_id}_{ts}{UNION_RAID_TEMP_FILE.suffix}"
-        try:
-            UNION_RAID_TEMP_FILE.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(json.dumps(wrapped, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            return False
-        return True
+async def fetch_union_raid_data_of_guild_season(
+    context: BrowserContext,
+    area_id: str,
+    guild_id: str,
+    season_id: str,
+) -> bool:
+    """呼叫賽季版公會戰報 API，並使用與 fetch_union_raid_data 相同的處理與輸出格式。"""
+    try:
+        req = context.request
+        payload = {
+            "area_id": area_id,
+            "guild_id": guild_id,
+            "season_id": f"10000{str(season_id or '').strip()}",
+        }
+        return await _fetch_and_store_union_raid_data(req, UNION_RAID_SEASON_URL, payload, guild_id)
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return False

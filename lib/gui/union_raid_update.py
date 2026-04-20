@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from . import gui_main
 
 
-def start_union_raid_update(app: gui_main.App, mode: str, month: str) -> None:
+def start_union_raid_update(app: gui_main.App, mode: str, month: str, season: str | None = None) -> None:
     """Start union raid update (download + upload) from the GUI."""
     if mode not in ("single", "all"):
         app._set_status("模式錯誤", "red")
@@ -26,22 +26,22 @@ def start_union_raid_update(app: gui_main.App, mode: str, month: str) -> None:
     app.union_status_var.set("")
     app._set_busy(True)
     
-    threading.Thread(target=_update_worker, args=(app, mode, month), daemon=True).start()
+    threading.Thread(target=_update_worker, args=(app, mode, month, season), daemon=True).start()
 
 
-def _update_worker(app, mode: str, month: str) -> None:
+def _update_worker(app, mode: str, month: str, season: str | None = None) -> None:
     """背景執行緒：下載 + 上傳聯盟突襲資料。"""
     try:
         if mode == "single":
-            _process_single_account(app, month)
+            _process_single_account(app, month, season)
         elif mode == "all":
-            _process_all_accounts(app, month)
+            _process_all_accounts(app, month, season)
     except Exception as exc:
         log_exc(exc)
         app.root.after(0, functools.partial(_finish_update, app, False, str(exc)))
 
 
-def _process_single_account(app, month: str) -> None:
+def _process_single_account(app, month: str, season: str | None = None) -> None:
     """處理單一帳號：下載 + 上傳。"""
     if not getattr(app, "_last_slug", None):
         msg = "請先登入"
@@ -51,7 +51,7 @@ def _process_single_account(app, month: str) -> None:
     slug = app._last_slug
     
     # 下載
-    download_result = run_union_raid_download(account=slug)
+    download_result = run_union_raid_download(account=slug, season_id=season)
     if not download_result.ok:
         app.root.after(0, functools.partial(_finish_update, app, False, download_result.message))
         return
@@ -70,7 +70,7 @@ def _process_single_account(app, month: str) -> None:
     app.root.after(0, functools.partial(_finish_update, app, ok, msg))
 
 
-def _process_all_accounts(app, month: str) -> None:
+def _process_all_accounts(app, month: str, season: str | None = None) -> None:
     """處理批次帳號：循環下載 + 上傳。"""
     account_map = load_union_account_map()
     if not account_map:
@@ -94,7 +94,7 @@ def _process_all_accounts(app, month: str) -> None:
         ))
 
         # 下載
-        download_result = run_union_raid_download(account=username)
+        download_result = run_union_raid_download(account=username, season_id=season)
         if not download_result.ok:
             messages.append(f"❌ {username}: 下載失敗 - {download_result.message}")
             all_ok = False

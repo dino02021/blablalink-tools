@@ -37,7 +37,7 @@ def _get_default_month(date_str: str | None = None) -> str:
 
 def open_union_raid_update_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     """開啟聯盟突襲傷害表更新對話框。"""
-    dlg = create_dialog(parent, "更新聯盟突襲傷害表", 320, 140)
+    dlg = create_dialog(parent, "更新聯盟突襲傷害表", 320, 180)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
@@ -51,6 +51,10 @@ def open_union_raid_update_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     month_var = tk.StringVar(value=current_month)
     create_entry(entry_frame, month_var, row=0, column=1, sticky="ew")
 
+    create_entry_label(entry_frame, "賽季:", row=1, column=0)
+    season_var = tk.StringVar(value="")
+    create_entry(entry_frame, season_var, row=1, column=1, sticky="ew")
+
     # 按鈕框架
     btn_frame = create_btn_frame(frame, row=1, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -59,12 +63,13 @@ def open_union_raid_update_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     status_var = tk.StringVar(value="")
     status_label = create_msg_label(frame, status_var, row=2, column=0, sticky="w")
 
-    result: Dict[str, Any] = {"ok": False, "message": "", "mode": None, "month": current_month}
+    result: Dict[str, Any] = {"ok": False, "message": "", "mode": None, "month": current_month, "season": ""}
 
     def _handle_single() -> None:
         result["ok"] = True
         result["mode"] = "single"
         result["month"] = month_var.get().strip()
+        result["season"] = season_var.get().strip()
         result["message"] = "選擇單一帳號"
         close_dialog(dlg)
 
@@ -72,6 +77,7 @@ def open_union_raid_update_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
         result["ok"] = True
         result["mode"] = "all"
         result["month"] = month_var.get().strip()
+        result["season"] = season_var.get().strip()
         result["message"] = "選擇批次帳號"
         close_dialog(dlg)
 

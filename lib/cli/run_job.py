@@ -24,6 +24,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     p_union_download = sub.add_parser("union-raid-download", help="Download union raid data.")
     p_union_download.add_argument("--account", default="", help="Account slug.")
+    p_union_download.add_argument("--season", default="", help="Optional season id.")
 
     p_union_upload = sub.add_parser("union-raid-upload", help="Upload union raid data.")
     p_union_upload.add_argument("--account", default="", help="Account slug.")
@@ -36,6 +37,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_union_pipeline.add_argument("--scope", default="single", help="single or all.")
     p_union_pipeline.add_argument("--account", default="", help="Account slug for single scope.")
     p_union_pipeline.add_argument("--month", default="", help="Month text for full mode.")
+    p_union_pipeline.add_argument("--season", default="", help="Optional season id for download.")
 
     p_nikke_batch = sub.add_parser("nikke-batch-download", help="Batch download Nikke data.")
     p_nikke_batch.add_argument("--account", default="", help="Account slug.")
@@ -85,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
 
     fn: Callable[[], JobResult]
     if args.command == "union-raid-download":
-        fn = lambda: run_union_raid_download(account=args.account)
+        fn = lambda: run_union_raid_download(account=args.account, season_id=args.season or None)
     elif args.command == "union-raid-upload":
         fn = lambda: run_union_raid_upload(
             account=args.account,
@@ -99,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             scope=args.scope,
             account=args.account or None,
             month=args.month or None,
+            season_id=args.season or None,
         )
     elif args.command == "nikke-batch-download":
         fn = lambda: run_nikke_batch_download(account=args.account)

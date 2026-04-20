@@ -442,8 +442,9 @@ class LoginApp:
         if result:
             mode = result.get("mode")
             month = result.get("month")
+            season = result.get("season")
             from .gui.union_raid_update import start_union_raid_update
-            start_union_raid_update(self, mode, month)
+            start_union_raid_update(self, mode, month, season)
 
     def _on_update_nikke(self) -> None:
         from .gui.dialogs.nikke_update import open_nikke_update_dialog

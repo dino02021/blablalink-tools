@@ -23,8 +23,10 @@ class FakeResponse:
 class FakeRequest:
     def __init__(self, mapping):
         self.mapping = mapping
+        self.posts = []
 
     async def post(self, url, **kwargs):
+        self.posts.append((url, kwargs))
         return self.mapping[url]
 
     async def get(self, url, **kwargs):
@@ -42,7 +44,6 @@ async def test_fetch_union_raid_data(tmp_path, monkeypatch):
     out_dir = tmp_path / "UnionRaid"
     out_file = out_dir / "tmp.json"
     monkeypatch.setattr(api, "UNION_RAID_TEMP_FILE", out_file)
-    monkeypatch.setattr(api, "DATA_DIR", tmp_path)
 
     sample = {
         "data": {
@@ -94,10 +95,70 @@ async def test_fetch_union_raid_data(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_fetch_union_raid_data_of_guild_season(tmp_path, monkeypatch):
+    out_dir = tmp_path / "UnionRaid"
+    out_file = out_dir / "tmp.json"
+    monkeypatch.setattr(api, "UNION_RAID_TEMP_FILE", out_file)
+
+    sample = {
+        "data": {
+            "participate_data": [
+                {
+                    "day": 1,
+                    "nickname": "A",
+                    "total_damage": 100,
+                    "level": 1,
+                    "step": 1,
+                    "is_final_hit": False,
+                    "squad": [{"tid": 123456, "lv": 10}],
+                }
+            ]
+        }
+    }
+    mapping = {api.UNION_RAID_SEASON_URL: FakeResponse(200, sample)}
+    ctx = FakeContext(mapping)
+
+    ok = await api.fetch_union_raid_data_of_guild_season(ctx, "area-1", "gid", "123")
+    assert ok is True
+    assert ctx.request.posts == [
+        (
+            api.UNION_RAID_SEASON_URL,
+            {"data": {"area_id": "area-1", "guild_id": "gid", "season_id": "10000123"}},
+        )
+    ]
+
+    files = list(out_dir.glob("tmp_*json"))
+    assert files, "輸出檔案未建立"
+    content = json.loads(files[0].read_text(encoding="utf-8"))
+    assert content == {
+        "union_id": "gid",
+        "participate_data": [
+            {
+                "username": "A",
+                "lv": 10,
+                "data": [
+                    {
+                        "damage": 100,
+                        "level": 1,
+                        "step": 1,
+                        "is_final_hit": False,
+                        "squad_id": [1234],
+                    }
+                ],
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_fetch_nikkes_info(tmp_path, monkeypatch):
-    monkeypatch.setattr(api, "DATA_DIR", tmp_path)
     target = tmp_path / "nikkes_info.json"
     monkeypatch.setattr(api, "NIKKES_INFO_FILE", target)
+    monkeypatch.setattr(
+        api,
+        "write_data_text_and_sync_if_changed",
+        lambda path, text, encoding="utf-8": path.write_text(text, encoding=encoding),
+    )
 
     sample = [
         {
