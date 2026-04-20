@@ -103,6 +103,10 @@ def _serialize_result(result: JobResult) -> Dict[str, Any]:
     }
 
 
+def _is_soft_skip_result(result: JobResult) -> bool:
+    return str(result.message or "").strip() in {"找不到工會資訊", "找不到聯盟資訊"}
+
+
 def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "成員名稱") -> JobResult:
     slug = resolve_account(account)
     if not slug:
@@ -203,28 +207,36 @@ def run_sync_upload(
 
     results: List[Dict[str, Any]] = []
     ok_count = 0
+    skipped_count = 0
 
     for slug in accounts:
         result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
         entry = {
             "account": slug,
+            "skipped": False,
             **_serialize_result(result),
         }
         if result.ok:
             ok_count += 1
+        elif _is_soft_skip_result(result):
+            entry["ok"] = True
+            entry["skipped"] = True
+            ok_count += 1
+            skipped_count += 1
         results.append(entry)
 
-    failed_count = len(results) - ok_count
+    failed_count = sum(1 for item in results if not bool(item.get("ok")))
     summary = {
         "scope": scope_text,
         "total": len(results),
         "ok_count": ok_count,
+        "skipped_count": skipped_count,
         "failed_count": failed_count,
     }
     if failed_count:
         message = f"sync upload finished with failures: ok={ok_count} failed={failed_count}"
     else:
-        message = f"sync upload finished: ok={ok_count}"
+        message = f"sync upload finished: ok={ok_count} skipped={skipped_count}"
 
     return JobResult(
         ok=failed_count == 0,

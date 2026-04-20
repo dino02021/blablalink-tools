@@ -92,6 +92,10 @@ def _serialize_result(result: JobResult) -> Dict[str, Any]:
     }
 
 
+def _is_soft_skip_message(message: str | None) -> bool:
+    return str(message or "").strip() in {"找不到工會資訊", "找不到聯盟資訊"}
+
+
 def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> JobResult:
     scope_text = str(scope or "single").strip().lower() or "single"
     if scope_text not in {"single", "all"}:
@@ -119,6 +123,14 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
         entry["message"] = download_result.message
 
         if not download_result.ok:
+            if scope_text == "all" and _is_soft_skip_message(download_result.message):
+                entry["ok"] = True
+                entry["skipped"] = True
+                entry["stage"] = "skipped"
+                skipped_count += 1
+                ok_count += 1
+                results.append(entry)
+                continue
             entry["stage"] = "download"
             results.append(entry)
             continue
