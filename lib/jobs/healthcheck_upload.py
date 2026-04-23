@@ -859,6 +859,17 @@ def _append_training_change_element_group_requests(
         merge_request = _build_merge_request(ws, 1, 1, int(final["start"]), int(final["end"]))
         if merge_request:
             requests.append(merge_request)
+        requests.append(
+            _build_border_request(
+                ws,
+                1,
+                1,
+                int(final["start"]),
+                int(final["end"]),
+                left=BORDER_OUTER_STYLE,
+                right=BORDER_OUTER_STYLE,
+            )
+        )
 
 
 def _set_training_element_template(ws, start_col: int, name: str, end_row: int) -> None:

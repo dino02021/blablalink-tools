@@ -239,7 +239,11 @@ def test_sync_training_change_sheet_expands_existing_element_group():
         for req in requests
         if "updateBorders" in req and req["updateBorders"]["range"].get("startRowIndex") == 0
     ]
-    assert row1_borders == []
+    assert len(row1_borders) == 1
+    assert row1_borders[0]["left"] == healthcheck_upload.BORDER_OUTER_STYLE
+    assert row1_borders[0]["right"] == healthcheck_upload.BORDER_OUTER_STYLE
+    assert "top" not in row1_borders[0]
+    assert "bottom" not in row1_borders[0]
 
 
 def test_sync_training_change_sheet_raises_when_element_group_missing():
