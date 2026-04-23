@@ -859,18 +859,6 @@ def _append_training_change_element_group_requests(
         merge_request = _build_merge_request(ws, 1, 1, int(final["start"]), int(final["end"]))
         if merge_request:
             requests.append(merge_request)
-        requests.append(
-            _build_border_request(
-                ws,
-                1,
-                1,
-                int(final["start"]),
-                int(final["end"]),
-                bottom=BORDER_OUTER_STYLE,
-                left=BORDER_OUTER_STYLE,
-                right=BORDER_OUTER_STYLE,
-            )
-        )
 
 
 def _set_training_element_template(ws, start_col: int, name: str, end_row: int) -> None:
@@ -1568,6 +1556,17 @@ def _append_score_result_column_requests(
     for _row in range(4, used_last_row + 1):
         values.append([""])
     requests.append(_build_update_cells_request(ws, 3, insert_col, values))
+    requests.append(
+        _build_repeat_cell_request(
+            ws,
+            3,
+            used_last_row,
+            insert_col,
+            insert_col,
+            cell={"userEnteredFormat": {"textFormat": {"bold": False}}},
+            fields="userEnteredFormat.textFormat.bold",
+        )
+    )
 
 
 def _insert_score_result_state(

@@ -234,6 +234,12 @@ def test_sync_training_change_sheet_expands_existing_element_group():
     ]
     assert block_borders
     assert all("top" not in border for border in block_borders)
+    row1_borders = [
+        req["updateBorders"]
+        for req in requests
+        if "updateBorders" in req and req["updateBorders"]["range"].get("startRowIndex") == 0
+    ]
+    assert row1_borders == []
 
 
 def test_sync_training_change_sheet_raises_when_element_group_missing():
@@ -350,3 +356,9 @@ def test_sync_score_result_columns_does_not_emit_copy_paste_requests():
     update_request = next(req["updateCells"] for req in requests if "updateCells" in req)
     assert update_request["range"]["startRowIndex"] == 2
     assert update_request["range"]["startColumnIndex"] == 4
+    bold_request = next(
+        req["repeatCell"]
+        for req in requests
+        if "repeatCell" in req and req["repeatCell"].get("fields") == "userEnteredFormat.textFormat.bold"
+    )
+    assert bold_request["cell"]["userEnteredFormat"]["textFormat"]["bold"] is False
