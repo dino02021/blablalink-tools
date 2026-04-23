@@ -25,7 +25,7 @@ from .constants import (
     UNION_RAID_TEMP_FILE,
     CHAR_DETAILS_DIR,
 )
-from .github_data_sync import write_data_text_and_sync_if_changed
+from .github_data_sync import read_cloud_data_json, write_data_text_and_sync_if_changed
 from .log import log_exc, log_msg
 from .utils import get_nested_value
 
@@ -33,6 +33,81 @@ from .utils import get_nested_value
 def build_character_details_path(nickname: str) -> Path:
     safe_name = str(nickname or "").strip()
     return CHAR_DETAILS_DIR / f"{safe_name}_character_details.json"
+
+
+def _prefer_non_empty(new_value: Any, old_value: Any) -> Any:
+    if new_value is None:
+        return old_value
+    if isinstance(new_value, str) and not new_value.strip():
+        return old_value
+    if isinstance(new_value, list) and not new_value:
+        return old_value
+    if isinstance(new_value, dict) and not new_value:
+        return old_value
+    return new_value
+
+
+def _merge_nikkes_info_with_cloud(downloaded_items: List[dict]) -> List[dict]:
+    existing_raw = read_cloud_data_json(NIKKES_INFO_FILE, default=[])
+    merged: Dict[str, dict] = {}
+
+    if isinstance(existing_raw, list):
+        for item in existing_raw:
+            if not isinstance(item, dict):
+                continue
+            key = str(item.get("name_code") or item.get("id") or "").strip()
+            if not key:
+                continue
+            merged[key] = dict(item)
+
+    for item in downloaded_items:
+        key = str(item.get("name_code") or item.get("id") or "").strip()
+        if not key:
+            continue
+        current = merged.get(key, {})
+        next_item = dict(current)
+        for field, value in item.items():
+            next_item[field] = _prefer_non_empty(value, current.get(field))
+        merged[key] = next_item
+
+    return sorted(
+        merged.values(),
+        key=lambda item: (
+            int(item.get("id")) if str(item.get("id", "")).isdigit() else 10**9,
+            str(item.get("name_code") or ""),
+            str(item.get("name") or ""),
+        ),
+    )
+
+
+def _merge_function_names_with_cloud(downloaded_items: List[dict]) -> List[dict]:
+    existing_raw = read_cloud_data_json(FUNCTION_NAMES_FILE, default=[])
+    merged: Dict[str, List[int]] = {}
+
+    if isinstance(existing_raw, list):
+        for item in existing_raw:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("function_name") or "").strip()
+            id_list = item.get("function_id_list")
+            if not name or not isinstance(id_list, list):
+                continue
+            merged[name] = [value for value in id_list if isinstance(value, int)]
+
+    for item in downloaded_items:
+        name = str(item.get("function_name") or "").strip()
+        id_list = item.get("function_id_list")
+        if not name or not isinstance(id_list, list):
+            continue
+        existing = merged.setdefault(name, [])
+        for value in id_list:
+            if isinstance(value, int) and value not in existing:
+                existing.append(value)
+
+    return [
+        {"function_name": name, "function_id_list": id_list}
+        for name, id_list in sorted(merged.items(), key=lambda pair: pair[0])
+    ]
 
 
 async def check_login(context: BrowserContext) -> bool:
@@ -317,6 +392,7 @@ async def fetch_nikkes_info(context: BrowserContext) -> bool:
             }
             result.append(mapped)
 
+        result = _merge_nikkes_info_with_cloud(result)
         if not result:
             return False
 
@@ -627,6 +703,7 @@ async def fetch_function_names(context: BrowserContext) -> bool:
             {"function_name": desc, "function_id_list": id_list}
             for desc, id_list in merged.items()
         ]
+        result = _merge_function_names_with_cloud(result)
         if not result:
             return False
 

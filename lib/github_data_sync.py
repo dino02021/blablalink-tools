@@ -95,8 +95,18 @@ def _request_json(url: str, method: str = "GET", body: object | None = None, aut
         data = json.dumps(body).encode("utf-8")
 
     req = request.Request(url, data=data, headers=headers, method=method)
-    with request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        if exc.code not in {301, 302, 307, 308}:
+            raise
+        redirect_url = str(exc.headers.get("Location", "") or "").strip()
+        if not redirect_url:
+            raise
+        redirected_req = request.Request(redirect_url, data=data, headers=headers, method=method)
+        with request.urlopen(redirected_req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
 
 def _resolve_repo_path(path_or_rel: Path | str) -> str:

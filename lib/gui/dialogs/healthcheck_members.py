@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ..layout import (
     close_dialog,
@@ -24,6 +24,7 @@ from ..layout import (
 )
 from ...data_store import (
     HEALTHCHECK_TYPE_VALUES,
+    delete_healthcheck_member_by_index,
     load_healthcheck_display_items,
     load_healthcheck_members,
     load_nikkes_info,
@@ -37,6 +38,61 @@ ALL_FILTER = "全部"
 
 def _with_left_pad(values: List[str]) -> List[str]:
     return [f" {str(value)}" for value in values]
+
+
+def _set_message(msg_var: tk.StringVar, msg_label: tk.Widget, message: str, color: str) -> None:
+    msg_var.set(message)
+    try:
+        msg_label.configure(foreground=color)
+    except Exception:
+        pass
+
+
+def _set_widgets_enabled(widgets: List[tk.Widget], enabled: bool) -> None:
+    state = "normal" if enabled else "disabled"
+    readonly_state = "readonly" if enabled else "disabled"
+    for widget in widgets:
+        try:
+            widget_class = widget.winfo_class()
+        except Exception:
+            widget_class = ""
+        try:
+            if widget_class == "TCombobox":
+                widget.configure(state=readonly_state)
+            else:
+                widget.configure(state=state)
+        except Exception:
+            continue
+
+
+def _run_dialog_task(
+    dlg: tk.Misc,
+    widgets: List[tk.Widget],
+    msg_var: tk.StringVar,
+    msg_label: tk.Widget,
+    busy_message: str,
+    worker: Callable[[], Any],
+    on_success: Callable[[Any], None],
+    error_message: str,
+) -> None:
+    _set_widgets_enabled(widgets, False)
+    _set_message(msg_var, msg_label, busy_message, "green")
+
+    def runner() -> None:
+        try:
+            payload = worker()
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            dlg.after(0, lambda: (_set_widgets_enabled(widgets, True), _set_message(msg_var, msg_label, f"{error_message}: {exc}", "red")))
+            return
+
+        def finish() -> None:
+            _set_widgets_enabled(widgets, True)
+            on_success(payload)
+
+        dlg.after(0, finish)
+
+    threading.Thread(target=runner, daemon=True).start()
 
 
 def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[str, Any]]:
@@ -61,30 +117,13 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
     result: Dict[str, Any] = {"ok": False, "message": ""}
     action_buttons: List[tk.Widget] = []
 
-    def _set_dialog_busy(is_busy: bool) -> None:
-        new_state = "disabled" if is_busy else "normal"
-        for btn in action_buttons:
-            try:
-                btn.configure(state=new_state)
-            except Exception:
-                continue
-
-    def _refresh() -> None:
-        rows = load_healthcheck_display_items()
-        state["rows"] = rows
-        listbox.delete(0, "end")
-        for item in rows:
-            listbox.insert("end", f" {item['display']}")
-
     def _set_success(message: str) -> None:
-        msg_var.set(message)
-        msg_label.configure(foreground="green")
+        _set_message(msg_var, msg_label, message, "green")
         result["ok"] = True
         result["message"] = message
 
     def _set_error(message: str) -> None:
-        msg_var.set(message)
-        msg_label.configure(foreground="red")
+        _set_message(msg_var, msg_label, message, "red")
 
     def _selected_row() -> Dict[str, Any] | None:
         selected = listbox.curselection()
@@ -96,12 +135,39 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
             return None
         return rows[idx]
 
+    def _apply_rows(rows: List[Dict[str, Any]]) -> None:
+        state["rows"] = rows
+        listbox.delete(0, "end")
+        for item in rows:
+            listbox.insert("end", f" {item['display']}")
+
+    def _refresh_async(success_message: str | None = None) -> None:
+        def worker() -> List[Dict[str, Any]]:
+            return load_healthcheck_display_items()
+
+        def on_success(rows: List[Dict[str, Any]]) -> None:
+            _apply_rows(rows)
+            if success_message:
+                _set_success(success_message)
+            else:
+                _set_message(msg_var, msg_label, "", "green")
+
+        _run_dialog_task(
+            dlg,
+            [listbox, *action_buttons],
+            msg_var,
+            msg_label,
+            "讀取中...",
+            worker,
+            on_success,
+            "讀取資料失敗",
+        )
+
     def _on_add() -> None:
         add_result = open_add_healthcheck_member_dialog(dlg)
         if not add_result:
             return
-        _refresh()
-        _set_success(str(add_result.get("message", "已新增健檢妮姬")))
+        _refresh_async(str(add_result.get("message", "新增成功")))
 
     def _on_edit() -> None:
         row = _selected_row()
@@ -111,28 +177,41 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         edit_result = open_edit_healthcheck_member_dialog(dlg, row)
         if not edit_result:
             return
-        _refresh()
-        _set_success(str(edit_result.get("message", "已更新健檢妮姬類型")))
+        _refresh_async(str(edit_result.get("message", "更新成功")))
 
     def _on_delete() -> None:
+        selected = listbox.curselection()
         row = _selected_row()
-        if not row:
+        if not selected or not row:
             _set_error("請先選擇要刪除的健檢妮姬")
             return
         if not confirm_dialog(dlg, f"確定要刪除 {row['display']} 嗎？"):
             return
 
-        kept = [
-            item
-            for item in load_healthcheck_members()
-            if not (int(item.get("name_code")) == int(row["name_code"]) and str(item.get("type")) == str(row["type"]))
-        ]
-        save_healthcheck_members(kept)
-        _refresh()
-        _set_success("已刪除健檢妮姬")
+        index = int(selected[0])
+
+        def worker() -> bool:
+            return delete_healthcheck_member_by_index(index)
+
+        def on_success(ok: bool) -> None:
+            if not ok:
+                _set_error("刪除資料失敗")
+                return
+            _refresh_async("已刪除健檢妮姬")
+
+        _run_dialog_task(
+            dlg,
+            [listbox, *action_buttons],
+            msg_var,
+            msg_label,
+            "刪除資料中...",
+            worker,
+            on_success,
+            "刪除資料失敗",
+        )
 
     def _finish_upload(ok: bool, message: str) -> None:
-        _set_dialog_busy(False)
+        _set_widgets_enabled([listbox, *action_buttons], True)
         try:
             app._set_busy(False)
         except Exception:
@@ -148,14 +227,14 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
 
     def _upload_worker() -> None:
         ok = False
-        message = "上傳妮姬名單失敗"
+        message = "上傳健檢妮姬失敗"
         try:
             result_obj = run_healthcheck_upload(account=getattr(app, "_last_slug", "") or "")
             ok = result_obj.ok
-            message = result_obj.message if ok else f"上傳妮姬名單失敗：{result_obj.message}"
+            message = result_obj.message if ok else f"上傳健檢妮姬失敗: {result_obj.message}"
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            message = f"上傳妮姬名單失敗：{exc}"
+            message = f"上傳健檢妮姬失敗: {exc}"
         finally:
             dlg.after(0, lambda: _finish_upload(ok, message))
 
@@ -164,22 +243,21 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         if not slug:
             _set_error("請先登入")
             return
-        _set_dialog_busy(True)
+        _set_widgets_enabled([listbox, *action_buttons], False)
         try:
             app._set_busy(True)
         except Exception:
             pass
-        msg_var.set("上傳妮姬名單中...")
-        msg_label.configure(foreground="green")
+        _set_message(msg_var, msg_label, "上傳資料中...", "green")
         threading.Thread(target=_upload_worker, daemon=True).start()
 
     add_btn = create_btn_between(btn_frame, "新增", _on_add, row=0, column=0, sticky="we")
     edit_btn = create_btn_between(btn_frame, "編輯", _on_edit, row=0, column=1, sticky="e")
     delete_btn = create_btn_between(btn_frame, "刪除", _on_delete, row=0, column=2, sticky="e")
-    upload_btn = create_btn_last(btn_frame, "上傳妮姬名單", _on_upload, row=0, column=3, sticky="e")
+    upload_btn = create_btn_last(btn_frame, "上傳健檢妮姬", _on_upload, row=0, column=3, sticky="e")
     action_buttons.extend([add_btn, edit_btn, delete_btn, upload_btn])
 
-    _refresh()
+    _refresh_async()
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
     dlg.wait_window(dlg)
     return result if result["ok"] else None
@@ -193,7 +271,6 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     frame.columnconfigure(0, weight=1)
     frame.rowconfigure(1, weight=1)
 
-    nikkes = load_nikkes_info()
     filter_frame = create_entry_frame(frame, row=0, column=0)
     filter_frame.columnconfigure(1, weight=1)
 
@@ -206,18 +283,13 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     ]
 
     filter_vars: Dict[str, tk.StringVar] = {}
+    filter_combos: List[tk.Widget] = []
     for idx, (field, label_text) in enumerate(filter_specs):
         create_entry_label(filter_frame, label_text, row=idx, column=0)
-        values = sorted(
-            {
-                str(item.get(field, "") or "").strip()
-                for item in nikkes
-                if str(item.get(field, "") or "").strip()
-            }
-        )
         var = tk.StringVar(value=f" {ALL_FILTER}")
-        create_combobox(filter_frame, var, _with_left_pad([ALL_FILTER] + values), row=idx, column=1)
+        combo = create_combobox(filter_frame, var, _with_left_pad([ALL_FILTER]), row=idx, column=1)
         filter_vars[field] = var
+        filter_combos.append(combo)
 
     listbox = create_listbox(frame, row=1, column=0)
 
@@ -225,7 +297,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     type_frame.columnconfigure(1, weight=1)
     create_entry_label(type_frame, "Type:", row=0, column=0)
     type_var = tk.StringVar(value="")
-    create_combobox(type_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=0, column=1)
+    type_combo = create_combobox(type_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=0, column=1)
 
     btn_frame = create_btn_frame(frame, row=3, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -235,8 +307,12 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     msg_label = create_msg_label(frame, msg_var, row=4, column=0, sticky="w")
     msg_label.configure(foreground="red", anchor="w", justify="left")
 
-    state: Dict[str, Any] = {"rows": []}
+    state: Dict[str, Any] = {"rows": [], "nikkes": []}
     result: Dict[str, Any] = {"ok": False, "message": ""}
+
+    save_btn = create_btn_between(btn_frame, "新增", lambda: _on_save(), row=0, column=0, sticky="we")
+    cancel_btn = create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
+    action_widgets: List[tk.Widget] = [*filter_combos, listbox, type_combo, save_btn, cancel_btn]
 
     def _passes_filters(item: Dict[str, Any]) -> bool:
         for field, _label in filter_specs:
@@ -248,6 +324,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
         return True
 
     def _refresh_list() -> None:
+        nikkes: List[Dict[str, Any]] = state.get("nikkes", [])
         rows = [item for item in nikkes if _passes_filters(item)]
         rows.sort(key=lambda item: str(item.get("name", "") or ""))
         state["rows"] = rows
@@ -256,51 +333,98 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
             listbox.insert("end", f" {str(item.get('name', '') or '').strip()}")
 
     def _on_filter_change(*_args: Any) -> None:
+        if not state.get("nikkes"):
+            return
         _refresh_list()
+
+    def _load_nikkes() -> None:
+        def worker() -> List[Dict[str, Any]]:
+            return load_nikkes_info()
+
+        def on_success(nikkes: List[Dict[str, Any]]) -> None:
+            state["nikkes"] = nikkes
+            for field, combo in zip((spec[0] for spec in filter_specs), filter_combos):
+                values = sorted(
+                    {
+                        str(item.get(field, "") or "").strip()
+                        for item in nikkes
+                        if str(item.get(field, "") or "").strip()
+                    }
+                )
+                combo.configure(values=_with_left_pad([ALL_FILTER] + values))
+            _refresh_list()
+            _set_message(msg_var, msg_label, "", "green")
+
+        _run_dialog_task(
+            dlg,
+            action_widgets,
+            msg_var,
+            msg_label,
+            "讀取中...",
+            worker,
+            on_success,
+            "讀取資料失敗",
+        )
 
     def _on_save() -> None:
         selected = listbox.curselection()
         if not selected:
-            msg_var.set("請先選擇妮姬")
+            _set_message(msg_var, msg_label, "請先選擇健檢妮姬", "red")
             return
 
         member_type = type_var.get().strip()
         if member_type not in HEALTHCHECK_TYPE_VALUES:
-            msg_var.set("請先選擇 type")
+            _set_message(msg_var, msg_label, "請先選擇 type", "red")
             return
 
         idx = int(selected[0])
         rows: List[Dict[str, Any]] = state.get("rows", [])
         if idx < 0 or idx >= len(rows):
-            msg_var.set("找不到選取的妮姬")
+            _set_message(msg_var, msg_label, "找不到要新增的健檢妮姬", "red")
             return
+
         row = rows[idx]
         try:
             name_code = int(row.get("name_code"))
         except Exception:
-            msg_var.set("選取的妮姬缺少 name_code")
+            _set_message(msg_var, msg_label, "name_code 格式錯誤", "red")
             return
 
-        items = load_healthcheck_members()
-        existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
-        key = (name_code, member_type)
-        if key in existing_keys:
-            msg_var.set("相同的健檢妮姬與 type 已存在")
-            return
+        def worker() -> tuple[bool, str]:
+            items = load_healthcheck_members()
+            existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
+            key = (name_code, member_type)
+            if key in existing_keys:
+                return False, "該健檢妮姬與 type 已存在"
+            items.append({"name_code": name_code, "type": member_type})
+            if not save_healthcheck_members(items):
+                return False, "新增資料失敗"
+            return True, "已新增健檢妮姬"
 
-        items.append({"name_code": name_code, "type": member_type})
-        save_healthcheck_members(items)
-        result["ok"] = True
-        result["message"] = "已新增健檢妮姬"
-        close_dialog(dlg)
+        def on_success(payload: tuple[bool, str]) -> None:
+            ok, message = payload
+            if not ok:
+                _set_message(msg_var, msg_label, message, "red")
+                return
+            result["ok"] = True
+            result["message"] = message
+            close_dialog(dlg)
 
-    create_btn_between(btn_frame, "新增", _on_save, row=0, column=0, sticky="we")
-    create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
+        _run_dialog_task(
+            dlg,
+            action_widgets,
+            msg_var,
+            msg_label,
+            "新增資料中...",
+            worker,
+            on_success,
+            "新增資料失敗",
+        )
 
     for var in filter_vars.values():
         var.trace_add("write", _on_filter_change)
-    _refresh_list()
 
+    _load_nikkes()
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
     dlg.wait_window(dlg)
     return result if result["ok"] else None
@@ -316,14 +440,14 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
     entry_frame = create_entry_frame(frame, row=0, column=0)
     entry_frame.columnconfigure(1, weight=1)
 
-    create_entry_label(entry_frame, "妮姬:", row=0, column=0)
+    create_entry_label(entry_frame, "健檢妮姬:", row=0, column=0)
     name_var = tk.StringVar(value=str(row.get("name", "") or "").strip())
     name_entry = create_entry(entry_frame, name_var, row=0, column=1)
     name_entry.configure(state="readonly")
 
     create_entry_label(entry_frame, "Type:", row=1, column=0)
     type_var = tk.StringVar(value=f" {str(row.get('type', '') or '').strip()}")
-    create_combobox(entry_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=1, column=1)
+    type_combo = create_combobox(entry_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=1, column=1)
 
     btn_frame = create_btn_frame(frame, row=1, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -335,54 +459,72 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
 
     result: Dict[str, Any] = {"ok": False, "message": ""}
 
+    save_btn = create_btn_between(btn_frame, "儲存", lambda: _on_save(), row=0, column=0, sticky="we")
+    cancel_btn = create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
+    action_widgets: List[tk.Widget] = [type_combo, save_btn, cancel_btn]
+
     def _on_save() -> None:
         new_type = type_var.get().strip()
         if new_type not in HEALTHCHECK_TYPE_VALUES:
-            msg_var.set("請先選擇 type")
+            _set_message(msg_var, msg_label, "請先選擇 type", "red")
             return
 
         try:
             target_name_code = int(row.get("name_code"))
         except Exception:
-            msg_var.set("name_code 錯誤")
+            _set_message(msg_var, msg_label, "name_code 格式錯誤", "red")
             return
 
         old_type = str(row.get("type", "") or "").strip()
         if new_type == old_type:
             result["ok"] = True
-            result["message"] = "健檢妮姬類型未變更"
+            result["message"] = "健檢妮姬沒有變更"
             close_dialog(dlg)
             return
 
-        items = load_healthcheck_members()
-        existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
-        if (target_name_code, new_type) in existing_keys:
-            msg_var.set("相同的健檢妮姬與 type 已存在")
-            return
+        def worker() -> tuple[bool, str]:
+            items = load_healthcheck_members()
+            existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
+            if (target_name_code, new_type) in existing_keys:
+                return False, "該健檢妮姬與 type 已存在"
 
-        updated = False
-        for item in items:
-            try:
-                item_name_code = int(item.get("name_code"))
-            except Exception:
-                continue
-            item_type = str(item.get("type", "") or "").strip()
-            if item_name_code == target_name_code and item_type == old_type:
-                item["type"] = new_type
-                updated = True
-                break
+            updated = False
+            for item in items:
+                try:
+                    item_name_code = int(item.get("name_code"))
+                except Exception:
+                    continue
+                item_type = str(item.get("type", "") or "").strip()
+                if item_name_code == target_name_code and item_type == old_type:
+                    item["type"] = new_type
+                    updated = True
+                    break
 
-        if not updated:
-            msg_var.set("找不到要編輯的健檢妮姬")
-            return
+            if not updated:
+                return False, "找不到要更新的健檢妮姬"
+            if not save_healthcheck_members(items):
+                return False, "更新資料失敗"
+            return True, "已更新健檢妮姬"
 
-        save_healthcheck_members(items)
-        result["ok"] = True
-        result["message"] = "已更新健檢妮姬類型"
-        close_dialog(dlg)
+        def on_success(payload: tuple[bool, str]) -> None:
+            ok, message = payload
+            if not ok:
+                _set_message(msg_var, msg_label, message, "red")
+                return
+            result["ok"] = True
+            result["message"] = message
+            close_dialog(dlg)
 
-    create_btn_between(btn_frame, "保存", _on_save, row=0, column=0, sticky="we")
-    create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
+        _run_dialog_task(
+            dlg,
+            action_widgets,
+            msg_var,
+            msg_label,
+            "更新資料中...",
+            worker,
+            on_success,
+            "更新資料失敗",
+        )
 
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
     dlg.wait_window(dlg)

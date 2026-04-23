@@ -154,6 +154,7 @@ async def test_fetch_union_raid_data_of_guild_season(tmp_path, monkeypatch):
 async def test_fetch_nikkes_info(tmp_path, monkeypatch):
     target = tmp_path / "nikkes_info.json"
     monkeypatch.setattr(api, "NIKKES_INFO_FILE", target)
+    monkeypatch.setattr(api, "read_cloud_data_json", lambda path, default=None: [])
     monkeypatch.setattr(
         api,
         "write_data_text_and_sync_if_changed",
@@ -182,3 +183,102 @@ async def test_fetch_nikkes_info(tmp_path, monkeypatch):
     assert data[0]["id"] == 1234  # 只取前 4 碼並轉 int
     assert data[0]["element"] == "fire"
     assert data[0]["weapon_type"] == "gun"
+
+
+@pytest.mark.asyncio
+async def test_fetch_nikkes_info_merges_with_cloud(tmp_path, monkeypatch):
+    target = tmp_path / "nikkes_info.json"
+    monkeypatch.setattr(api, "NIKKES_INFO_FILE", target)
+    monkeypatch.setattr(
+        api,
+        "write_data_text_and_sync_if_changed",
+        lambda path, text, encoding="utf-8": path.write_text(text, encoding=encoding),
+    )
+    monkeypatch.setattr(
+        api,
+        "read_cloud_data_json",
+        lambda path, default=None: [
+            {
+                "id": 1001,
+                "class": "old-class",
+                "corporation": "old-corp",
+                "element": "water",
+                "name_code": "old_nc",
+                "name": "Old Nikke",
+                "original_rare": 2,
+                "weapon_type": "smg",
+                "use_burst_skill": "Step1",
+            },
+            {
+                "id": 1234,
+                "class": "old-c",
+                "corporation": "old-corp",
+                "element": "wind",
+                "name_code": "nc",
+                "name": "Old Name",
+                "original_rare": 2,
+                "weapon_type": "old-gun",
+                "use_burst_skill": "OldStep",
+            },
+        ],
+    )
+
+    sample = [
+        {
+            "id": 12345,
+            "class": "c",
+            "corporation": "corp",
+            "element_id": {"element": {"element": "fire"}},
+            "name_code": "nc",
+            "name_localkey": {"name": "nick"},
+            "original_rare": 3,
+            "shot_id": {"element": {"weapon_type": "gun"}},
+            "use_burst_skill": "Step1",
+        }
+    ]
+    mapping = {api.NIKKES_INFO_URL: FakeResponse(200, sample)}
+    ctx = FakeContext(mapping)
+
+    ok = await api.fetch_nikkes_info(ctx)
+    assert ok is True
+    data = json.loads(target.read_text(encoding="utf-8"))
+    assert [item["name_code"] for item in data] == ["old_nc", "nc"]
+    assert data[1]["name"] == "nick"
+    assert data[1]["weapon_type"] == "gun"
+    assert data[1]["use_burst_skill"] == "Step1"
+
+
+@pytest.mark.asyncio
+async def test_fetch_function_names_merges_with_cloud(tmp_path, monkeypatch):
+    target = tmp_path / "function_names.json"
+    monkeypatch.setattr(api, "FUNCTION_NAMES_FILE", target)
+    monkeypatch.setattr(
+        api,
+        "write_data_text_and_sync_if_changed",
+        lambda path, text, encoding="utf-8": path.write_text(text, encoding=encoding),
+    )
+    monkeypatch.setattr(
+        api,
+        "read_cloud_data_json",
+        lambda path, default=None: [
+            {"function_name": "Existing", "function_id_list": [70001, 70002]},
+            {"function_name": "CloudOnly", "function_id_list": [70003]},
+        ],
+    )
+
+    sample = [
+        {"description_localkey": "Existing", "state_effect_id_list": [70002, 70004]},
+        {"description_localkey": "New", "state_effect_id_list": [70005]},
+        {"description_localkey": "Ignored", "state_effect_id_list": [60001]},
+    ]
+    mapping = {api.FUNCTION_NAMES_URL: FakeResponse(200, sample)}
+    ctx = FakeContext(mapping)
+
+    ok = await api.fetch_function_names(ctx)
+    assert ok is True
+    data = json.loads(target.read_text(encoding="utf-8"))
+    assert data == [
+        {"function_name": "CloudOnly", "function_id_list": [70003]},
+        {"function_name": "Existing", "function_id_list": [70001, 70002, 70004]},
+        {"function_name": "New", "function_id_list": [70005]},
+    ]

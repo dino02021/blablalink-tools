@@ -228,7 +228,7 @@ def load_healthcheck_members() -> List[Dict[str, Any]]:
     return result
 
 
-def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
+def save_healthcheck_members(items: List[Dict[str, Any]]) -> bool:
     """Write nikke_healthcheck_members.json in normalized format."""
     info_lookup = _build_nikke_info_lookup()
     normalized: List[Dict[str, Any]] = []
@@ -251,8 +251,19 @@ def save_healthcheck_members(items: List[Dict[str, Any]]) -> None:
             json.dumps(normalized, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        return True
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
+        return False
+
+
+def delete_healthcheck_member_by_index(index: int) -> bool:
+    """Delete one healthcheck member by the current list order."""
+    items = load_healthcheck_members()
+    if index < 0 or index >= len(items):
+        return False
+    del items[index]
+    return save_healthcheck_members(items)
 
 
 def load_healthcheck_display_items() -> List[Dict[str, Any]]:
