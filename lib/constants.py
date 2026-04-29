@@ -32,7 +32,7 @@ FUNCTION_NAMES_URL = "https://sg-tools-cdn.blablalink.com/vv-42/b46c877b8d7077e4
 CHAR_DETAILS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails"
 USER_CHARACTERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacters"
 GUILDMEMBERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetGuildMembers"
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwj8chBtKDlDFRhgYpi-9RddoXPRY1YpSCahOUqmcXkIfvdhQ-ClEx3hW9ExnWqPqsF/exec"
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxKq3KsuawYVoqAdDD_vFQMBDGM9pfka275zIKFD8tvPkkE-4Yj6rhaa5k2Ob_DxHwk/exec"
 UNION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxw9NREhzCCj_2D7qubvTQM-iKwD4l2CiCNvBdui7TC58XHM6kLeyU18kuNt_nNcC3vug/exec"
 
 # 檔案路徑
