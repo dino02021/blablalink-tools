@@ -33,6 +33,16 @@ from ...log import log_exc, log_msg
 
 
 SCHEDULER_CONFIG_PATH = Path(__file__).parent.parent.parent.parent / ".github" / "runtime" / "scheduler_config.json"
+GITHUB_API_TIMEOUT_SECONDS = 5
+GITHUB_GIT_TIMEOUT_SECONDS = 3
+GITHUB_TOKEN_TIMEOUT_SECONDS = 2
+
+
+def _subprocess_run_kwargs(timeout_seconds: int = GITHUB_GIT_TIMEOUT_SECONDS) -> dict:
+    kwargs: dict = {"timeout": timeout_seconds}
+    if os.name == "nt":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return kwargs
 
 
 def open_scheduler_config_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
@@ -228,6 +238,7 @@ def _update_scheduler_config(date_str: str, month_str: str) -> bool:
         if not _push_to_github(".github/runtime/scheduler_config.json", new_content):
             return False
 
+        SCHEDULER_CONFIG_PATH.write_text(new_content + "\n", encoding="utf-8")
         log_msg(f"Scheduler config updated on GitHub: date={date_str} month={month_str}")
         return True
     except Exception as exc:
@@ -251,7 +262,7 @@ def _get_github_token() -> str:
             capture_output=True,
             text=True,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            **_subprocess_run_kwargs(GITHUB_TOKEN_TIMEOUT_SECONDS),
         )
         return str(result.stdout or "").strip() if result.returncode == 0 else ""
     except Exception:
@@ -272,7 +283,7 @@ def _fetch_scheduler_config_from_github() -> Optional[dict]:
                 capture_output=True,
                 text=True,
                 check=False,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                **_subprocess_run_kwargs(),
             )
             branch = result.stdout.strip() if result.returncode == 0 else "main"
         except Exception:
@@ -301,7 +312,7 @@ def _get_git_remote() -> Optional[str]:
             capture_output=True,
             text=True,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+            **_subprocess_run_kwargs(),
         )
         if result.returncode != 0:
             return None
@@ -340,8 +351,18 @@ def _request_json(url: str, method: str = "GET", body: object | None = None, aut
         data = json.dumps(body).encode("utf-8")
 
     req = request.Request(url, data=data, headers=headers, method=method)
-    with request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with request.urlopen(req, timeout=GITHUB_API_TIMEOUT_SECONDS) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        if exc.code not in {301, 302, 307, 308}:
+            raise
+        redirect_url = str(exc.headers.get("Location", "") or "").strip()
+        if not redirect_url:
+            raise
+        redirected_req = request.Request(redirect_url, data=data, headers=headers, method=method)
+        with request.urlopen(redirected_req, timeout=GITHUB_API_TIMEOUT_SECONDS) as resp:
+            return json.loads(resp.read().decode("utf-8"))
 
 
 def _push_to_github(rel_path: str, content: str) -> bool:
@@ -360,7 +381,7 @@ def _push_to_github(rel_path: str, content: str) -> bool:
                 capture_output=True,
                 text=True,
                 check=False,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                **_subprocess_run_kwargs(),
             )
             branch = result.stdout.strip() if result.returncode == 0 else "main"
         except Exception:
