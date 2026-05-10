@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+
+from lib.jobs import nikke_pipeline
+from lib.jobs.common import JobResult
+
+
+def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        nikke_pipeline,
+        "_resolve_accounts",
+        lambda scope, account: ["bad@example.com", "good@example.com"],
+    )
+
+    def fake_download(account=None):
+        calls.append(("download", account))
+        if account == "bad@example.com":
+            return JobResult(ok=False, message="找不到聯盟資訊")
+        return JobResult(
+            ok=True,
+            message="download ok",
+            outputs={"guild_id": "3097", "files": ["member.json"]},
+        )
+
+    def fake_upload(account=None, files=None, sheet_id=None):
+        calls.append(("upload", account, list(files or []), sheet_id))
+        return JobResult(ok=True, message="upload ok")
+
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", fake_download)
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", fake_upload)
+    monkeypatch.setattr(
+        nikke_pipeline,
+        "resolve_character_sheet_target",
+        lambda guild_id: ("sheet-id", "sheet-name"),
+    )
+
+    result = nikke_pipeline.run_nikke_pipeline(scope="all")
+
+    assert result.ok is False
+    assert result.stats == {
+        "scope": "all",
+        "total": 2,
+        "ok_count": 1,
+        "skipped_count": 0,
+        "failed_count": 1,
+    }
+    assert result.outputs["results"][0]["stage"] == "download"
+    assert result.outputs["results"][0]["ok"] is False
+    assert result.outputs["results"][1]["stage"] == "done"
+    assert calls == [
+        ("download", "bad@example.com"),
+        ("download", "good@example.com"),
+        ("upload", "good@example.com", ["member.json"], "sheet-id"),
+    ]
