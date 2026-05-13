@@ -25,6 +25,7 @@ from .constants import (
     UNION_RAID_TEMP_FILE,
     CHAR_DETAILS_DIR,
 )
+from .data_store import build_healthcheck_function_id_targets
 from .github_data_sync import read_cloud_data_json, write_data_text_and_sync_if_changed
 from .log import log_exc, log_msg
 from .utils import get_nested_value
@@ -78,36 +79,6 @@ def _merge_nikkes_info_with_cloud(downloaded_items: List[dict]) -> List[dict]:
             str(item.get("name") or ""),
         ),
     )
-
-
-def _merge_function_names_with_cloud(downloaded_items: List[dict]) -> List[dict]:
-    existing_raw = read_cloud_data_json(FUNCTION_NAMES_FILE, default=[])
-    merged: Dict[str, List[int]] = {}
-
-    if isinstance(existing_raw, list):
-        for item in existing_raw:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("function_name") or "").strip()
-            id_list = item.get("function_id_list")
-            if not name or not isinstance(id_list, list):
-                continue
-            merged[name] = [value for value in id_list if isinstance(value, int)]
-
-    for item in downloaded_items:
-        name = str(item.get("function_name") or "").strip()
-        id_list = item.get("function_id_list")
-        if not name or not isinstance(id_list, list):
-            continue
-        existing = merged.setdefault(name, [])
-        for value in id_list:
-            if isinstance(value, int) and value not in existing:
-                existing.append(value)
-
-    return [
-        {"function_name": name, "function_id_list": id_list}
-        for name, id_list in sorted(merged.items(), key=lambda pair: pair[0])
-    ]
 
 
 async def check_login(context: BrowserContext) -> bool:
@@ -418,6 +389,7 @@ async def fetch_user_character_details(
     nickname: str,
     intl_open_id: str | None = None,
     nikke_area_id: str | None = None,
+    function_id_targets: Dict[str, List[int | None]] | None = None,
 ) -> bool:
     """
     取得角色詳細資訊並寫入暫存檔：
@@ -482,7 +454,7 @@ async def fetch_user_character_details(
             func_value_map[fid] = val
 
         results = []
-        targets = ["70005", "70008", "70007"]
+        target_map = function_id_targets if function_id_targets is not None else build_healthcheck_function_id_targets()
         
         cd = data_field.get("character_details")
         if not isinstance(cd, list):
@@ -501,22 +473,27 @@ async def fetch_user_character_details(
                 fav_type = {"0": "N", "1": "R", "2": "SR"}.get(fav_last, fav_raw)
                 fav_lv = itm.get("favorite_item_lv")
 
-            # 掃描 equip_option* 找到對應 function_id（欄位為單一數值）
-            func_sum: dict[str, float] = {}
-            for fid in targets:
-                func_sum[fid] = 0.0
-                matched_val = None
+            # 掃描 equip_option* 找到健檢名單 function1/2/3 對應的 function_id。
+            targets = list(target_map.get(str(name_code), []))
+            while len(targets) < 3:
+                targets.append(None)
+
+            functions = []
+            for target_id in targets[:3]:
+                if target_id is None:
+                    functions.append({"function_id": "", "function_value": ""})
+                    continue
+                target_text = str(target_id)
+                function_value = 0.0
                 for k, v in itm.items():
                     if "equip_option" not in k:
                         continue
                     opt_val = str(v)
-                    if opt_val[:5] != fid:
+                    if opt_val[:5] != target_text:
                         continue
                     if opt_val in func_value_map:
-                        matched_val = func_value_map[opt_val]
-                        if matched_val is not None:
-                            func_sum[fid] = func_sum.get(fid, 0.0) + matched_val
-            functions = [{"function_id": fid, "function_value": round(val, 2)} for fid, val in func_sum.items()]
+                        function_value += abs(func_value_map[opt_val])
+                functions.append({"function_id": target_id, "function_value": round(function_value, 2)})
 
             results.append(
                 {
@@ -680,7 +657,7 @@ async def fetch_function_names(context: BrowserContext) -> bool:
         if not isinstance(data, list):
             return False
 
-        merged: dict[str, List[int]] = {}
+        merged: dict[str, int] = {}
         for item in data:
             if not isinstance(item, dict):
                 continue
@@ -694,16 +671,17 @@ async def fetch_function_names(context: BrowserContext) -> bool:
             first_str = str(first)
             if not first_str.startswith("700"):
                 continue
-            existing = merged.setdefault(desc, [])
-            for val in ids:
-                if val not in existing:
-                    existing.append(val)
+            if desc in merged:
+                continue
+            try:
+                merged[desc] = int(first_str[:5])
+            except ValueError:
+                continue
 
         result = [
-            {"function_name": desc, "function_id_list": id_list}
-            for desc, id_list in merged.items()
+            {"function_name": desc, "function_id": function_id}
+            for desc, function_id in merged.items()
         ]
-        result = _merge_function_names_with_cloud(result)
         if not result:
             return False
 

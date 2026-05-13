@@ -13,8 +13,10 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
         lambda scope, account: ["bad@example.com", "good@example.com"],
     )
 
-    def fake_download(account=None):
-        calls.append(("download", account))
+    monkeypatch.setattr(nikke_pipeline, "build_healthcheck_function_id_targets", lambda: {"1001": [70005, None, None]})
+
+    def fake_download(account=None, function_id_targets=None):
+        calls.append(("download", account, function_id_targets))
         if account == "bad@example.com":
             return JobResult(ok=False, message="找不到聯盟資訊")
         return JobResult(
@@ -49,7 +51,7 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
     assert result.outputs["results"][0]["ok"] is False
     assert result.outputs["results"][1]["stage"] == "done"
     assert calls == [
-        ("download", "bad@example.com"),
-        ("download", "good@example.com"),
+        ("download", "bad@example.com", {"1001": [70005, None, None]}),
+        ("download", "good@example.com", {"1001": [70005, None, None]}),
         ("upload", "good@example.com", ["member.json"], "sheet-id"),
     ]

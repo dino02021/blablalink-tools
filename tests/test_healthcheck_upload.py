@@ -36,22 +36,31 @@ class FakeWorksheet:
         self.deleted_rows.append((start, end))
 
 
-def test_sync_healthcheck_sheet_preserves_existing_extra_columns_and_fills_blank_nickname():
+def test_sync_healthcheck_sheet_uploads_functions_without_touching_extra_columns():
     spreadsheet = FakeSpreadsheet()
     ws = FakeWorksheet(
         spreadsheet,
         healthcheck_upload.HEALTHCHECK_WORKSHEET,
         [
             healthcheck_upload.HEALTHCHECK_HEADERS + ["備註"],
-            ["Alice", "電擊", "輸出", "", "5", "keep"],
-            ["Removed", "水冷", "輔助", "R", "", "old"],
+            ["Alice", "電擊", "輸出", "old1", "old2", "old3", "keep"],
+            ["Removed", "水冷", "輔助", "R1", "R2", "R3", "old"],
         ],
-        col_count=6,
+        col_count=7,
     )
 
     synced = healthcheck_upload._sync_healthcheck_sheet(
         spreadsheet,
-        [{"name": "Alice", "element": "燃燒", "type": "輸出"}],
+        [
+            {
+                "name": "Alice",
+                "element": "燃燒",
+                "type": "輸出",
+                "function1": "優越代碼傷害",
+                "function2": "攻擊力",
+                "function3": "裝彈數",
+            }
+        ],
     )
 
     assert synced == [
@@ -59,11 +68,15 @@ def test_sync_healthcheck_sheet_preserves_existing_extra_columns_and_fills_blank
             "name": "Alice",
             "element": "燃燒",
             "type": "輸出",
-            "nickname": "Alice",
-            "priority": "5",
+            "function1": "優越代碼傷害",
+            "function2": "攻擊力",
+            "function3": "裝彈數",
         }
     ]
-    assert ws.updates[0] == ("A1:E1", [healthcheck_upload.HEALTHCHECK_HEADERS])
-    assert ws.updates[1][0] == "A2:F2"
-    assert ws.updates[1][1] == [["Alice", "燃燒", "輸出", "Alice", "5", "keep"]]
-    assert ws.deleted_rows == [(3, 3)]
+    assert ws.updates[0] == ("A1:F1", [healthcheck_upload.HEALTHCHECK_HEADERS])
+    assert ws.updates[1] == (
+        "A2:F2",
+        [["Alice", "燃燒", "輸出", "優越代碼傷害", "攻擊力", "裝彈數"]],
+    )
+    assert ws.updates[2] == ("A3:F3", [["", "", "", "", "", ""]])
+    assert ws.deleted_rows == []

@@ -7,7 +7,7 @@ import functools
 import threading
 from typing import TYPE_CHECKING
 
-from ..data_store import load_union_account_map
+from ..data_store import build_healthcheck_function_id_targets, load_union_account_map
 from ..jobs.nikke_batch_download import run_nikke_batch_download
 from ..jobs.nikke_upload import run_nikke_upload, resolve_character_sheet_target
 from ..log import log_exc
@@ -51,7 +51,8 @@ def _process_single_account(app) -> None:
     slug = app._last_slug
     
     # 下載
-    download_result = run_nikke_batch_download(account=slug)
+    function_id_targets = build_healthcheck_function_id_targets()
+    download_result = run_nikke_batch_download(account=slug, function_id_targets=function_id_targets)
     if not download_result.ok:
         app.root.after(0, functools.partial(_finish_update, app, False, download_result.message))
         return
@@ -94,6 +95,7 @@ def _process_all_accounts(app) -> None:
 
     all_ok = True
     messages = []
+    function_id_targets = build_healthcheck_function_id_targets()
 
     for idx, item in enumerate(account_map):
         username = str(item.get("username", "")).strip()
@@ -108,7 +110,7 @@ def _process_all_accounts(app) -> None:
         ))
 
         # 下載
-        download_result = run_nikke_batch_download(account=username)
+        download_result = run_nikke_batch_download(account=username, function_id_targets=function_id_targets)
         if not download_result.ok:
             messages.append(f"❌ {username}: 下載失敗 - {download_result.message}")
             all_ok = False

@@ -23,9 +23,11 @@ from ..layout import (
     create_msg_label,
 )
 from ...data_store import (
+    HEALTHCHECK_FUNCTION_KEYS,
     HEALTHCHECK_TYPE_VALUES,
     delete_healthcheck_member_by_index,
     load_healthcheck_display_items,
+    load_healthcheck_function_names,
     load_healthcheck_members,
     load_nikkes_info,
     save_healthcheck_members,
@@ -38,6 +40,60 @@ ALL_FILTER = "全部"
 
 def _with_left_pad(values: List[str]) -> List[str]:
     return [f" {str(value)}" for value in values]
+
+
+def _create_function_selectors(
+    parent: tk.Misc,
+    initial_values: Dict[str, Any] | None = None,
+    start_row: int = 1,
+) -> tuple[Dict[str, tk.StringVar], List[tk.Widget], Callable[[List[str]], None]]:
+    function_vars: Dict[str, tk.StringVar] = {}
+    function_combos: Dict[str, tk.Widget] = {}
+    state: Dict[str, List[str]] = {"options": []}
+
+    for idx, key in enumerate(HEALTHCHECK_FUNCTION_KEYS):
+        create_entry_label(parent, f"詞條{idx + 1}:", row=start_row + idx, column=0)
+        initial = str((initial_values or {}).get(key, "") or "").strip()
+        var = tk.StringVar(value=f" {initial}" if initial else "")
+        combo = create_combobox(parent, var, [""], row=start_row + idx, column=1)
+        function_vars[key] = var
+        function_combos[key] = combo
+
+    def refresh_options(*_args: Any) -> None:
+        selected = {key: var.get().strip() for key, var in function_vars.items()}
+        for key, combo in function_combos.items():
+            current = selected.get(key, "")
+            excluded = {value for other_key, value in selected.items() if other_key != key and value}
+            values = list(state["options"])
+            if current and current not in values:
+                values.append(current)
+            available = [value for value in values if value == current or value not in excluded]
+            try:
+                combo.configure(values=[""] + _with_left_pad(available))
+            except Exception:
+                pass
+
+    for var in function_vars.values():
+        var.trace_add("write", refresh_options)
+
+    def apply_options(values: List[str]) -> None:
+        state["options"] = [str(value).strip() for value in values if str(value).strip()]
+        refresh_options()
+
+    refresh_options()
+    return function_vars, list(function_combos.values()), apply_options
+
+
+def _selected_functions(function_vars: Dict[str, tk.StringVar]) -> Dict[str, str]:
+    selected: Dict[str, str] = {}
+    used: set[str] = set()
+    for key in HEALTHCHECK_FUNCTION_KEYS:
+        value = function_vars[key].get().strip()
+        if not value or value in used:
+            continue
+        used.add(value)
+        selected[key] = value
+    return selected
 
 
 def _set_message(msg_var: tk.StringVar, msg_label: tk.Widget, message: str, color: str) -> None:
@@ -265,7 +321,7 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
 
 def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, Any]]:
     """Open add healthcheck member dialog."""
-    dlg = create_dialog(parent, "新增健檢妮姬", 420, 560)
+    dlg = create_dialog(parent, "新增健檢妮姬", 420, 650)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
@@ -298,6 +354,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
     create_entry_label(type_frame, "Type:", row=0, column=0)
     type_var = tk.StringVar(value="")
     type_combo = create_combobox(type_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=0, column=1)
+    function_vars, function_combos, apply_function_options = _create_function_selectors(type_frame, start_row=1)
 
     btn_frame = create_btn_frame(frame, row=3, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -312,7 +369,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
 
     save_btn = create_btn_between(btn_frame, "新增", lambda: _on_save(), row=0, column=0, sticky="we")
     cancel_btn = create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
-    action_widgets: List[tk.Widget] = [*filter_combos, listbox, type_combo, save_btn, cancel_btn]
+    action_widgets: List[tk.Widget] = [*filter_combos, listbox, type_combo, *function_combos, save_btn, cancel_btn]
 
     def _passes_filters(item: Dict[str, Any]) -> bool:
         for field, _label in filter_specs:
@@ -338,11 +395,13 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
         _refresh_list()
 
     def _load_nikkes() -> None:
-        def worker() -> List[Dict[str, Any]]:
-            return load_nikkes_info()
+        def worker() -> tuple[List[Dict[str, Any]], List[str]]:
+            return load_nikkes_info(), load_healthcheck_function_names()
 
-        def on_success(nikkes: List[Dict[str, Any]]) -> None:
+        def on_success(payload: tuple[List[Dict[str, Any]], List[str]]) -> None:
+            nikkes, function_names = payload
             state["nikkes"] = nikkes
+            apply_function_options(function_names)
             for field, combo in zip((spec[0] for spec in filter_specs), filter_combos):
                 values = sorted(
                     {
@@ -390,13 +449,15 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
             _set_message(msg_var, msg_label, "name_code 格式錯誤", "red")
             return
 
+        selected_functions = _selected_functions(function_vars)
+
         def worker() -> tuple[bool, str]:
             items = load_healthcheck_members()
             existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
             key = (name_code, member_type)
             if key in existing_keys:
                 return False, "該健檢妮姬與 type 已存在"
-            items.append({"name_code": name_code, "type": member_type})
+            items.append({"name_code": name_code, "type": member_type, **selected_functions})
             if not save_healthcheck_members(items):
                 return False, "新增資料失敗"
             return True, "已新增健檢妮姬"
@@ -432,7 +493,7 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
 
 def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Open edit dialog for an existing healthcheck member type."""
-    dlg = create_dialog(parent, "編輯健檢妮姬", 360, 180)
+    dlg = create_dialog(parent, "編輯健檢妮姬", 420, 300)
 
     frame = create_frame(dlg)
     frame.columnconfigure(0, weight=1)
@@ -448,6 +509,7 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
     create_entry_label(entry_frame, "Type:", row=1, column=0)
     type_var = tk.StringVar(value=f" {str(row.get('type', '') or '').strip()}")
     type_combo = create_combobox(entry_frame, type_var, _with_left_pad(list(HEALTHCHECK_TYPE_VALUES)), row=1, column=1)
+    function_vars, function_combos, apply_function_options = _create_function_selectors(entry_frame, row, start_row=2)
 
     btn_frame = create_btn_frame(frame, row=1, column=0)
     btn_frame.columnconfigure(0, weight=1)
@@ -461,7 +523,7 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
 
     save_btn = create_btn_between(btn_frame, "儲存", lambda: _on_save(), row=0, column=0, sticky="we")
     cancel_btn = create_btn_last(btn_frame, "取消", lambda: close_dialog(dlg), row=0, column=1, sticky="we")
-    action_widgets: List[tk.Widget] = [type_combo, save_btn, cancel_btn]
+    action_widgets: List[tk.Widget] = [type_combo, *function_combos, save_btn, cancel_btn]
 
     def _on_save() -> None:
         new_type = type_var.get().strip()
@@ -476,7 +538,13 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
             return
 
         old_type = str(row.get("type", "") or "").strip()
-        if new_type == old_type:
+        old_functions = {
+            key: str(row.get(key, "") or "").strip()
+            for key in HEALTHCHECK_FUNCTION_KEYS
+            if str(row.get(key, "") or "").strip()
+        }
+        new_functions = _selected_functions(function_vars)
+        if new_type == old_type and new_functions == old_functions:
             result["ok"] = True
             result["message"] = "健檢妮姬沒有變更"
             close_dialog(dlg)
@@ -484,9 +552,14 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
 
         def worker() -> tuple[bool, str]:
             items = load_healthcheck_members()
-            existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
-            if (target_name_code, new_type) in existing_keys:
-                return False, "該健檢妮姬與 type 已存在"
+            for item in items:
+                try:
+                    item_name_code = int(item.get("name_code"))
+                except Exception:
+                    continue
+                item_type = str(item.get("type", "") or "").strip()
+                if item_name_code == target_name_code and item_type == new_type and item_type != old_type:
+                    return False, "該健檢妮姬與 type 已存在"
 
             updated = False
             for item in items:
@@ -497,6 +570,9 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
                 item_type = str(item.get("type", "") or "").strip()
                 if item_name_code == target_name_code and item_type == old_type:
                     item["type"] = new_type
+                    for key in HEALTHCHECK_FUNCTION_KEYS:
+                        item.pop(key, None)
+                    item.update(new_functions)
                     updated = True
                     break
 
@@ -525,6 +601,21 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
             on_success,
             "更新資料失敗",
         )
+
+    def on_function_options_loaded(function_names: List[str]) -> None:
+        apply_function_options(function_names)
+        _set_message(msg_var, msg_label, "", "green")
+
+    _run_dialog_task(
+        dlg,
+        action_widgets,
+        msg_var,
+        msg_label,
+        "讀取詞條中...",
+        load_healthcheck_function_names,
+        on_function_options_loaded,
+        "讀取詞條失敗",
+    )
 
     dlg.protocol("WM_DELETE_WINDOW", lambda: close_dialog(dlg))
     dlg.wait_window(dlg)

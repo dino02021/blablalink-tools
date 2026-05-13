@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Dict, List, Tuple
 
 from .constants import (
+    FUNCTION_NAMES_FILE,
     GOOGLE_SHEETS_ID_FILE,
     NIKKE_HEALTHCHECK_MEMBERS_FILE,
     NIKKES_INFO_FILE,
@@ -18,6 +20,7 @@ from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
 HEALTHCHECK_TYPE_VALUES = ("輸出", "輔助")
+HEALTHCHECK_FUNCTION_KEYS = ("function1", "function2", "function3")
 ELEMENT_ZH_MAP = {
     "Fire": "燃燒",
     "Water": "水冷",
@@ -25,6 +28,7 @@ ELEMENT_ZH_MAP = {
     "Wind": "風壓",
     "Electronic": "電擊",
 }
+_FUNCTION_NAME_REMOVE_RE = re.compile(r"[\s()\[\]{}<>（）［］｛｝＜＞【】「」『』《》〈〉]")
 
 
 def load_sheets() -> Tuple[List[Dict[str, str]], List[str]]:
@@ -187,6 +191,84 @@ def translate_nikke_element(raw_element: Any) -> str:
     return ELEMENT_ZH_MAP.get(text, text)
 
 
+def normalize_healthcheck_function_name(raw_name: Any) -> str:
+    """Normalize cloud function names for healthcheck dropdown/storage."""
+    text = _FUNCTION_NAME_REMOVE_RE.sub("", str(raw_name or ""))
+    if text.endswith("增加"):
+        text = text[: -len("增加")]
+    return text.strip()
+
+
+def load_healthcheck_function_names() -> List[str]:
+    """Read normalized healthcheck function names from function_names.json."""
+    return [item["name"] for item in load_healthcheck_function_definitions()]
+
+
+def load_healthcheck_function_definitions() -> List[Dict[str, Any]]:
+    """Read function_names.json with normalized names and ids."""
+    raw_items = read_cloud_data_json(FUNCTION_NAMES_FILE, default=[])
+    if not isinstance(raw_items, list):
+        return []
+
+    result: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        raw_name = str(item.get("function_name", "") or "").strip()
+        name = normalize_healthcheck_function_name(raw_name)
+        if not name or name in seen:
+            continue
+        function_id = item.get("function_id")
+        try:
+            function_id = int(function_id)
+        except Exception:
+            continue
+        seen.add(name)
+        result.append(
+            {
+                "function_name": raw_name,
+                "name": name,
+                "function_id": function_id,
+            }
+        )
+    return result
+
+
+def _match_healthcheck_function_id(selected_name: Any, definitions: List[Dict[str, Any]]) -> int | None:
+    selected = str(selected_name or "").strip()
+    selected_normalized = normalize_healthcheck_function_name(selected)
+    if not selected and not selected_normalized:
+        return None
+
+    for item in definitions:
+        raw_name = str(item.get("function_name", "") or "")
+        normalized_name = str(item.get("name", "") or "")
+        if selected and (selected in raw_name or selected in normalized_name):
+            return int(item["function_id"])
+        if selected_normalized and (selected_normalized in raw_name or selected_normalized in normalized_name):
+            return int(item["function_id"])
+    return None
+
+
+def build_healthcheck_function_id_targets() -> Dict[str, List[int | None]]:
+    """Return name_code -> function1/2/3 ids resolved from function_names.json."""
+    definitions = load_healthcheck_function_definitions()
+    if not definitions:
+        return {}
+
+    result: Dict[str, List[int | None]] = {}
+    for item in load_healthcheck_members():
+        code = str(item.get("name_code", "") or "").strip()
+        if not code or code in result:
+            continue
+        result[code] = [
+            _match_healthcheck_function_id(item.get(key), definitions)
+            for key in HEALTHCHECK_FUNCTION_KEYS
+        ]
+    return result
+
+
 def _normalize_healthcheck_member(
     item: Dict[str, Any],
     info_lookup: Dict[int, Dict[str, Any]],
@@ -203,11 +285,19 @@ def _normalize_healthcheck_member(
     info = info_lookup.get(name_code, {})
     raw_element = str(item.get("element", "") or "").strip()
     element = translate_nikke_element(raw_element or info.get("element"))
-    return {
+    normalized = {
         "name_code": name_code,
         "element": element,
         "type": member_type,
     }
+    selected_functions: set[str] = set()
+    for key in HEALTHCHECK_FUNCTION_KEYS:
+        function_name = normalize_healthcheck_function_name(item.get(key))
+        if not function_name or function_name in selected_functions:
+            continue
+        selected_functions.add(function_name)
+        normalized[key] = function_name
+    return normalized
 
 
 def load_healthcheck_members() -> List[Dict[str, Any]]:
@@ -276,15 +366,18 @@ def load_healthcheck_display_items() -> List[Dict[str, Any]]:
         name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
         element = str(item.get("element", "") or "").strip()
         member_type = str(item.get("type", "") or "").strip()
-        result.append(
-            {
-                "name_code": name_code,
-                "name": name,
-                "element": element,
-                "type": member_type,
-                "display": f"{name} | {member_type}",
-            }
-        )
+        row = {
+            "name_code": name_code,
+            "name": name,
+            "element": element,
+            "type": member_type,
+            "display": f"{name} | {member_type}",
+        }
+        for key in HEALTHCHECK_FUNCTION_KEYS:
+            function_name = str(item.get(key, "") or "").strip()
+            if function_name:
+                row[key] = function_name
+        result.append(row)
     return result
 
 
@@ -296,13 +389,16 @@ def build_healthcheck_upload_rows() -> List[Dict[str, str]]:
         name_code = int(item["name_code"])
         info = info_lookup.get(name_code, {})
         name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
-        rows.append(
-            {
-                "name": name,
-                "element": str(item.get("element", "") or "").strip(),
-                "type": str(item.get("type", "") or "").strip(),
-            }
-        )
+        row = {
+            "name": name,
+            "element": str(item.get("element", "") or "").strip(),
+            "type": str(item.get("type", "") or "").strip(),
+        }
+        for key in HEALTHCHECK_FUNCTION_KEYS:
+            function_name = str(item.get(key, "") or "").strip()
+            if function_name:
+                row[key] = function_name
+        rows.append(row)
     return rows
 
 

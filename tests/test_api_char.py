@@ -56,12 +56,15 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     async def fake_union(_ctx):
         return "u1", "intl1", "area1"
     monkeypatch.setattr(api, "fetch_union_info", fake_union)
+    monkeypatch.setattr(api, "build_healthcheck_function_id_targets", lambda: {"nc1": [70008, 70005, 70007]})
 
     # state_effects: id 前7碼比對，function_value 轉百分比
     data_payload = {
         "data": {
             "state_effects": [
                 {"id": "7000501", "function_details": [{"function_value": 1234}]},
+                {"id": "7000701", "function_details": [{"function_value": -700}]},
+                {"id": "7000801", "function_details": [{"function_value": 800}]},
             ],
             "character_details": [
                 {
@@ -80,6 +83,8 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
                     "favorite_item_tid": "20",
                     "favorite_item_lv": 9,
                     "arm_equip_option1_id": 7000501,
+                    "arm_equip_option2_id": 7000701,
+                    "arm_equip_option3_id": 7000801,
                 }
             ],
         }
@@ -100,7 +105,8 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     assert isinstance(details, list) and details, "輸出內容應為非空 list"
     entry = details[0]
     assert entry["name"] == "NAME1"
-    # functions 結果應加總並取兩位
-    assert entry["functions"][0]["function_value"] == pytest.approx(12.34, rel=1e-3)
+    # functions 結果應依健檢名單 function1/2/3 順序加總並取兩位
+    assert [item["function_id"] for item in entry["functions"]] == [70008, 70005, 70007]
+    assert [item["function_value"] for item in entry["functions"]] == pytest.approx([8.0, 12.34, 7.0], rel=1e-3)
     assert entry["favorite_item_type"] == "SR"
     assert entry["favorite_item_lv"] == 15

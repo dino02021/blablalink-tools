@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
 
 from gspread.utils import rowcol_to_a1
 
@@ -14,18 +14,11 @@ from .common import JobResult
 from .nikke_upload import resolve_character_sheet_for_account
 
 HEALTHCHECK_WORKSHEET = "健檢名單"
-HEALTHCHECK_HEADERS = ["名稱", "屬性", "類型", "暱稱", "優先度"]
+HEALTHCHECK_HEADERS = ["名稱", "屬性", "類型", "詞條1", "詞條2", "詞條3"]
 
 
 def _normalize_text(value: Any) -> str:
     return str(value or "").strip()
-
-
-def _pad_row(row: Iterable[Any], width: int) -> list[str]:
-    values = [str(item or "") for item in row]
-    if len(values) < width:
-        values.extend([""] * (width - len(values)))
-    return values[:width]
 
 
 def _get_used_values(ws) -> list[list[str]]:
@@ -40,15 +33,8 @@ def _ensure_min_columns(ws, width: int) -> None:
 def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dict[str, str]]:
     ws = spreadsheet.worksheet(HEALTHCHECK_WORKSHEET)
     existing_values = _get_used_values(ws)
-    width = max(max((len(row) for row in existing_values), default=0), len(HEALTHCHECK_HEADERS))
+    width = len(HEALTHCHECK_HEADERS)
     _ensure_min_columns(ws, width)
-
-    existing_rows = [_pad_row(row, width) for row in existing_values[1:]] if existing_values else []
-    existing_by_name: dict[str, list[str]] = {}
-    for row in existing_rows:
-        name = _normalize_text(row[0])
-        if name and name not in existing_by_name:
-            existing_by_name[name] = row[:]
 
     output_rows: list[list[str]] = []
     synced_entries: list[dict[str, str]] = []
@@ -56,22 +42,18 @@ def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dic
         name = _normalize_text(row.get("name"))
         element = _normalize_text(row.get("element"))
         member_type = _normalize_text(row.get("type"))
-        full_row = existing_by_name.get(name, [""] * width)[:]
-        while len(full_row) < width:
-            full_row.append("")
-        full_row[0] = name
-        full_row[1] = element
-        full_row[2] = member_type
-        if not _normalize_text(full_row[3]):
-            full_row[3] = name
-        output_rows.append(full_row)
+        function1 = _normalize_text(row.get("function1"))
+        function2 = _normalize_text(row.get("function2"))
+        function3 = _normalize_text(row.get("function3"))
+        output_rows.append([name, element, member_type, function1, function2, function3])
         synced_entries.append(
             {
                 "name": name,
                 "element": element,
                 "type": member_type,
-                "nickname": _normalize_text(full_row[3]) or name,
-                "priority": _normalize_text(full_row[4]),
+                "function1": function1,
+                "function2": function2,
+                "function3": function3,
             }
         )
 
@@ -80,11 +62,11 @@ def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dic
     if output_rows:
         ws.update(f"A2:{rowcol_to_a1(len(output_rows) + 1, width)}", output_rows)
 
-    old_count = len(existing_rows)
+    old_count = max(len(existing_values) - 1, 0)
     if old_count > len(output_rows):
-        ws.delete_rows(len(output_rows) + 2, old_count + 1)
-    elif not output_rows and ws.row_count > 1 and len(existing_values) > 1:
-        ws.delete_rows(2, len(existing_values) - 1)
+        blank_rows = [[""] * width for _ in range(old_count - len(output_rows))]
+        start_row = len(output_rows) + 2
+        ws.update(f"A{start_row}:{rowcol_to_a1(old_count + 1, width)}", blank_rows)
 
     return synced_entries
 

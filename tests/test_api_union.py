@@ -249,7 +249,7 @@ async def test_fetch_nikkes_info_merges_with_cloud(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_fetch_function_names_merges_with_cloud(tmp_path, monkeypatch):
+async def test_fetch_function_names_writes_function_id(tmp_path, monkeypatch):
     target = tmp_path / "function_names.json"
     monkeypatch.setattr(api, "FUNCTION_NAMES_FILE", target)
     monkeypatch.setattr(
@@ -257,17 +257,10 @@ async def test_fetch_function_names_merges_with_cloud(tmp_path, monkeypatch):
         "write_data_text_and_sync_if_changed",
         lambda path, text, encoding="utf-8": path.write_text(text, encoding=encoding),
     )
-    monkeypatch.setattr(
-        api,
-        "read_cloud_data_json",
-        lambda path, default=None: [
-            {"function_name": "Existing", "function_id_list": [70001, 70002]},
-            {"function_name": "CloudOnly", "function_id_list": [70003]},
-        ],
-    )
 
     sample = [
-        {"description_localkey": "Existing", "state_effect_id_list": [70002, 70004]},
+        {"description_localkey": "Existing", "state_effect_id_list": [70002123, 70004]},
+        {"description_localkey": "Existing", "state_effect_id_list": [70009123]},
         {"description_localkey": "New", "state_effect_id_list": [70005]},
         {"description_localkey": "Ignored", "state_effect_id_list": [60001]},
     ]
@@ -278,7 +271,7 @@ async def test_fetch_function_names_merges_with_cloud(tmp_path, monkeypatch):
     assert ok is True
     data = json.loads(target.read_text(encoding="utf-8"))
     assert data == [
-        {"function_name": "CloudOnly", "function_id_list": [70003]},
-        {"function_name": "Existing", "function_id_list": [70001, 70002, 70004]},
-        {"function_name": "New", "function_id_list": [70005]},
+        {"function_name": "Existing", "function_id": 70002},
+        {"function_name": "New", "function_id": 70005},
     ]
+    assert all("function_id_list" not in item for item in data)

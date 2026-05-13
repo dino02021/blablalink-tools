@@ -8,7 +8,7 @@ import json
 import os
 from typing import Any, Dict, List
 
-from ..data_store import load_union_account_map
+from ..data_store import build_healthcheck_function_id_targets, load_union_account_map
 from .common import JobResult, resolve_account
 from .nikke_batch_download import run_nikke_batch_download
 from .nikke_upload import resolve_character_sheet_target, run_nikke_upload
@@ -106,6 +106,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
     results: List[Dict[str, Any]] = []
     ok_count = 0
     skipped_count = 0
+    function_id_targets = build_healthcheck_function_id_targets()
 
     for slug in accounts:
         entry: Dict[str, Any] = {
@@ -114,7 +115,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             "skipped": False,
         }
 
-        download_result = run_nikke_batch_download(account=slug)
+        download_result = run_nikke_batch_download(account=slug, function_id_targets=function_id_targets)
         entry["download"] = _serialize_result(download_result)
         entry["message"] = download_result.message
 

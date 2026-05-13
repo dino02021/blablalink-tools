@@ -14,7 +14,7 @@ from ..api import (
     fetch_user_characters,
 )
 from ..constants import CHAR_DETAILS_DIR
-from ..data_store import prepare_checklist_items
+from ..data_store import build_healthcheck_function_id_targets, prepare_checklist_items
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
 from .common import JobResult, resolve_account, run_coro_sync
@@ -38,7 +38,11 @@ def _filter_checklist_items(
     return [item for item in checklist_items if item[0] in code_set]
 
 
-async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) -> Dict[str, Any]:
+async def _batch_download_with_ctx(
+    ctx,
+    checklist_items: List[Tuple[int, str]],
+    function_id_targets: Dict[str, List[int | None]],
+) -> Dict[str, Any]:
     guild_id, _fetched_open_id, nikke_area_id = await fetch_union_info(ctx)
     target_guild_id = str(guild_id or "").strip()
     target_nikke_area_id = str(nikke_area_id or "").strip()
@@ -82,6 +86,7 @@ async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) 
             nickname,
             intl_open_id=member_id,
             nikke_area_id=target_nikke_area_id,
+            function_id_targets=function_id_targets,
         )
         if not ok:
             continue
@@ -101,7 +106,10 @@ async def _batch_download_with_ctx(ctx, checklist_items: List[Tuple[int, str]]) 
     }
 
 
-def run_nikke_batch_download(account: str | None = None) -> JobResult:
+def run_nikke_batch_download(
+    account: str | None = None,
+    function_id_targets: Dict[str, List[int | None]] | None = None,
+) -> JobResult:
     slug = resolve_account(account)
     if not slug:
         return JobResult(ok=False, message="缺少帳號")
@@ -109,6 +117,9 @@ def run_nikke_batch_download(account: str | None = None) -> JobResult:
     name_ok, checklist_items, prep_msg = prepare_checklist_items()
     if not name_ok:
         return JobResult(ok=False, message=prep_msg or "無法準備妮姬檢查清單")
+
+    if function_id_targets is None:
+        function_id_targets = build_healthcheck_function_id_targets()
 
     state = load_session(slug)
     if not state:
@@ -119,7 +130,11 @@ def run_nikke_batch_download(account: str | None = None) -> JobResult:
             functools.partial(
                 run_with_session_context,
                 state,
-                functools.partial(_batch_download_with_ctx, checklist_items=checklist_items),
+                functools.partial(
+                    _batch_download_with_ctx,
+                    checklist_items=checklist_items,
+                    function_id_targets=function_id_targets,
+                ),
             )
         )
     except Exception as exc:  # noqa: BLE001
