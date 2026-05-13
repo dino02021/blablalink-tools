@@ -23,6 +23,29 @@
 - 寫入必須直接推送到 `BlaBlaLinkTool-data`
 - GUI 啟動與 CLI job 執行前不需要先同步本地 `data/`；資料會在實際讀取時直接向雲端抓取
 
+### `function_names.json`
+
+目的：
+- 作為健檢詞條下拉選單與練度資料擷取的 function id 對照表。
+
+規則：
+- 每筆資料只包含 `function_name` 與單一整數 `function_id`。
+- `function_id` 由來源 `state_effect_id_list[0]` 的前 5 碼轉成整數。
+- 只保留 `state_effect_id_list[0]` 以 `700` 開頭的資料。
+- 不支援舊格式 `function_id_list`；雲端舊資料不合併、不轉換。
+- 產生內容與雲端完全相同時，不應重複上傳。
+
+例子：
+
+```json
+[
+  {
+    "function_name": "【優越代碼傷害增加】",
+    "function_id": 70005
+  }
+]
+```
+
 ### 2. 運行時設定
 
 重要運行時檔案：
@@ -120,10 +143,15 @@
 - 作為 Nikke 批次下載的 checklist 來源
 
 規則：
-- 每筆資料固定包含 `name_code` 與 `type`
+- 每筆資料固定包含 `name_code`、`element` 與 `type`
 - `type` 只允許 `輸出` 或 `輔助`
+- `element` 由 `nikkes_info.json.element` 轉中文後存入，允許值固定為 `電擊`、`水冷`、`燃燒`、`風壓`、`鐵甲`
+- 可選欄位為 `function1`、`function2`、`function3`，對應健檢表詞條 1/2/3
+- `function1`、`function2`、`function3` 儲存的是正規化後的 function 名稱，不是 id
+- function 名稱正規化規則：移除空白與括號類符號，並移除結尾 `增加`
 - 同一 `name_code + type` 不可重複
-- 下載流程目前只使用 `name_code`，不使用 `type` 參與路由
+- 下載 checklist 仍只使用 `name_code`，不使用 `type` 參與路由
+- 練度資料擷取會用該 `name_code` 的 `function1/2/3` 依序比對 `function_names.json.function_name`，比對成功後取 `function_id`
 
 例子：
 
@@ -131,10 +159,15 @@
 [
   {
     "name_code": 5007,
-    "type": "輸出"
+    "element": "水冷",
+    "type": "輸出",
+    "function1": "優越代碼傷害",
+    "function2": "攻擊力",
+    "function3": "裝彈數"
   },
   {
     "name_code": 5124,
+    "element": "燃燒",
     "type": "輔助"
   }
 ]
@@ -245,6 +278,9 @@
 
 - 每個成員一個檔案
 - 檔案內容必須提供 `nickname` 和 `character_details`
+- `character_details[].functions` 固定輸出三筆，順序對應健檢名單 `function1`、`function2`、`function3`
+- `functions[].function_id` 來自 `function_names.json.function_id`；找不到對應詞條時該位置留空
+- `functions[].function_value` 取裝備詞條加總值，來源值若為負數必須取絕對值後再輸出
 - 上傳可能只針對選定的 `files`
 
 ## 路由規則
@@ -274,39 +310,20 @@
 - 雲端帳號設定教學
 - Token 建立教學
 - 手動操作檢查清單
-## 健檢管理補充規格
 
-- `nikke_healthcheck_members.json` 為唯一健檢妮姬來源，格式固定為：
+## 健檢同步補充規格
 
-```json
-[
-  {
-    "name_code": 5007,
-    "element": "水冷",
-    "type": "輸出"
-  }
-]
-```
-
-- 欄位規則固定如下：
-  - `name_code`：妮姬 `name_code`
-  - `element`：由 `nikkes_info.json.element` 轉中文後存入，允許值固定為 `電擊`、`水冷`、`燃燒`、`風壓`、`鐵甲`
-  - `type`：允許值固定為 `輸出`、`輔助`
-- `prepare_checklist_items()` 下載前仍只按 `name_code` 去重，`element` / `type` 不參與下載決策。
+- `nikke_healthcheck_members.json` 為唯一健檢妮姬來源；欄位契約以前文 `nikke_healthcheck_members.json` 為準。
 - 健檢名單上傳目標沿用既有 `type=CharacterDetails + union_id` 路由，不新增新的 sheet type。
 - 健檢名單同步寫入目標 worksheet 名稱固定為 `健檢名單`。
-- `健檢名單` worksheet 的欄位契約固定為：
+- `健檢名單` worksheet 的 Python 寫入欄位固定為 A-F：
   - A：名稱
   - B：屬性
   - C：類型
-  - D：暱稱
-  - E：優先度
-- `BlaBlaLinkTool` 上傳時只維護 A-C；D/E 由試算表端沿用既有資料並跟隨整列搬移。
-## 健檢同步補充規格
-
-- `健檢名單` A-E 同步由 Python 端直接寫入 Google Sheets。
+  - D：詞條1
+  - E：詞條2
+  - F：詞條3
+- Python 端只更新 `健檢名單` 的 A-F 範圍；G 欄以後的既有儲存格不得被覆蓋。
+- 若雲端名單比既有工作表列數少，Python 端只清空多餘列的 A-F，不刪除整列，避免影響同列其他欄位。
 - Python 端只負責上傳 `健檢名單`，不呼叫 gs web app 補欄，也不直接新增、刪除或格式化其他工作表的角色欄位。
-- 所有工作表缺欄補齊、欄位格式、欄位插入位置、`練度評分結果` 補欄與暱稱校正，都由試算表內的嚴格同步模式處理。
 - Python 端不得直接新增、刪除或格式化 `角色練度_{element}`、`角色練度_變化`、`練度標準`、`練度評分結果` 的角色欄位，避免與 gs 端同步流程重複操作。
-- Python 端上傳 `健檢名單` 後即結束；使用者需要在試算表內手動點擊嚴格同步按鈕，確認新增、暱稱同步與刪除清單後才會修改其他工作表。
-- `健檢名單` A-C 同步時，D/E 必須依角色整列搬移保留，不能因同步被清空。

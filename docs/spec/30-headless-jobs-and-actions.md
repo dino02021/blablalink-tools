@@ -78,10 +78,17 @@ CLI 入口點：
 
 流程：
 1. 準備檢查清單項目
-2. 從會話上下文讀取 `guild_id` 與 `nikke_area_id`
-3. 取得聯盟成員
-4. 為每個成員取得角色與角色詳情
-5. 寫入 `CharacterDetails/*.json`
+2. 建立一次 `function_id_targets`，後續同一批次下載反覆使用，不可每個成員重讀雲端 `function_names.json`
+3. 從會話上下文讀取 `guild_id` 與 `nikke_area_id`
+4. 取得聯盟成員
+5. 為每個成員取得角色與角色詳情
+6. 寫入 `CharacterDetails/*.json`
+
+詞條規則：
+- `function_id_targets` 由 `nikke_healthcheck_members.json` 的 `function1/2/3` 依序比對 `function_names.json.function_name`
+- 比對只要求包含文字即可，並套用健檢詞條正規化規則
+- 角色詳情輸出的 `functions` 必須維持 `function1/2/3` 順序
+- 取出的詞條數值若為負數，必須先取絕對值再加總與輸出
 
 ### `run_nikke_upload`
 
@@ -92,6 +99,7 @@ CLI 入口點：
 - 依 `type=CharacterDetails + union_id` 路由
 - 允許選定 `files`
 - 找不到對應試算表時失敗
+- 上傳角色練度時，詞條欄位使用 `CharacterDetails/*.json` 中 `functions` 的既有順序，不重新排序
 
 ### `run_nikke_pipeline`
 
@@ -104,6 +112,7 @@ CLI 入口點：
 規則：
 - `all` 讀取 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，再降級到本地 `union_account_map.json`
 - 依 `username` 去重複
+- 執行 pipeline 時先建立一次 `function_id_targets`，再傳給每個帳號的 `run_nikke_batch_download`
 - 跳過沒有對應 `CharacterDetails` 試算表的帳號
 - 若任何帳號確實失敗則整個管線失敗
 
