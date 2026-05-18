@@ -6,6 +6,7 @@
 - 儲存密碼時簡單的 XOR key
 """
 import tempfile
+import os
 from pathlib import Path
 
 # 路徑設定
@@ -32,8 +33,9 @@ FUNCTION_NAMES_URL = "https://sg-tools-cdn.blablalink.com/vv-42/b46c877b8d7077e4
 CHAR_DETAILS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails"
 USER_CHARACTERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacters"
 GUILDMEMBERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetGuildMembers"
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxKq3KsuawYVoqAdDD_vFQMBDGM9pfka275zIKFD8tvPkkE-4Yj6rhaa5k2Ob_DxHwk/exec"
-UNION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxw9NREhzCCj_2D7qubvTQM-iKwD4l2CiCNvBdui7TC58XHM6kLeyU18kuNt_nNcC3vug/exec"
+DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwGjC8372aB8Q4MXPyuPV1dVIamV4vbxaUhdff30FEVBjs5i1CcNKZf1LBrw7MQFZxWRQ/exec"
+WEB_APP_URL = os.environ.get("BLABLALINK_WEB_APP_URL", DEFAULT_WEB_APP_URL)
+UNION_WEB_APP_URL = os.environ.get("BLABLALINK_UNION_WEB_APP_URL", WEB_APP_URL)
 
 # 檔案路徑
 LOG_PATH = LOG_DIR / "blablalinkTool.log"

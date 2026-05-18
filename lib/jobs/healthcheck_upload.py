@@ -5,10 +5,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import requests
 from gspread.utils import rowcol_to_a1
 
 from ..data_store import build_healthcheck_upload_rows
-from ..google_sheets.auth import get_gspread_client
+from ..constants import WEB_APP_URL
 from ..log import log_exc
 from .common import JobResult
 from .nikke_upload import resolve_character_sheet_for_account
@@ -88,10 +89,26 @@ def run_healthcheck_upload(account: str | None = None) -> JobResult:
         "row_count": len(rows),
     }
 
+    if not WEB_APP_URL:
+        return JobResult(ok=False, message="Missing WEB_APP_URL", outputs=outputs)
+
     try:
-        cli = get_gspread_client()
-        spreadsheet = cli.open_by_key(target_sheet_id)
-        _sync_healthcheck_sheet(spreadsheet, rows)
+        payload = {
+            "kind": "sync_healthcheck_members",
+            "spreadsheet_id": target_sheet_id,
+            "rows": rows,
+        }
+        resp = requests.post(WEB_APP_URL, json=payload, timeout=600)
+        body_text = (resp.text or "").strip()
+        if resp.status_code < 200 or resp.status_code >= 300:
+            return JobResult(
+                ok=False,
+                message=f"WebApp HTTP {resp.status_code}: {body_text[:300]}",
+                outputs=outputs,
+            )
+        if body_text.startswith(("bad_request", "unauthorized", "error")):
+            return JobResult(ok=False, message=f"WebApp {body_text[:300]}", outputs=outputs)
+        outputs["web_app_response"] = body_text
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return JobResult(ok=False, message=f"健檢名單同步失敗: {exc}", outputs=outputs)

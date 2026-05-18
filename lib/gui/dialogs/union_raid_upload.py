@@ -1064,7 +1064,7 @@ def _notify_union_web_app(month: str, sheet_id: str, members: List[Dict[str, Any
     payload = {
         "method": "sync_union_raid_teams",
         "month": month,
-        "sheet_id": sheet_id,
+        "spreadsheet_id": sheet_id,
         "members": members,
     }
     try:

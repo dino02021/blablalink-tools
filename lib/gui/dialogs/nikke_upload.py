@@ -508,8 +508,13 @@ def _apply_updates(
     return any_written, notify_items
 
 
-def _notify_web_app_batch(items: List[Dict[str, Any]], kind: str = "training") -> None:
-    if not WEB_APP_URL or not items:
+def _notify_web_app_batch(
+    items: List[Dict[str, Any]],
+    kind: str = "training",
+    spreadsheet_id: str | None = None,
+) -> None:
+    target_spreadsheet_id = str(spreadsheet_id or "").strip()
+    if not WEB_APP_URL or not items or not target_spreadsheet_id:
         return
     try:
         payload_dir = CHAR_DETAILS_DIR.parent / "WebAppNotify"
@@ -517,7 +522,7 @@ def _notify_web_app_batch(items: List[Dict[str, Any]], kind: str = "training") -
         payload_path = payload_dir / f"notify_{uuid.uuid4().hex}.json"
         payload = {
             "url": WEB_APP_URL,
-            "payload": {"items": items},
+            "payload": {"spreadsheet_id": target_spreadsheet_id, "items": items},
             "kind": kind,
         }
         payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")

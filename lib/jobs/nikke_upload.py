@@ -194,7 +194,7 @@ def run_nikke_upload(
             ok = ok or change_ok
             notify_items.extend(change_notify_items)
         if notify_items:
-            _notify_web_app_batch(notify_items)
+            _notify_web_app_batch(notify_items, spreadsheet_id=target_sheet_id)
         if not ok:
             msg = msg or "批次上傳失敗"
     except Exception as exc:  # noqa: BLE001
