@@ -94,6 +94,110 @@ def _parse_int(value: Any) -> Optional[int]:
         return None
 
 
+def _normalize_sync_members(members: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    normalized: List[Dict[str, Any]] = []
+    for item in members:
+        if not isinstance(item, dict):
+            continue
+        nickname = str(item.get("nickname", "")).strip()
+        if not nickname:
+            continue
+        level = _parse_int(item.get("synchro_level"))
+        if level is None:
+            continue
+        normalized.append(
+            {
+                "nickname": nickname,
+                "member_id": str(item.get("member_id", "") or "").strip(),
+                "synchro_level": level,
+            }
+        )
+    return normalized
+
+
+def _last_data_row(a_values: List[Any], c_values: List[Any]) -> int:
+    last_row = 1
+    max_row = max(len(a_values), len(c_values))
+    for row_idx in range(2, max_row + 1):
+        name = str(a_values[row_idx - 1]).strip() if row_idx - 1 < len(a_values) else ""
+        member_id = str(c_values[row_idx - 1]).strip() if row_idx - 1 < len(c_values) else ""
+        if name or member_id:
+            last_row = row_idx
+    return last_row
+
+
+def _sync_member_levels_to_worksheet(ws: Any, members: List[Dict[str, Any]]) -> Dict[str, int]:
+    sync_members = _normalize_sync_members(members)
+    total_count = len(sync_members)
+    if total_count == 0:
+        return {"matched_count": 0, "appended_count": 0, "updated_count": 0, "total_count": 0}
+
+    a_values = ws.col_values(1)
+    c_values = ws.col_values(3)
+    data_last_row = _last_data_row(a_values, c_values)
+    clear_last_row = max(2, data_last_row)
+
+    existing_name_to_row: Dict[str, int] = {}
+    existing_member_id_to_row: Dict[str, int] = {}
+    for row_idx in range(2, clear_last_row + 1):
+        name = str(a_values[row_idx - 1]).strip() if row_idx - 1 < len(a_values) else ""
+        member_id = str(c_values[row_idx - 1]).strip() if row_idx - 1 < len(c_values) else ""
+        if name and name not in existing_name_to_row:
+            existing_name_to_row[name] = row_idx
+        if member_id and member_id not in existing_member_id_to_row:
+            existing_member_id_to_row[member_id] = row_idx
+
+    clear_updates: List[Dict[str, Any]] = [
+        {"range": f"B2:B{clear_last_row}", "values": [[""] for _ in range(clear_last_row - 1)]}
+    ]
+    updates: List[Dict[str, Any]] = []
+    matched_count = 0
+    appended_count = 0
+    used_rows: set[int] = set()
+    next_append_row = max(2, data_last_row + 1)
+
+    for member in sync_members:
+        nickname = str(member["nickname"])
+        member_id = str(member.get("member_id", "") or "").strip()
+        level = int(member["synchro_level"])
+
+        row_idx: Optional[int] = None
+        if member_id:
+            row_idx = existing_member_id_to_row.get(member_id)
+        if row_idx is None:
+            row_idx = existing_name_to_row.get(nickname)
+
+        if row_idx is not None and row_idx not in used_rows:
+            if member_id:
+                updates.append({"range": f"B{row_idx}:C{row_idx}", "values": [[level, member_id]]})
+            else:
+                updates.append({"range": f"B{row_idx}:B{row_idx}", "values": [[level]]})
+            used_rows.add(row_idx)
+            matched_count += 1
+            continue
+
+        row_idx = next_append_row
+        next_append_row += 1
+        values: List[Any] = [nickname, level]
+        range_end = "B"
+        if member_id:
+            values.append(member_id)
+            range_end = "C"
+        updates.append({"range": f"A{row_idx}:{range_end}{row_idx}", "values": [values]})
+        used_rows.add(row_idx)
+        appended_count += 1
+
+    ws.batch_update(clear_updates, value_input_option="RAW")
+    if updates:
+        ws.batch_update(updates, value_input_option="RAW")
+    return {
+        "matched_count": matched_count,
+        "appended_count": appended_count,
+        "updated_count": matched_count + appended_count,
+        "total_count": total_count,
+    }
+
+
 def _serialize_result(result: JobResult) -> Dict[str, Any]:
     return {
         "ok": result.ok,
@@ -127,19 +231,8 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
     if not isinstance(members, list) or not members:
         return JobResult(ok=False, message="找不到成員資訊")
 
-    member_level_map: Dict[str, int] = {}
-    for item in members:
-        if not isinstance(item, dict):
-            continue
-        nickname = str(item.get("nickname", "")).strip()
-        if not nickname:
-            continue
-        level = _parse_int(item.get("synchro_level"))
-        if level is None:
-            continue
-        member_level_map[nickname] = level
-
-    total_count = len(member_level_map)
+    sync_members = _normalize_sync_members(members)
+    total_count = len(sync_members)
     if total_count == 0:
         return JobResult(ok=False, message="沒有符合條件的成員等級資料")
 
@@ -152,37 +245,28 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
         client = get_gspread_client()
         sheet = client.open_by_key(sheet_id)
         ws = sheet.worksheet(worksheet_name)
-        a_values = ws.col_values(1)
-        last_row = max(2, len(a_values))
-        ws.batch_update(
-            [{"range": f"B2:B{last_row}", "values": [[""] for _ in range(last_row - 1)]}],
-            value_input_option="RAW",
-        )
+        stats = _sync_member_levels_to_worksheet(ws, sync_members)
+        updated_count = int(stats["updated_count"])
+        matched_count = int(stats["matched_count"])
+        appended_count = int(stats["appended_count"])
+        total_count = int(stats["total_count"])
 
-        updates = []
-        matched_count = 0
-        for row_idx in range(2, last_row + 1):
-            name = str(a_values[row_idx - 1]).strip() if row_idx - 1 < len(a_values) else ""
-            if not name:
-                continue
-            level = member_level_map.get(name)
-            if level is None:
-                continue
-            updates.append({"range": f"B{row_idx}:B{row_idx}", "values": [[level]]})
-            matched_count += 1
-
-        if matched_count == 0:
-            return JobResult(ok=False, message="沒有符合的成員名稱")
-
-        ws.batch_update(updates, value_input_option="RAW")
+        if updated_count == 0:
+            return JobResult(ok=False, message="沒有符合的成員名稱或 member_id")
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return JobResult(ok=False, message=str(exc))
 
     return JobResult(
         ok=True,
-        message=f"上傳完成 ({matched_count}/{total_count})",
-        stats={"account": slug, "matched_count": matched_count, "total_count": total_count},
+        message=f"上傳完成 ({updated_count}/{total_count}, 新增 {appended_count})",
+        stats={
+            "account": slug,
+            "matched_count": matched_count,
+            "appended_count": appended_count,
+            "updated_count": updated_count,
+            "total_count": total_count,
+        },
         outputs={"sheet_id": sheet_id, "worksheet_name": worksheet_name, "union_id": guild_id},
     )
 
