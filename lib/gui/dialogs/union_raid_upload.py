@@ -17,6 +17,12 @@ from tkinter import ttk
 
 import gspread
 
+UNION_RAID_TOP_ROW_HEIGHT_DEFAULT = 40
+UNION_RAID_TOP_ROW_HEIGHT_THREE_PLUS = 50
+UNION_RAID_IMAGE_ROW_HEIGHT_ONE = 50
+UNION_RAID_IMAGE_ROW_HEIGHT_TWO = 90
+UNION_RAID_IMAGE_ROW_HEIGHT_THREE_PLUS = 130
+
 from ..layout import (
     create_dialog,
     close_dialog,
@@ -612,12 +618,9 @@ def _upload_to_sheets(
         for entries in grouped.values():
             if len(entries) > max_same_step:
                 max_same_step = len(entries)
-        if max_same_step >= 3:
-            top_row_heights[row_idx] = 50
-            image_row_heights[row_idx + 1] = 130
-        elif max_same_step == 2:
-            top_row_heights[row_idx] = 40
-            image_row_heights[row_idx + 1] = 90
+        top_height, image_height = _get_union_raid_row_heights(max_same_step)
+        top_row_heights[row_idx] = top_height
+        image_row_heights[row_idx + 1] = image_height
 
         for step, entries in grouped.items():
             cols = step_cols.get(step)
@@ -770,6 +773,14 @@ def _group_by_step(data_list: Any) -> Dict[int, List[Dict[str, Any]]]:
             continue
         out.setdefault(step_val, []).append(entry)
     return out
+
+
+def _get_union_raid_row_heights(max_same_step: int) -> Tuple[int, int]:
+    if max_same_step >= 3:
+        return UNION_RAID_TOP_ROW_HEIGHT_THREE_PLUS, UNION_RAID_IMAGE_ROW_HEIGHT_THREE_PLUS
+    if max_same_step == 2:
+        return UNION_RAID_TOP_ROW_HEIGHT_DEFAULT, UNION_RAID_IMAGE_ROW_HEIGHT_TWO
+    return UNION_RAID_TOP_ROW_HEIGHT_DEFAULT, UNION_RAID_IMAGE_ROW_HEIGHT_ONE
 
 
 def _apply_row_heights(sh, ws, top_heights: Dict[int, int], image_heights: Dict[int, int]) -> None:
