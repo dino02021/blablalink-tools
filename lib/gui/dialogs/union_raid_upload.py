@@ -1094,6 +1094,8 @@ def _notify_union_web_app(month: str, sheet_id: str, members: List[Dict[str, Any
             parsed = None
 
         if 200 <= resp.status_code < 300:
+            if body_text.lower() in {"unauthorized", "bad_request", "busy"} or body_text.lower().startswith("error:"):
+                return False, body_text[:300]
             if isinstance(parsed, dict) and parsed.get("ok") is False:
                 err = str(parsed.get("error") or parsed.get("message") or body_text or "web app ok=false")
                 return False, err
