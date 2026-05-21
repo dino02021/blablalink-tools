@@ -967,6 +967,8 @@ def _build_web_member(item: Dict[str, Any], id_to_name: Dict[int, str]) -> Dict[
             entry = data_list[attack_index - 1]
             squad_ids = entry.get("squad_id", [])
             step = _to_int(entry.get("step"))
+            if step is not None and not (1 <= step <= 5):
+                continue
         else:
             squad_ids = []
             step = None
