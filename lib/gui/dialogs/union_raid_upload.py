@@ -768,11 +768,22 @@ def _group_by_step(data_list: Any) -> Dict[int, List[Dict[str, Any]]]:
     for entry in data_list:
         if not isinstance(entry, dict):
             continue
-        step_val = _to_int(entry.get("step"))
-        if step_val is None or step_val < 1 or step_val > 5:
+        step_val = _normalize_raid_boss_step(entry.get("step"))
+        if step_val is None:
             continue
         out.setdefault(step_val, []).append(entry)
     return out
+
+
+def _normalize_raid_boss_step(value: Any) -> Optional[int]:
+    step = _to_int(value)
+    if step is None:
+        return None
+    if 1 <= step <= 5:
+        return step
+    if step == 6:
+        return 5
+    return None
 
 
 def _get_union_raid_row_heights(max_same_step: int) -> Tuple[int, int]:
@@ -966,8 +977,9 @@ def _build_web_member(item: Dict[str, Any], id_to_name: Dict[int, str]) -> Dict[
         if attack_index - 1 < len(data_list) and isinstance(data_list[attack_index - 1], dict):
             entry = data_list[attack_index - 1]
             squad_ids = entry.get("squad_id", [])
-            step = _to_int(entry.get("step"))
-            if step is not None and not (1 <= step <= 5):
+            raw_step = _to_int(entry.get("step"))
+            step = _normalize_raid_boss_step(entry.get("step"))
+            if raw_step is not None and step is None:
                 continue
         else:
             squad_ids = []
