@@ -17,7 +17,8 @@ from tkinter import ttk
 
 import gspread
 
-UNION_RAID_TOP_ROW_HEIGHT_DEFAULT = 40
+UNION_RAID_TOP_ROW_HEIGHT_ONE = 30
+UNION_RAID_TOP_ROW_HEIGHT_TWO = 40
 UNION_RAID_TOP_ROW_HEIGHT_THREE_PLUS = 50
 UNION_RAID_IMAGE_ROW_HEIGHT_ONE = 50
 UNION_RAID_IMAGE_ROW_HEIGHT_TWO = 90
@@ -790,8 +791,8 @@ def _get_union_raid_row_heights(max_same_step: int) -> Tuple[int, int]:
     if max_same_step >= 3:
         return UNION_RAID_TOP_ROW_HEIGHT_THREE_PLUS, UNION_RAID_IMAGE_ROW_HEIGHT_THREE_PLUS
     if max_same_step == 2:
-        return UNION_RAID_TOP_ROW_HEIGHT_DEFAULT, UNION_RAID_IMAGE_ROW_HEIGHT_TWO
-    return UNION_RAID_TOP_ROW_HEIGHT_DEFAULT, UNION_RAID_IMAGE_ROW_HEIGHT_ONE
+        return UNION_RAID_TOP_ROW_HEIGHT_TWO, UNION_RAID_IMAGE_ROW_HEIGHT_TWO
+    return UNION_RAID_TOP_ROW_HEIGHT_ONE, UNION_RAID_IMAGE_ROW_HEIGHT_ONE
 
 
 def _apply_row_heights(sh, ws, top_heights: Dict[int, int], image_heights: Dict[int, int]) -> None:
