@@ -49,6 +49,27 @@ async def test_fetch_role_info_fail():
 
 
 @pytest.mark.asyncio
+async def test_fetch_user_characters_returns_grade_and_core():
+    data_payload = {
+        "data": {
+            "characters": [
+                {"name_code": 1007, "grade": 3, "core": 3, "combat": 202176},
+                {"name_code": 1008, "grade": 2, "core": 0},
+                {"grade": 1, "core": 1},
+            ]
+        }
+    }
+    ctx = FakeContext({api.USER_CHARACTERS_URL: FakeResponse(200, data_payload)})
+
+    result = await api.fetch_user_characters(ctx, intl_open_id="member-1", nikke_area_id="area-1")
+
+    assert result == [
+        {"name_code": 1007, "grade": 3, "core": 3},
+        {"name_code": 1008, "grade": 2, "core": 0},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_fetch_user_character_details(tmp_path, monkeypatch):
     # 改寫路徑
     monkeypatch.setattr(api, "CHAR_DETAILS_DIR", tmp_path)
@@ -93,7 +114,12 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     ctx = FakeContext(mapping)
 
     # name_items: list of (name_code, name)
-    ok = await api.fetch_user_character_details(ctx, [("nc1", "NAME1")], "nick")
+    ok = await api.fetch_user_character_details(
+        ctx,
+        [("nc1", "NAME1")],
+        "nick",
+        user_character_lookup={"nc1": {"grade": 3, "core": 3, "breakthrough": 6}},
+    )
     assert ok is True
 
     files = list(tmp_path.glob("nick_character_details.json"))
@@ -105,6 +131,9 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     assert isinstance(details, list) and details, "輸出內容應為非空 list"
     entry = details[0]
     assert entry["name"] == "NAME1"
+    assert entry["breakthrough"] == 6
+    assert "grade" not in entry
+    assert "core" not in entry
     # functions 結果應依健檢名單 function1/2/3 順序加總並取兩位
     assert [item["function_id"] for item in entry["functions"]] == [70008, 70005, 70007]
     assert [item["function_value"] for item in entry["functions"]] == pytest.approx([8.0, 12.34, 7.0], rel=1e-3)

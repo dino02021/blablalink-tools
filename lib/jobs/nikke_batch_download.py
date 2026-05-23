@@ -24,18 +24,40 @@ def _filter_checklist_items(
     checklist_items: List[Tuple[int, str]],
     name_codes: List[Any],
 ) -> List[Tuple[int, str]]:
-    try:
-        code_set = {int(value) for value in name_codes}
-    except Exception:
-        code_set = set()
-        for value in name_codes:
-            try:
-                code_set.add(int(value))
-            except Exception:
-                continue
+    code_set: set[int] = set()
+    for name_code in name_codes:
+        try:
+            code_set.add(int(name_code))
+        except Exception:
+            continue
     if not code_set:
         return []
     return [item for item in checklist_items if item[0] in code_set]
+
+
+def _to_int_or_zero(value: Any) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return 0
+
+
+def _build_user_character_lookup(user_characters: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    lookup: Dict[str, Dict[str, Any]] = {}
+    for item in user_characters:
+        if not isinstance(item, dict):
+            continue
+        name_code = item.get("name_code")
+        if name_code is None:
+            continue
+        grade = item.get("grade")
+        core = item.get("core")
+        lookup[str(name_code)] = {
+            "grade": grade,
+            "core": core,
+            "breakthrough": _to_int_or_zero(grade) + _to_int_or_zero(core),
+        }
+    return lookup
 
 
 async def _batch_download_with_ctx(
@@ -68,16 +90,18 @@ async def _batch_download_with_ctx(
             continue
 
         total_count += 1
-        name_codes = await fetch_user_characters(
+        user_characters = await fetch_user_characters(
             ctx,
             intl_open_id=member_id,
             nikke_area_id=target_nikke_area_id,
         )
-        if not name_codes:
+        if not user_characters:
             continue
+        name_codes = [item.get("name_code") for item in user_characters if isinstance(item, dict)]
         filtered = _filter_checklist_items(checklist_items, name_codes)
         if not filtered:
             continue
+        user_character_lookup = _build_user_character_lookup(user_characters)
 
         before_exists = build_character_details_path(nickname).exists()
         ok = await fetch_user_character_details(
@@ -87,6 +111,7 @@ async def _batch_download_with_ctx(
             intl_open_id=member_id,
             nikke_area_id=target_nikke_area_id,
             function_id_targets=function_id_targets,
+            user_character_lookup=user_character_lookup,
         )
         if not ok:
             continue

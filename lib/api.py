@@ -390,6 +390,7 @@ async def fetch_user_character_details(
     intl_open_id: str | None = None,
     nikke_area_id: str | None = None,
     function_id_targets: Dict[str, List[int | None]] | None = None,
+    user_character_lookup: Dict[str, Dict[str, Any]] | None = None,
 ) -> bool:
     """
     取得角色詳細資訊並寫入暫存檔：
@@ -463,6 +464,7 @@ async def fetch_user_character_details(
         for itm in cd:
             name_code = itm.get("name_code")
             name = name_map.get(name_code, "")
+            user_character = (user_character_lookup or {}).get(str(name_code), {})
             fav_raw = str(itm.get("favorite_item_tid", "") or "")
             fav_first = fav_raw[0] if fav_raw else ""
             fav_last = fav_raw[-1] if fav_raw else ""
@@ -498,6 +500,7 @@ async def fetch_user_character_details(
             results.append(
                 {
                     "name": name,
+                    "breakthrough": user_character.get("breakthrough", ""),
                     "skill1_lv": itm.get("skill1_lv"),
                     "skill2_lv": itm.get("skill2_lv"),
                     "ulti_skill_lv": itm.get("ulti_skill_lv"),
@@ -538,8 +541,8 @@ async def fetch_user_characters(
     context: BrowserContext,
     intl_open_id: str | None = None,
     nikke_area_id: str | None = None,
-) -> List[Any]:
-    """呼叫 GetUserCharacters，回傳 name_code 清單。"""
+) -> List[Dict[str, Any]]:
+    """呼叫 GetUserCharacters，回傳角色 name_code、grade、core 摘要。"""
     try:
         target_nikke_area_id = str(nikke_area_id or "").strip()
         fetched_open_id: str | None = None
@@ -571,15 +574,21 @@ async def fetch_user_characters(
         characters = data_field.get("characters")
         if not isinstance(characters, list):
             return []
-        name_codes: List[Any] = []
+        user_characters: List[Dict[str, Any]] = []
         for item in characters:
             if not isinstance(item, dict):
                 continue
             name_code = item.get("name_code")
             if name_code is None:
                 continue
-            name_codes.append(name_code)
-        return name_codes
+            user_characters.append(
+                {
+                    "name_code": name_code,
+                    "grade": item.get("grade"),
+                    "core": item.get("core"),
+                }
+            )
+        return user_characters
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return []

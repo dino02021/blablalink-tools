@@ -327,7 +327,7 @@ def _build_diff_values_from_slice(old_vals: List[str], new_vals: List[Any]) -> L
 
 
 def _favorite_index() -> int:
-    return 7
+    return 8
 
 
 def _calc_favorite_diff(old_val: Any, new_val: Any) -> str:
@@ -440,6 +440,7 @@ def _coerce_diff_value(val: Any) -> Optional[float]:
 
 def _build_row_values(detail: dict) -> List[Any]:
     vals: List[Any] = []
+    vals.append(detail.get("breakthrough", ""))
     vals.append(detail.get("skill1_lv", ""))
     vals.append(detail.get("skill2_lv", ""))
     vals.append(detail.get("ulti_skill_lv", ""))
