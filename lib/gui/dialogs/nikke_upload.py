@@ -103,24 +103,43 @@ def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[i
 def _load_sheet_headers(
     main_sheets,
     member_sheet: Any | None = None,
-) -> Tuple[Dict[str, int], Dict[str, int], Dict[Any, Dict[str, List[int]]]]:
-    row_sheet = member_sheet or main_sheets[0]
-    try:
-        nick_col = row_sheet.col_values(1)
-        nick_to_row = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return {}, {}, {}
+) -> Tuple[Dict[Any, Dict[str, int]], Dict[str, str], Dict[Any, Dict[str, int]], Dict[Any, Dict[str, List[int]]]]:
+    member_id_to_nick: Dict[str, str] = {}
+    if member_sheet is not None:
+        try:
+            member_names = member_sheet.col_values(1)
+            member_ids = member_sheet.col_values(3)
+            for row_idx, member_id in enumerate(member_ids, start=1):
+                clean_id = str(member_id or "").strip()
+                if not clean_id:
+                    continue
+                name = str(member_names[row_idx - 1] if row_idx - 1 < len(member_names) else "").strip()
+                if name:
+                    member_id_to_nick[clean_id] = name
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
 
-    try:
-        member_id_col = row_sheet.col_values(3)
-        member_id_to_row = {v.strip(): i for i, v in enumerate(member_id_col, start=1) if v.strip()}
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        member_id_to_row = {}
-
+    nick_to_row_by_ws: Dict[Any, Dict[str, int]] = {}
+    member_id_to_row_by_ws: Dict[Any, Dict[str, int]] = {}
     header_pos: Dict[Any, Dict[str, List[int]]] = {}
     for ws in main_sheets:
+        try:
+            nick_col = ws.col_values(1)
+            nick_to_row_by_ws[ws] = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            nick_to_row_by_ws[ws] = {}
+
+        if member_sheet is None:
+            try:
+                member_id_col = ws.col_values(3)
+                member_id_to_row_by_ws[ws] = {
+                    v.strip(): i for i, v in enumerate(member_id_col, start=1) if v.strip()
+                }
+            except Exception as exc:  # noqa: BLE001
+                log_exc(exc)
+                member_id_to_row_by_ws[ws] = {}
+
         try:
             hdrs = ws.row_values(1)
         except Exception as exc:  # noqa: BLE001
@@ -133,7 +152,7 @@ def _load_sheet_headers(
                 continue
             pos_map.setdefault(name, []).append(idx)
         header_pos[ws] = pos_map
-    return nick_to_row, member_id_to_row, header_pos
+    return nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos
 
 
 def _build_updates(
@@ -141,8 +160,9 @@ def _build_updates(
     nickname: str,
     member_id: str,
     main_sheets,
-    nick_to_row: Dict[str, int],
-    member_id_to_row: Dict[str, int],
+    nick_to_row_by_ws: Dict[Any, Dict[str, int]],
+    member_id_to_nick: Dict[str, str],
+    member_id_to_row_by_ws: Dict[Any, Dict[str, int]],
     header_pos: Dict[Any, Dict[str, List[int]]],
     change_sheet: Any | None,
     change_nick_to_row: Dict[str, int],
@@ -154,14 +174,22 @@ def _build_updates(
         name = detail.get("name")
         if not name:
             continue
-        row_idx = member_id_to_row.get(member_id) if member_id else None
-        if not row_idx:
-            row_idx = nick_to_row.get(nickname)
-        if not row_idx:
-            continue
         for ws in main_sheets:
             start_cols = header_pos.get(ws, {}).get(name, [])
             if not start_cols:
+                continue
+            nick_to_row = nick_to_row_by_ws.get(ws, {})
+            member_id_to_row = member_id_to_row_by_ws.get(ws, {})
+            row_idx = None
+            if member_id:
+                member_nick = member_id_to_nick.get(member_id, "")
+                if member_nick:
+                    row_idx = nick_to_row.get(member_nick)
+                if not row_idx:
+                    row_idx = member_id_to_row.get(member_id)
+            if not row_idx:
+                row_idx = nick_to_row.get(nickname)
+            if not row_idx:
                 continue
             vals = _build_row_values(detail)
             for start_col in start_cols:

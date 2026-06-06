@@ -144,8 +144,11 @@ def run_nikke_upload(
         member_sheet = _find_member_sheet(worksheets)
         change_nick_to_row, change_header_pos = _load_change_headers(change_sheet)
 
-        nick_to_row, member_id_to_row, header_pos = _load_sheet_headers(main_sheets, member_sheet=member_sheet)
-        if not nick_to_row and not member_id_to_row:
+        nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos = _load_sheet_headers(
+            main_sheets,
+            member_sheet=member_sheet,
+        )
+        if not nick_to_row_by_ws and not member_id_to_nick and not member_id_to_row_by_ws:
             return JobResult(ok=False, message="角色練度工作表缺少成員名稱或 Blabla ID 欄位")
 
         combined_updates: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
@@ -177,8 +180,9 @@ def run_nikke_upload(
                 nickname,
                 member_id,
                 main_sheets,
-                nick_to_row,
-                member_id_to_row,
+                nick_to_row_by_ws,
+                member_id_to_nick,
+                member_id_to_row_by_ws,
                 header_pos,
                 change_sheet,
                 change_nick_to_row,

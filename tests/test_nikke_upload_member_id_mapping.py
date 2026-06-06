@@ -22,82 +22,166 @@ class FakeWorksheet:
         return list(self._rows[row - 1])
 
 
-def test_build_updates_prefers_member_id_over_nickname():
-    ws = FakeWorksheet(
-        "角色練度",
+def test_build_updates_prefers_member_id_resolved_name_over_download_nickname():
+    role_ws = FakeWorksheet(
+        "role",
         [
-            ["名稱", "", "Blabla ID", "Alice"],
-            ["Old Alice", "", "id-a", ""],
-            ["Bob", "", "id-b", ""],
+            ["name", "", "", "Alice"],
+            ["Old Alice", "", "", ""],
+            ["Bob", "", "", ""],
+        ],
+    )
+    member_ws = FakeWorksheet(
+        "members",
+        [
+            ["name", "sync", "Blabla ID"],
+            ["Old Alice", "", "id-a"],
+            ["Bob", "", "id-b"],
         ],
     )
 
-    nick_to_row, member_id_to_row, header_pos = nikke_upload._load_sheet_headers([ws])
+    nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos = nikke_upload._load_sheet_headers(
+        [role_ws],
+        member_sheet=member_ws,
+    )
 
     updates, _changes = nikke_upload._build_updates(
         [{"name": "Alice", "breakthrough": 6}],
         "New Alice",
         "id-a",
-        [ws],
-        nick_to_row,
-        member_id_to_row,
+        [role_ws],
+        nick_to_row_by_ws,
+        member_id_to_nick,
+        member_id_to_row_by_ws,
         header_pos,
         None,
         {},
         {},
     )
 
-    assert list(updates) == [ws]
-    assert updates[ws][0][0] == 2
+    assert list(updates) == [role_ws]
+    assert updates[role_ws][0][0] == 2
 
 
-def test_load_sheet_headers_reads_member_id_from_member_sheet():
+def test_member_sheet_id_does_not_reuse_member_sheet_row_number():
     role_ws = FakeWorksheet(
-        "角色練度",
+        "role",
         [
-            ["名稱", "", "", "Alice"],
+            ["name", "", "", "Alice"],
             ["not used", "", "", ""],
+            ["also not used", "", "", ""],
+            ["Old Alice", "", "", ""],
         ],
     )
     member_ws = FakeWorksheet(
-        "成員名稱",
+        "members",
         [
-            ["名稱", "同步", "Blabla ID"],
+            ["name", "sync", "Blabla ID"],
             ["Old Alice", "", "id-a"],
         ],
     )
 
-    nick_to_row, member_id_to_row, header_pos = nikke_upload._load_sheet_headers([role_ws], member_sheet=member_ws)
+    nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos = nikke_upload._load_sheet_headers(
+        [role_ws],
+        member_sheet=member_ws,
+    )
 
-    assert nick_to_row["Old Alice"] == 2
-    assert member_id_to_row["id-a"] == 2
+    assert nick_to_row_by_ws[role_ws]["Old Alice"] == 4
+    assert member_id_to_nick["id-a"] == "Old Alice"
+    assert member_id_to_row_by_ws == {}
     assert header_pos[role_ws]["Alice"] == [4]
+
+    updates, _changes = nikke_upload._build_updates(
+        [{"name": "Alice", "breakthrough": 6}],
+        "New Alice",
+        "id-a",
+        [role_ws],
+        nick_to_row_by_ws,
+        member_id_to_nick,
+        member_id_to_row_by_ws,
+        header_pos,
+        None,
+        {},
+        {},
+    )
+
+    assert updates[role_ws][0][0] == 4
+
+
+def test_each_role_sheet_uses_its_own_name_row():
+    role_ws_a = FakeWorksheet(
+        "role_a",
+        [
+            ["name", "", "", "Alice"],
+            ["Old Alice", "", "", ""],
+        ],
+    )
+    role_ws_b = FakeWorksheet(
+        "role_b",
+        [
+            ["name", "", "", "Alice"],
+            ["not used", "", "", ""],
+            ["Old Alice", "", "", ""],
+        ],
+    )
+    member_ws = FakeWorksheet(
+        "members",
+        [
+            ["name", "sync", "Blabla ID"],
+            ["Old Alice", "", "id-a"],
+        ],
+    )
+
+    nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos = nikke_upload._load_sheet_headers(
+        [role_ws_a, role_ws_b],
+        member_sheet=member_ws,
+    )
+
+    updates, _changes = nikke_upload._build_updates(
+        [{"name": "Alice", "breakthrough": 6}],
+        "New Alice",
+        "id-a",
+        [role_ws_a, role_ws_b],
+        nick_to_row_by_ws,
+        member_id_to_nick,
+        member_id_to_row_by_ws,
+        header_pos,
+        None,
+        {},
+        {},
+    )
+
+    assert updates[role_ws_a][0][0] == 2
+    assert updates[role_ws_b][0][0] == 3
 
 
 def test_build_updates_falls_back_to_nickname_without_member_id():
-    ws = FakeWorksheet(
-        "角色練度",
+    role_ws = FakeWorksheet(
+        "role",
         [
-            ["名稱", "", "Blabla ID", "Alice"],
+            ["name", "", "Blabla ID", "Alice"],
             ["Old Alice", "", "id-a", ""],
             ["Bob", "", "", ""],
         ],
     )
 
-    nick_to_row, member_id_to_row, header_pos = nikke_upload._load_sheet_headers([ws])
+    nick_to_row_by_ws, member_id_to_nick, member_id_to_row_by_ws, header_pos = nikke_upload._load_sheet_headers(
+        [role_ws]
+    )
 
     updates, _changes = nikke_upload._build_updates(
         [{"name": "Alice", "breakthrough": 6}],
         "Bob",
         "",
-        [ws],
-        nick_to_row,
-        member_id_to_row,
+        [role_ws],
+        nick_to_row_by_ws,
+        member_id_to_nick,
+        member_id_to_row_by_ws,
         header_pos,
         None,
         {},
         {},
     )
 
-    assert list(updates) == [ws]
-    assert updates[ws][0][0] == 3
+    assert list(updates) == [role_ws]
+    assert updates[role_ws][0][0] == 3
