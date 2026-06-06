@@ -494,10 +494,10 @@ def _build_row_values(detail: dict) -> List[Any]:
     vals.append(detail.get("skill1_lv", ""))
     vals.append(detail.get("skill2_lv", ""))
     vals.append(detail.get("ulti_skill_lv", ""))
-    vals.append(_equip_val(detail.get("head_equip_tier", 0), detail.get("head_equip_lv", "")))
-    vals.append(_equip_val(detail.get("arm_equip_tier", 0), detail.get("arm_equip_lv", "")))
-    vals.append(_equip_val(detail.get("torso_equip_tier", 0), detail.get("torso_equip_lv", "")))
-    vals.append(_equip_val(detail.get("leg_equip_tier", 0), detail.get("leg_equip_lv", "")))
+    vals.append(_equip_val(detail.get("head_equip_tier", ""), detail.get("head_equip_lv", "")))
+    vals.append(_equip_val(detail.get("arm_equip_tier", ""), detail.get("arm_equip_lv", "")))
+    vals.append(_equip_val(detail.get("torso_equip_tier", ""), detail.get("torso_equip_lv", "")))
+    vals.append(_equip_val(detail.get("leg_equip_tier", ""), detail.get("leg_equip_lv", "")))
 
     fav_type = detail.get("favorite_item_type", "")
     fav_lv = detail.get("favorite_item_lv", "")
@@ -517,7 +517,13 @@ def _build_row_values(detail: dict) -> List[Any]:
 
 
 def _equip_val(tier, lv):
-    if tier == 9:
+    try:
+        tier_num = int(tier)
+    except Exception:
+        tier_num = None
+    if tier_num == 0:
+        return -1
+    if tier_num == 9:
         return "T9"
     return lv
 

@@ -30,3 +30,11 @@ def test_build_row_values_places_breakthrough_before_skill_levels():
 
     assert values == [6, 1, 2, 3, "T9", 2, 4, 6, "SR15", 8.0, 12.34, 7.0]
     assert nikke_upload._favorite_index() == 8
+
+
+def test_equip_tier_zero_is_minus_one():
+    assert nikke_upload._equip_val(0, 5) == -1
+    assert nikke_upload._equip_val("0", 5) == -1
+    assert nikke_upload._equip_val(9, 5) == "T9"
+    assert nikke_upload._equip_val("9", 5) == "T9"
+    assert nikke_upload._equip_val("", "") == ""
