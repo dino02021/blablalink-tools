@@ -83,13 +83,15 @@ def _resolve_accounts(scope: str, account: str | None) -> List[str]:
     return accounts
 
 
-def _serialize_result(result: JobResult) -> Dict[str, Any]:
-    return {
-        "ok": result.ok,
-        "message": result.message,
-        "stats": result.stats,
-        "outputs": result.outputs,
+def _failure_entry(account: str, stage: str, result: JobResult | None = None, message: str | None = None) -> Dict[str, Any]:
+    entry: Dict[str, Any] = {
+        "account": account,
+        "stage": stage,
+        "message": str(message if message is not None else (result.message if result else "")).strip(),
     }
+    if result and result.stats:
+        entry["stats"] = result.stats
+    return entry
 
 
 def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> JobResult:
@@ -103,25 +105,19 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             return JobResult(ok=False, message="No accounts found in BLABLALINK_UNION_ACCOUNT_MAP_JSON")
         return JobResult(ok=False, message="Missing account")
 
-    results: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
     ok_count = 0
     skipped_count = 0
+    upload_ok_count = 0
+    upload_total_count = 0
     function_id_targets = build_healthcheck_function_id_targets()
 
     for slug in accounts:
-        entry: Dict[str, Any] = {
-            "account": slug,
-            "ok": False,
-            "skipped": False,
-        }
-
         download_result = run_nikke_batch_download(account=slug, function_id_targets=function_id_targets)
-        entry["download"] = _serialize_result(download_result)
-        entry["message"] = download_result.message
 
         if not download_result.ok:
-            entry["stage"] = "download"
-            results.append(entry)
+            failures.append(_failure_entry(slug, "download", download_result))
             continue
 
         guild_id = str(download_result.outputs.get("guild_id", "") or "").strip()
@@ -130,52 +126,41 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             for item in (download_result.outputs.get("files", []) or [])
             if str(item).strip()
         ]
-        entry["guild_id"] = guild_id
-        entry["files"] = files
 
         try:
             target_sheet_id, target_sheet_name = resolve_character_sheet_target(guild_id)
         except ValueError as exc:
-            entry["ok"] = True
-            entry["skipped"] = True
-            entry["stage"] = "skipped"
-            entry["message"] = str(exc)
             skipped_count += 1
-            results.append(entry)
+            skipped.append({"account": slug, "guild_id": guild_id, "message": str(exc)})
             continue
 
-        entry["sheet_id"] = target_sheet_id
-        entry["sheet_name"] = target_sheet_name
         upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id)
-        entry["upload"] = _serialize_result(upload_result)
-        entry["message"] = upload_result.message
-        entry["ok"] = upload_result.ok
-        entry["stage"] = "done" if upload_result.ok else "upload"
+        upload_ok_count += int(upload_result.stats.get("ok_count", 0) or 0)
+        upload_total_count += int(upload_result.stats.get("total_count", 0) or 0)
 
         if upload_result.ok:
             ok_count += 1
+            continue
+        failures.append(_failure_entry(slug, "upload", upload_result))
 
-        results.append(entry)
-
-    failed_count = sum(1 for item in results if not bool(item.get("ok")))
+    failed_count = len(failures)
     summary = {
         "scope": scope_text,
-        "total": len(results),
+        "total": len(accounts),
         "ok_count": ok_count,
         "skipped_count": skipped_count,
         "failed_count": failed_count,
+        "upload_ok_count": upload_ok_count,
+        "upload_total_count": upload_total_count,
     }
     if failed_count:
-        message = (
-            "nikke pipeline finished with failures: "
-            f"ok={ok_count} skipped={skipped_count} failed={failed_count}"
-        )
+        message = f"上傳妮姬資料完成 ({upload_ok_count}/{upload_total_count})，失敗 {failed_count} 筆"
     else:
-        message = f"nikke pipeline finished: ok={ok_count} skipped={skipped_count}"
+        message = f"上傳妮姬資料成功 ({upload_ok_count}/{upload_total_count})"
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"results": results},
+        outputs={"failures": failures, "skipped": skipped},
     )

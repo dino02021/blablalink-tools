@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.jobs import sync_upload
+from lib.jobs.common import JobResult
 
 
 class FakeWorksheet:
@@ -83,3 +84,38 @@ def test_sync_member_levels_without_member_id_updates_only_level_on_name_match()
     assert ws.batch_updates[1][0] == [
         {"range": "B2:B2", "values": [[400]]},
     ]
+
+
+def test_run_sync_upload_all_outputs_only_failures(monkeypatch):
+    monkeypatch.setattr(sync_upload, "_resolve_accounts", lambda scope, account: ["ok", "fail", "skip"])
+
+    def fake_single(account=None, worksheet_name="成員名稱"):
+        if account == "ok":
+            return JobResult(
+                ok=True,
+                message="上傳完成 (31/32, 新增 1)",
+                stats={"updated_count": 31, "total_count": 32},
+            )
+        if account == "skip":
+            return JobResult(ok=False, message="找不到聯盟資訊")
+        return JobResult(ok=False, message="sheet missing", stats={"updated_count": 0, "total_count": 32})
+
+    monkeypatch.setattr(sync_upload, "_run_sync_upload_single", fake_single)
+
+    result = sync_upload.run_sync_upload(scope="all")
+
+    assert result.ok is False
+    assert result.message == "上傳同步完成 (31/32)，失敗 1 筆"
+    assert result.stats == {
+        "scope": "all",
+        "total": 3,
+        "ok_count": 1,
+        "skipped_count": 1,
+        "failed_count": 1,
+        "updated_count": 31,
+        "total_count": 32,
+    }
+    assert result.outputs == {
+        "failures": [{"account": "fail", "message": "sheet missing", "stats": {"updated_count": 0, "total_count": 32}}],
+        "skipped": [{"account": "skip", "message": "找不到聯盟資訊"}],
+    }

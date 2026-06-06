@@ -198,17 +198,18 @@ def _sync_member_levels_to_worksheet(ws: Any, members: List[Dict[str, Any]]) -> 
     }
 
 
-def _serialize_result(result: JobResult) -> Dict[str, Any]:
-    return {
-        "ok": result.ok,
-        "message": result.message,
-        "stats": result.stats,
-        "outputs": result.outputs,
-    }
-
-
 def _is_soft_skip_result(result: JobResult) -> bool:
     return str(result.message or "").strip() in {"找不到工會資訊", "找不到聯盟資訊"}
+
+
+def _failure_entry(account: str, result: JobResult) -> Dict[str, Any]:
+    entry: Dict[str, Any] = {
+        "account": account,
+        "message": str(result.message or "").strip(),
+    }
+    if result.stats:
+        entry["stats"] = result.stats
+    return entry
 
 
 def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "成員名稱") -> JobResult:
@@ -289,42 +290,43 @@ def run_sync_upload(
     if scope_text == "single":
         return _run_sync_upload_single(account=accounts[0], worksheet_name=worksheet_name)
 
-    results: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    skipped: List[Dict[str, Any]] = []
     ok_count = 0
     skipped_count = 0
+    updated_count = 0
+    total_count = 0
 
     for slug in accounts:
         result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
-        entry = {
-            "account": slug,
-            "skipped": False,
-            **_serialize_result(result),
-        }
         if result.ok:
             ok_count += 1
+            updated_count += int(result.stats.get("updated_count", 0) or 0)
+            total_count += int(result.stats.get("total_count", 0) or 0)
         elif _is_soft_skip_result(result):
-            entry["ok"] = True
-            entry["skipped"] = True
-            ok_count += 1
             skipped_count += 1
-        results.append(entry)
+            skipped.append({"account": slug, "message": str(result.message or "").strip()})
+        else:
+            failures.append(_failure_entry(slug, result))
 
-    failed_count = sum(1 for item in results if not bool(item.get("ok")))
+    failed_count = len(failures)
     summary = {
         "scope": scope_text,
-        "total": len(results),
+        "total": len(accounts),
         "ok_count": ok_count,
         "skipped_count": skipped_count,
         "failed_count": failed_count,
+        "updated_count": updated_count,
+        "total_count": total_count,
     }
     if failed_count:
-        message = f"sync upload finished with failures: ok={ok_count} failed={failed_count}"
+        message = f"上傳同步完成 ({updated_count}/{total_count})，失敗 {failed_count} 筆"
     else:
-        message = f"sync upload finished: ok={ok_count} skipped={skipped_count}"
+        message = f"上傳同步成功 ({updated_count}/{total_count})"
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"results": results},
+        outputs={"failures": failures, "skipped": skipped},
     )
