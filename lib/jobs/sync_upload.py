@@ -212,6 +212,36 @@ def _failure_entry(account: str, result: JobResult) -> Dict[str, Any]:
     return entry
 
 
+def _union_label(item: Dict[str, Any]) -> str:
+    sheet_name = str(item.get("sheet_name", "") or "").strip()
+    union_id = str(item.get("union_id", "") or "").strip()
+    if sheet_name and union_id:
+        return f"{sheet_name} ({union_id})"
+    return sheet_name or union_id or "-"
+
+
+def _build_sync_message(
+    updated_count: int,
+    total_count: int,
+    union_summaries: List[Dict[str, Any]],
+    failures: List[Dict[str, Any]],
+    skipped: List[Dict[str, Any]],
+) -> str:
+    status = "完成" if failures else "成功"
+    lines = [f"上傳同步{status} ({updated_count}/{total_count})"]
+    for item in union_summaries:
+        lines.append(f"{_union_label(item)}: {item.get('updated_count', 0)}/{item.get('total_count', 0)}")
+    if failures:
+        lines.append("失敗:")
+        for item in failures:
+            lines.append(f"- {_union_label(item)} / {item.get('account', '-')}: {item.get('message', '')}")
+    if skipped:
+        lines.append("跳過:")
+        for item in skipped:
+            lines.append(f"- {item.get('account', '-')}: {item.get('message', '')}")
+    return "\n".join(lines)
+
+
 def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "成員名稱") -> JobResult:
     slug = resolve_account(account)
     if not slug:
@@ -238,7 +268,7 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
         return JobResult(ok=False, message="沒有符合條件的成員等級資料")
 
     try:
-        sheet_id, _sheet_name = resolve_character_sheet_target(guild_id)
+        sheet_id, sheet_name = resolve_character_sheet_target(guild_id)
     except ValueError as exc:
         return JobResult(ok=True, message=f"試算表找不到: {str(exc)}")
 
@@ -268,7 +298,7 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
             "updated_count": updated_count,
             "total_count": total_count,
         },
-        outputs={"sheet_id": sheet_id, "worksheet_name": worksheet_name, "union_id": guild_id},
+        outputs={"sheet_id": sheet_id, "sheet_name": sheet_name, "worksheet_name": worksheet_name, "union_id": guild_id},
     )
 
 
@@ -292,6 +322,7 @@ def run_sync_upload(
 
     failures: List[Dict[str, Any]] = []
     skipped: List[Dict[str, Any]] = []
+    union_summaries: List[Dict[str, Any]] = []
     ok_count = 0
     skipped_count = 0
     updated_count = 0
@@ -301,13 +332,27 @@ def run_sync_upload(
         result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
         if result.ok:
             ok_count += 1
-            updated_count += int(result.stats.get("updated_count", 0) or 0)
-            total_count += int(result.stats.get("total_count", 0) or 0)
+            account_updated_count = int(result.stats.get("updated_count", 0) or 0)
+            account_total_count = int(result.stats.get("total_count", 0) or 0)
+            updated_count += account_updated_count
+            total_count += account_total_count
+            union_summaries.append(
+                {
+                    "account": slug,
+                    "union_id": result.outputs.get("union_id", ""),
+                    "sheet_name": result.outputs.get("sheet_name", ""),
+                    "updated_count": account_updated_count,
+                    "total_count": account_total_count,
+                }
+            )
         elif _is_soft_skip_result(result):
             skipped_count += 1
             skipped.append({"account": slug, "message": str(result.message or "").strip()})
         else:
-            failures.append(_failure_entry(slug, result))
+            entry = _failure_entry(slug, result)
+            entry["union_id"] = result.outputs.get("union_id", "")
+            entry["sheet_name"] = result.outputs.get("sheet_name", "")
+            failures.append(entry)
 
     failed_count = len(failures)
     summary = {
@@ -319,14 +364,11 @@ def run_sync_upload(
         "updated_count": updated_count,
         "total_count": total_count,
     }
-    if failed_count:
-        message = f"上傳同步完成 ({updated_count}/{total_count})，失敗 {failed_count} 筆"
-    else:
-        message = f"上傳同步成功 ({updated_count}/{total_count})"
+    message = _build_sync_message(updated_count, total_count, union_summaries, failures, skipped)
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"failures": failures, "skipped": skipped},
+        outputs={"_summary_only": True, "unions": union_summaries, "failures": failures, "skipped": skipped},
     )

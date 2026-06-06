@@ -60,6 +60,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _emit_result(result: JobResult, as_json: bool) -> int:
+    outputs = result.outputs or {}
+    public_outputs = {key: value for key, value in outputs.items() if not str(key).startswith("_")}
     if as_json:
         print(
             json.dumps(
@@ -67,17 +69,19 @@ def _emit_result(result: JobResult, as_json: bool) -> int:
                     "ok": result.ok,
                     "message": result.message,
                     "stats": result.stats,
-                    "outputs": result.outputs,
+                    "outputs": public_outputs,
                 },
                 ensure_ascii=False,
             )
         )
     else:
         print(result.message)
+        if outputs.get("_summary_only"):
+            return 0 if result.ok else 1
         if result.stats:
             print(f"stats={json.dumps(result.stats, ensure_ascii=False)}")
-        if result.outputs:
-            print(f"outputs={json.dumps(result.outputs, ensure_ascii=False)}")
+        if public_outputs:
+            print(f"outputs={json.dumps(public_outputs, ensure_ascii=False)}")
     return 0 if result.ok else 1
 
 

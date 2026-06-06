@@ -27,14 +27,19 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
 
     def fake_upload(account=None, files=None, sheet_id=None):
         calls.append(("upload", account, list(files or []), sheet_id))
-        return JobResult(ok=True, message="upload ok", stats={"ok_count": 31, "total_count": 32})
+        return JobResult(
+            ok=False,
+            message="upload partial",
+            stats={"ok_count": 31, "total_count": 32, "failed_count": 1},
+            outputs={"failed_files": [{"file": "member.json", "nickname": "member", "message": "找不到成員列或角色欄位"}]},
+        )
 
     monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", fake_download)
     monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", fake_upload)
     monkeypatch.setattr(
         nikke_pipeline,
         "resolve_character_sheet_target",
-        lambda guild_id: ("sheet-id", "sheet-name"),
+        lambda guild_id: ("sheet-id", "月下"),
     )
 
     result = nikke_pipeline.run_nikke_pipeline(scope="all")
@@ -43,23 +48,42 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
     assert result.stats == {
         "scope": "all",
         "total": 2,
-        "ok_count": 1,
+        "ok_count": 0,
         "skipped_count": 0,
-        "failed_count": 1,
+        "failed_count": 2,
         "upload_ok_count": 31,
         "upload_total_count": 32,
     }
-    assert result.message == "上傳妮姬資料完成 (31/32)，失敗 1 筆"
-    assert result.outputs == {
-        "failures": [
-            {
-                "account": "bad@example.com",
-                "stage": "download",
-                "message": "找不到聯盟資訊",
-            }
-        ],
-        "skipped": [],
-    }
+    assert result.message == "\n".join(
+        [
+            "上傳妮姬資料完成 (31/32)",
+            "月下 (3097): 31/32",
+            "失敗:",
+            "- - / bad@example.com: 找不到聯盟資訊",
+            "- 月下 (3097) / good@example.com / member.json: 找不到成員列或角色欄位",
+        ]
+    )
+    assert result.outputs["unions"] == [
+        {"account": "good@example.com", "union_id": "3097", "sheet_name": "月下", "ok_count": 31, "total_count": 32}
+    ]
+    assert result.outputs["failures"] == [
+        {
+            "account": "bad@example.com",
+            "stage": "download",
+            "message": "找不到聯盟資訊",
+        },
+        {
+            "account": "good@example.com",
+            "stage": "upload",
+            "union_id": "3097",
+            "sheet_name": "月下",
+            "file": "member.json",
+            "nickname": "member",
+            "message": "找不到成員列或角色欄位",
+        },
+    ]
+    assert result.outputs["skipped"] == []
+    assert result.outputs["_summary_only"] is True
     assert calls == [
         ("download", "bad@example.com", {"1001": [70005, None, None]}),
         ("download", "good@example.com", {"1001": [70005, None, None]}),

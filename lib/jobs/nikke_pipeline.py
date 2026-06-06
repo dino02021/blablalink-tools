@@ -94,6 +94,40 @@ def _failure_entry(account: str, stage: str, result: JobResult | None = None, me
     return entry
 
 
+def _union_label(item: Dict[str, Any]) -> str:
+    sheet_name = str(item.get("sheet_name", "") or "").strip()
+    union_id = str(item.get("union_id", "") or item.get("guild_id", "") or "").strip()
+    if sheet_name and union_id:
+        return f"{sheet_name} ({union_id})"
+    return sheet_name or union_id or "-"
+
+
+def _build_pipeline_message(
+    upload_ok_count: int,
+    upload_total_count: int,
+    union_summaries: List[Dict[str, Any]],
+    failures: List[Dict[str, Any]],
+    skipped: List[Dict[str, Any]],
+) -> str:
+    status = "完成" if failures else "成功"
+    lines = [f"上傳妮姬資料{status} ({upload_ok_count}/{upload_total_count})"]
+    for item in union_summaries:
+        lines.append(f"{_union_label(item)}: {item.get('ok_count', 0)}/{item.get('total_count', 0)}")
+    if failures:
+        lines.append("失敗:")
+        for item in failures:
+            file_text = str(item.get("file", "") or "").strip()
+            file_part = f" / {file_text}" if file_text else ""
+            lines.append(
+                f"- {_union_label(item)} / {item.get('account', '-')}{file_part}: {item.get('message', '')}"
+            )
+    if skipped:
+        lines.append("跳過:")
+        for item in skipped:
+            lines.append(f"- {_union_label(item)} / {item.get('account', '-')}: {item.get('message', '')}")
+    return "\n".join(lines)
+
+
 def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> JobResult:
     scope_text = str(scope or "single").strip().lower() or "single"
     if scope_text not in {"single", "all"}:
@@ -107,6 +141,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
 
     failures: List[Dict[str, Any]] = []
     skipped: List[Dict[str, Any]] = []
+    union_summaries: List[Dict[str, Any]] = []
     ok_count = 0
     skipped_count = 0
     upload_ok_count = 0
@@ -131,17 +166,48 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             target_sheet_id, target_sheet_name = resolve_character_sheet_target(guild_id)
         except ValueError as exc:
             skipped_count += 1
-            skipped.append({"account": slug, "guild_id": guild_id, "message": str(exc)})
+            skipped.append({"account": slug, "union_id": guild_id, "message": str(exc)})
             continue
 
         upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id)
-        upload_ok_count += int(upload_result.stats.get("ok_count", 0) or 0)
-        upload_total_count += int(upload_result.stats.get("total_count", 0) or 0)
+        account_ok_count = int(upload_result.stats.get("ok_count", 0) or 0)
+        account_total_count = int(upload_result.stats.get("total_count", 0) or 0)
+        upload_ok_count += account_ok_count
+        upload_total_count += account_total_count
+        union_summaries.append(
+            {
+                "account": slug,
+                "union_id": guild_id,
+                "sheet_name": target_sheet_name,
+                "ok_count": account_ok_count,
+                "total_count": account_total_count,
+            }
+        )
 
         if upload_result.ok:
             ok_count += 1
             continue
-        failures.append(_failure_entry(slug, "upload", upload_result))
+        upload_failures = upload_result.outputs.get("failed_files", []) if upload_result.outputs else []
+        if isinstance(upload_failures, list) and upload_failures:
+            for item in upload_failures:
+                if not isinstance(item, dict):
+                    continue
+                failures.append(
+                    {
+                        "account": slug,
+                        "stage": "upload",
+                        "union_id": guild_id,
+                        "sheet_name": target_sheet_name,
+                        "file": item.get("file", ""),
+                        "nickname": item.get("nickname", ""),
+                        "message": item.get("message", upload_result.message),
+                    }
+                )
+        else:
+            entry = _failure_entry(slug, "upload", upload_result)
+            entry["union_id"] = guild_id
+            entry["sheet_name"] = target_sheet_name
+            failures.append(entry)
 
     failed_count = len(failures)
     summary = {
@@ -153,14 +219,11 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
         "upload_ok_count": upload_ok_count,
         "upload_total_count": upload_total_count,
     }
-    if failed_count:
-        message = f"上傳妮姬資料完成 ({upload_ok_count}/{upload_total_count})，失敗 {failed_count} 筆"
-    else:
-        message = f"上傳妮姬資料成功 ({upload_ok_count}/{upload_total_count})"
+    message = _build_pipeline_message(upload_ok_count, upload_total_count, union_summaries, failures, skipped)
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"failures": failures, "skipped": skipped},
+        outputs={"_summary_only": True, "unions": union_summaries, "failures": failures, "skipped": skipped},
     )

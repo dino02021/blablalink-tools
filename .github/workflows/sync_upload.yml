@@ -110,4 +110,4 @@ jobs:
             echo "Missing account" >&2
             exit 1
           fi
-          python -m lib.cli.run_job --json sync-upload --scope "$SCOPE" --account "$ACCOUNT"
+          python -m lib.cli.run_job sync-upload --scope "$SCOPE" --account "$ACCOUNT"

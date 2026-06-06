@@ -86,7 +86,7 @@ def test_sync_member_levels_without_member_id_updates_only_level_on_name_match()
     ]
 
 
-def test_run_sync_upload_all_outputs_only_failures(monkeypatch):
+def test_run_sync_upload_all_outputs_union_summary_and_failures(monkeypatch):
     monkeypatch.setattr(sync_upload, "_resolve_accounts", lambda scope, account: ["ok", "fail", "skip"])
 
     def fake_single(account=None, worksheet_name="成員名稱"):
@@ -95,17 +95,32 @@ def test_run_sync_upload_all_outputs_only_failures(monkeypatch):
                 ok=True,
                 message="上傳完成 (31/32, 新增 1)",
                 stats={"updated_count": 31, "total_count": 32},
+                outputs={"union_id": "3097", "sheet_name": "月下"},
             )
         if account == "skip":
             return JobResult(ok=False, message="找不到聯盟資訊")
-        return JobResult(ok=False, message="sheet missing", stats={"updated_count": 0, "total_count": 32})
+        return JobResult(
+            ok=False,
+            message="sheet missing",
+            stats={"updated_count": 0, "total_count": 32},
+            outputs={"union_id": "5010", "sheet_name": "星詠"},
+        )
 
     monkeypatch.setattr(sync_upload, "_run_sync_upload_single", fake_single)
 
     result = sync_upload.run_sync_upload(scope="all")
 
     assert result.ok is False
-    assert result.message == "上傳同步完成 (31/32)，失敗 1 筆"
+    assert result.message == "\n".join(
+        [
+            "上傳同步完成 (31/32)",
+            "月下 (3097): 31/32",
+            "失敗:",
+            "- 星詠 (5010) / fail: sheet missing",
+            "跳過:",
+            "- skip: 找不到聯盟資訊",
+        ]
+    )
     assert result.stats == {
         "scope": "all",
         "total": 3,
@@ -116,6 +131,24 @@ def test_run_sync_upload_all_outputs_only_failures(monkeypatch):
         "total_count": 32,
     }
     assert result.outputs == {
-        "failures": [{"account": "fail", "message": "sheet missing", "stats": {"updated_count": 0, "total_count": 32}}],
+        "_summary_only": True,
+        "unions": [
+            {
+                "account": "ok",
+                "union_id": "3097",
+                "sheet_name": "月下",
+                "updated_count": 31,
+                "total_count": 32,
+            }
+        ],
+        "failures": [
+            {
+                "account": "fail",
+                "message": "sheet missing",
+                "stats": {"updated_count": 0, "total_count": 32},
+                "union_id": "5010",
+                "sheet_name": "星詠",
+            }
+        ],
         "skipped": [{"account": "skip", "message": "找不到聯盟資訊"}],
     }

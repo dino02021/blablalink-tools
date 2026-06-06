@@ -129,6 +129,7 @@ def run_nikke_upload(
     ok = False
     ok_count = 0
     total_count = len(target_files)
+    failed_files: List[Dict[str, str]] = []
     msg = ""
     try:
         cli = get_gspread_client()
@@ -152,17 +153,20 @@ def run_nikke_upload(
             data_file = base_dir / fname
             if not data_file.exists():
                 msg = f"找不到資料檔：{fname}"
+                failed_files.append({"file": fname, "message": "找不到資料檔"})
                 continue
             try:
                 obj = json.loads(data_file.read_text(encoding="utf-8"))
             except Exception:
                 msg = f"讀取資料檔失敗：{fname}"
+                failed_files.append({"file": fname, "message": "讀取資料檔失敗"})
                 continue
 
             nickname = obj.get("nickname", "")
             details = obj.get("character_details", [])
             if not nickname or not isinstance(details, list):
                 msg = f"資料檔格式錯誤：{fname}"
+                failed_files.append({"file": fname, "message": "資料檔格式錯誤"})
                 continue
 
             updates_by_ws, changes_by_ws = _build_updates(
@@ -180,6 +184,14 @@ def run_nikke_upload(
             pending.extend(changes_by_ws)
             if updates_by_ws:
                 ok_count += 1
+            else:
+                failed_files.append(
+                    {
+                        "file": fname,
+                        "nickname": str(nickname),
+                        "message": "找不到成員列或角色欄位",
+                    }
+                )
 
         _populate_change_updates(
             pending,
@@ -201,24 +213,36 @@ def run_nikke_upload(
         log_exc(exc)
         return JobResult(ok=False, message=str(exc))
 
+    failed_count = len(failed_files)
     outputs = {
         "input_dir": str(base_dir),
         "sheet_id": target_sheet_id,
         "sheet_name": target_sheet_name,
         "union_id": union_id,
-        "files": target_files,
+        "failed_files": failed_files,
     }
     if not ok:
+        if not failed_files:
+            failed_files.append({"message": msg or "批次上傳失敗"})
+            failed_count = len(failed_files)
         return JobResult(
             ok=False,
             message=msg or "上傳妮姬資料失敗",
-            stats={"ok_count": ok_count, "total_count": total_count},
+            stats={"ok_count": ok_count, "total_count": total_count, "failed_count": failed_count},
+            outputs=outputs,
+        )
+
+    if failed_files:
+        return JobResult(
+            ok=False,
+            message=f"上傳妮姬資料完成 ({ok_count}/{total_count})，失敗 {failed_count} 筆",
+            stats={"ok_count": ok_count, "total_count": total_count, "failed_count": failed_count},
             outputs=outputs,
         )
 
     return JobResult(
         ok=True,
         message=f"上傳妮姬資料成功 ({ok_count}/{total_count})",
-        stats={"ok_count": ok_count, "total_count": total_count},
+        stats={"ok_count": ok_count, "total_count": total_count, "failed_count": 0},
         outputs=outputs,
     )
