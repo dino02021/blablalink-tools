@@ -70,6 +70,13 @@ def _find_change_sheet(worksheets) -> Any | None:
     return None
 
 
+def _find_member_sheet(worksheets) -> Any | None:
+    for ws in worksheets:
+        if ws.title == "成員名稱":
+            return ws
+    return None
+
+
 def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[int]]]:
     if change_sheet is None:
         return {}, {}
@@ -93,13 +100,24 @@ def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[i
     return nick_to_row, pos_map
 
 
-def _load_sheet_headers(main_sheets) -> Tuple[Dict[str, int], Dict[Any, Dict[str, List[int]]]]:
+def _load_sheet_headers(
+    main_sheets,
+    member_sheet: Any | None = None,
+) -> Tuple[Dict[str, int], Dict[str, int], Dict[Any, Dict[str, List[int]]]]:
+    row_sheet = member_sheet or main_sheets[0]
     try:
-        nick_col = main_sheets[0].col_values(1)
+        nick_col = row_sheet.col_values(1)
         nick_to_row = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return {}, {}
+        return {}, {}, {}
+
+    try:
+        member_id_col = row_sheet.col_values(3)
+        member_id_to_row = {v.strip(): i for i, v in enumerate(member_id_col, start=1) if v.strip()}
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        member_id_to_row = {}
 
     header_pos: Dict[Any, Dict[str, List[int]]] = {}
     for ws in main_sheets:
@@ -115,14 +133,16 @@ def _load_sheet_headers(main_sheets) -> Tuple[Dict[str, int], Dict[Any, Dict[str
                 continue
             pos_map.setdefault(name, []).append(idx)
         header_pos[ws] = pos_map
-    return nick_to_row, header_pos
+    return nick_to_row, member_id_to_row, header_pos
 
 
 def _build_updates(
     details: List[dict],
     nickname: str,
+    member_id: str,
     main_sheets,
     nick_to_row: Dict[str, int],
+    member_id_to_row: Dict[str, int],
     header_pos: Dict[Any, Dict[str, List[int]]],
     change_sheet: Any | None,
     change_nick_to_row: Dict[str, int],
@@ -134,7 +154,9 @@ def _build_updates(
         name = detail.get("name")
         if not name:
             continue
-        row_idx = nick_to_row.get(nickname)
+        row_idx = member_id_to_row.get(member_id) if member_id else None
+        if not row_idx:
+            row_idx = nick_to_row.get(nickname)
         if not row_idx:
             continue
         for ws in main_sheets:

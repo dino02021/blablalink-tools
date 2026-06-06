@@ -117,6 +117,7 @@ def run_nikke_upload(
             _build_updates,
             _collect_character_sheets,
             _find_change_sheet,
+            _find_member_sheet,
             _load_change_headers,
             _load_sheet_headers,
             _notify_web_app_batch,
@@ -140,11 +141,12 @@ def run_nikke_upload(
         if not main_sheets:
             return JobResult(ok=False, message="目標試算表缺少角色練度工作表")
         change_sheet = _find_change_sheet(worksheets)
+        member_sheet = _find_member_sheet(worksheets)
         change_nick_to_row, change_header_pos = _load_change_headers(change_sheet)
 
-        nick_to_row, header_pos = _load_sheet_headers(main_sheets)
-        if not nick_to_row:
-            return JobResult(ok=False, message="角色練度工作表缺少角色名稱欄位")
+        nick_to_row, member_id_to_row, header_pos = _load_sheet_headers(main_sheets, member_sheet=member_sheet)
+        if not nick_to_row and not member_id_to_row:
+            return JobResult(ok=False, message="角色練度工作表缺少成員名稱或 Blabla ID 欄位")
 
         combined_updates: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
         combined_changes: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
@@ -163,6 +165,7 @@ def run_nikke_upload(
                 continue
 
             nickname = obj.get("nickname", "")
+            member_id = str(obj.get("member_id", "") or "").strip()
             details = obj.get("character_details", [])
             if not nickname or not isinstance(details, list):
                 msg = f"資料檔格式錯誤：{fname}"
@@ -172,8 +175,10 @@ def run_nikke_upload(
             updates_by_ws, changes_by_ws = _build_updates(
                 details,
                 nickname,
+                member_id,
                 main_sheets,
                 nick_to_row,
+                member_id_to_row,
                 header_pos,
                 change_sheet,
                 change_nick_to_row,

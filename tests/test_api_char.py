@@ -127,6 +127,7 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     content = json.loads(files[0].read_text(encoding="utf-8"))
     assert isinstance(content, dict) and "character_details" in content
     assert content.get("nickname") == "nick"
+    assert content.get("member_id") == "intl1"
     details = content["character_details"]
     assert isinstance(details, list) and details, "輸出內容應為非空 list"
     entry = details[0]

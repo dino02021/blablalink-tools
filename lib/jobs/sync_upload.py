@@ -169,7 +169,7 @@ def _sync_member_levels_to_worksheet(ws: Any, members: List[Dict[str, Any]]) -> 
 
         if row_idx is not None and row_idx not in used_rows:
             if member_id:
-                updates.append({"range": f"B{row_idx}:C{row_idx}", "values": [[level, member_id]]})
+                updates.append({"range": f"A{row_idx}:C{row_idx}", "values": [[nickname, level, member_id]]})
             else:
                 updates.append({"range": f"B{row_idx}:B{row_idx}", "values": [[level]]})
             used_rows.add(row_idx)

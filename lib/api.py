@@ -525,7 +525,11 @@ async def fetch_user_character_details(
             CHAR_DETAILS_DIR.mkdir(parents=True, exist_ok=True)
             outfile = build_character_details_path(nickname)
             outfile.write_text(
-                json.dumps({"nickname": nickname, "character_details": results}, ensure_ascii=False, indent=2),
+                json.dumps(
+                    {"nickname": nickname, "member_id": str(intl_id), "character_details": results},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
                 encoding="utf-8",
             )
             return True

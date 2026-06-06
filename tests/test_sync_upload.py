@@ -55,8 +55,8 @@ def test_sync_member_levels_prefers_member_id_falls_back_to_name_and_appends():
         ),
         (
             [
-                {"range": "B2:C2", "values": [[301, "id-a"]]},
-                {"range": "B3:C3", "values": [[302, "id-b"]]},
+                {"range": "A2:C2", "values": [["Alice Renamed", 301, "id-a"]]},
+                {"range": "A3:C3", "values": [["Bob", 302, "id-b"]]},
                 {"range": "A4:C4", "values": [["Carol", 303, "id-c"]]},
             ],
             "RAW",
