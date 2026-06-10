@@ -12,6 +12,7 @@ from ..constants import UNION_WEB_APP_URL
 from ..data_store import load_union_account_map
 from ..log import log_exc
 from .common import JobResult, resolve_account
+from .nikke_upload import resolve_character_sheet_target
 from .union_raid_download import run_union_raid_download
 from .union_raid_upload import resolve_latest_union_upload_month, run_union_raid_upload
 
@@ -105,10 +106,15 @@ def _is_union_upload_complete(result: JobResult) -> bool:
 
 
 def _resolve_raid_plan_sheet_id(result: JobResult) -> str:
-    raid_plan_sheet_id = str(result.outputs.get("raid_plan_sheet_id", "") or "").strip()
-    if raid_plan_sheet_id:
-        return raid_plan_sheet_id
-    return str(result.outputs.get("sheet_id", "") or "").strip()
+    union_id = str(result.outputs.get("union_id", "") or "").strip()
+    if not union_id:
+        return ""
+    try:
+        sheet_id, _sheet_name = resolve_character_sheet_target(union_id)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return ""
+    return sheet_id
 
 
 def run_raid_plan_web_app(sheet_id: str) -> JobResult:

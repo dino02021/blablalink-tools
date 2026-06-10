@@ -149,7 +149,7 @@ def _open_add_sheet_dialog(
     msg_var: tk.StringVar,
     msg_label: ttk.Label,
 ) -> None:
-    sub = create_dialog(parent, "新增試算表", 430, 280)
+    sub = create_dialog(parent, "新增試算表", 380, 240)
     sub_frame = create_frame(sub)
     entry_frame = create_entry_frame(sub_frame, row=0, column=0)
     entry_frame.columnconfigure(1, weight=1)
@@ -168,13 +168,9 @@ def _open_add_sheet_dialog(
     sheet_id_var = tk.StringVar()
     create_entry(entry_frame, sheet_id_var, row=2, column=1)
 
-    create_entry_label(entry_frame, "排刀試算表ID", row=3, column=0)
-    raid_plan_sheet_id_var = tk.StringVar()
-    create_entry(entry_frame, raid_plan_sheet_id_var, row=3, column=1)
-
-    create_entry_label(entry_frame, "聯盟ID", row=4, column=0)
+    create_entry_label(entry_frame, "聯盟ID", row=3, column=0)
     union_id_var = tk.StringVar()
-    create_entry(entry_frame, union_id_var, row=4, column=1)
+    create_entry(entry_frame, union_id_var, row=3, column=1)
 
     sub_msg_var = tk.StringVar(value="")
     btns = create_btn_frame(sub_frame, row=1, column=0)
@@ -187,7 +183,6 @@ def _open_add_sheet_dialog(
             type_var,
             name_var,
             sheet_id_var,
-            raid_plan_sheet_id_var,
             union_id_var,
             sheets,
             listbox,
@@ -291,7 +286,6 @@ def _save_sheet(
     type_var: tk.StringVar,
     name_var: tk.StringVar,
     sheet_id_var: tk.StringVar,
-    raid_plan_sheet_id_var: tk.StringVar,
     union_id_var: tk.StringVar,
     sheets: List[Dict[str, str]],
     listbox: tk.Listbox,
@@ -303,7 +297,6 @@ def _save_sheet(
     stype_raw = type_var.get().strip()
     name = name_var.get().strip()
     sid = sheet_id_var.get().strip()
-    raid_plan_sid = raid_plan_sheet_id_var.get().strip()
     union_id = union_id_var.get().strip()
     if not stype_raw or not name or not sid:
         sub_msg_var.set("請填寫類型、名稱與試算表ID")
@@ -316,7 +309,6 @@ def _save_sheet(
             "type": stype_raw,
             "sheet_name": name,
             "sheet_id": sid,
-            "raid_plan_sheet_id": raid_plan_sid,
             "union_id": union_id,
         }
     )

@@ -63,7 +63,6 @@ def load_sheets() -> Tuple[List[Dict[str, str]], List[str]]:
                         "type": group_type,
                         "sheet_name": str(item.get("sheet_name", "") or "").strip(),
                         "sheet_id": str(item.get("sheet_id", "") or "").strip(),
-                        "raid_plan_sheet_id": str(item.get("raid_plan_sheet_id", "") or "").strip(),
                         "union_id": str(item.get("union_id", "") or "").strip(),
                     }
                 )
@@ -84,7 +83,6 @@ def save_sheets(sheets: List[Dict[str, str]], sheet_types: List[str]) -> None:
                 {
                     "sheet_name": str(item.get("sheet_name", "") or "").strip(),
                     "sheet_id": str(item.get("sheet_id", "") or "").strip(),
-                    "raid_plan_sheet_id": str(item.get("raid_plan_sheet_id", "") or "").strip(),
                     "union_id": str(item.get("union_id", "") or "").strip(),
                 }
             )
