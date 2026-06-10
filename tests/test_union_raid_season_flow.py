@@ -65,6 +65,96 @@ def test_union_raid_pipeline_passes_season_id(monkeypatch):
     assert captured == [("tester", "55")]
 
 
+def test_union_raid_pipeline_runs_raid_plan_after_complete_upload(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(union_raid_pipeline, "_resolve_accounts", lambda scope, account: ["tester"])
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_union_raid_download",
+        lambda account=None, season_id=None: common.JobResult(
+            ok=True,
+            message="download ok",
+            outputs={"data_path": "tmp.json"},
+        ),
+    )
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_union_raid_upload",
+        lambda account=None, month=None, data_path=None: common.JobResult(
+            ok=True,
+            message="upload ok",
+            stats={"partial": False, "web_ok": True},
+            outputs={"sheet_id": "sheet-1"},
+        ),
+    )
+
+    def fake_raid_plan(sheet_id):
+        calls.append(sheet_id)
+        return common.JobResult(ok=True, message="ok: wrote 32 raid plan rows")
+
+    monkeypatch.setattr(union_raid_pipeline, "run_raid_plan_web_app", fake_raid_plan)
+
+    result = union_raid_pipeline.run_union_raid_pipeline(
+        mode="full",
+        scope="single",
+        account="tester",
+        month="2026/06",
+    )
+
+    assert result.ok is True
+    assert calls == ["sheet-1"]
+    entry = result.outputs["results"][0]
+    assert entry["ok"] is True
+    assert entry["raid_plan"]["ok"] is True
+    assert "排刀完成" in entry["message"]
+
+
+def test_union_raid_pipeline_does_not_plan_before_complete_upload(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(union_raid_pipeline, "_resolve_accounts", lambda scope, account: ["tester"])
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_union_raid_download",
+        lambda account=None, season_id=None: common.JobResult(
+            ok=True,
+            message="download ok",
+            outputs={"data_path": "tmp.json"},
+        ),
+    )
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_union_raid_upload",
+        lambda account=None, month=None, data_path=None: common.JobResult(
+            ok=True,
+            message="upload partial",
+            stats={"partial": True, "web_ok": False},
+            outputs={"sheet_id": "sheet-1"},
+        ),
+    )
+
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_raid_plan_web_app",
+        lambda sheet_id: calls.append(sheet_id) or common.JobResult(ok=True, message="should not run"),
+    )
+
+    result = union_raid_pipeline.run_union_raid_pipeline(
+        mode="full",
+        scope="single",
+        account="tester",
+        month="2026/06",
+    )
+
+    assert result.ok is False
+    assert calls == []
+    entry = result.outputs["results"][0]
+    assert entry["ok"] is False
+    assert "raid_plan" not in entry
+    assert "未執行排刀" in entry["message"]
+
+
 def test_start_union_raid_update_passes_season(monkeypatch):
     calls = []
 

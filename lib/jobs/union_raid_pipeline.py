@@ -8,7 +8,9 @@ import json
 import os
 from typing import Any, Dict, List
 
+from ..constants import UNION_WEB_APP_URL
 from ..data_store import load_union_account_map
+from ..log import log_exc
 from .common import JobResult, resolve_account
 from .union_raid_download import run_union_raid_download
 from .union_raid_upload import resolve_latest_union_upload_month, run_union_raid_upload
@@ -92,6 +94,58 @@ def _serialize_result(result: JobResult) -> Dict[str, Any]:
     }
 
 
+def _is_union_upload_complete(result: JobResult) -> bool:
+    if not result.ok:
+        return False
+    if result.stats.get("partial"):
+        return False
+    if result.stats.get("web_ok") is not True:
+        return False
+    return bool(str(result.outputs.get("sheet_id", "") or "").strip())
+
+
+def run_raid_plan_web_app(sheet_id: str) -> JobResult:
+    target_sheet_id = str(sheet_id or "").strip()
+    if not target_sheet_id:
+        return JobResult(ok=False, message="Missing spreadsheet id")
+    if not UNION_WEB_APP_URL:
+        return JobResult(ok=False, message="Missing UNION_WEB_APP_URL")
+
+    try:
+        import requests
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return JobResult(ok=False, message=f"requests import failed: {exc}")
+
+    params = {
+        "action": "raid_plan",
+        "spreadsheet_id": target_sheet_id,
+        "confirm": "1",
+    }
+    try:
+        resp = requests.get(UNION_WEB_APP_URL, params=params, timeout=600)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return JobResult(ok=False, message=str(exc), outputs={"sheet_id": target_sheet_id})
+
+    body_text = (resp.text or "").strip()
+    outputs = {
+        "sheet_id": target_sheet_id,
+        "web_app_response": body_text[:500],
+    }
+    if 200 <= resp.status_code < 300:
+        lower_body = body_text.lower()
+        if lower_body in {"unauthorized", "bad_request", "busy"} or lower_body.startswith("error:"):
+            return JobResult(ok=False, message=body_text[:300] or "Raid plan WebApp failed", outputs=outputs)
+        return JobResult(ok=True, message=body_text[:300] or "raid plan ok", outputs=outputs)
+
+    return JobResult(
+        ok=False,
+        message=f"HTTP {resp.status_code} {body_text[:300]}",
+        outputs=outputs,
+    )
+
+
 def run_union_raid_pipeline(
     mode: str = "download",
     scope: str = "single",
@@ -161,7 +215,20 @@ def run_union_raid_pipeline(
         entry["message"] = upload_result.message
         entry["ok"] = upload_result.ok
 
-        if upload_result.ok:
+        if upload_result.ok and _is_union_upload_complete(upload_result):
+            plan_result = run_raid_plan_web_app(str(upload_result.outputs.get("sheet_id", "") or ""))
+            entry["raid_plan"] = _serialize_result(plan_result)
+            if plan_result.ok:
+                entry["message"] = f"{upload_result.message}; 排刀完成: {plan_result.message}"
+                entry["ok"] = True
+            else:
+                entry["message"] = f"{upload_result.message}; 排刀失敗: {plan_result.message}"
+                entry["ok"] = False
+        elif upload_result.ok:
+            entry["message"] = f"{upload_result.message}; 未執行排刀: 上傳或 WebApp 同步尚未完整成功"
+            entry["ok"] = False
+
+        if entry["ok"]:
             ok_count += 1
 
         results.append(entry)

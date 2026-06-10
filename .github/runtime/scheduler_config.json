@@ -30,7 +30,7 @@
       "type": "interval",
       "start_date": "2026-05-16",
       "time": "04:00",
-      "interval_minutes": 5,
+      "interval_minutes": 3,
       "workflow": "union_raid_pipeline.yml",
       "ref": "main",
       "inputs": {
