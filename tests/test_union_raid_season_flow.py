@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from lib.cli import run_job
 from lib.gui import union_raid_update
-from lib.jobs import common, union_raid_download, union_raid_pipeline
+from lib.jobs import common, union_raid_download, union_raid_pipeline, union_raid_upload
 
 
 def test_download_union_async_switches_by_season(monkeypatch):
@@ -85,7 +85,7 @@ def test_union_raid_pipeline_runs_raid_plan_after_complete_upload(monkeypatch):
             ok=True,
             message="upload ok",
             stats={"partial": False, "web_ok": True},
-            outputs={"sheet_id": "sheet-1"},
+            outputs={"sheet_id": "damage-sheet", "raid_plan_sheet_id": "plan-sheet"},
         ),
     )
 
@@ -103,11 +103,31 @@ def test_union_raid_pipeline_runs_raid_plan_after_complete_upload(monkeypatch):
     )
 
     assert result.ok is True
-    assert calls == ["sheet-1"]
+    assert calls == ["plan-sheet"]
     entry = result.outputs["results"][0]
     assert entry["ok"] is True
     assert entry["raid_plan"]["ok"] is True
     assert "排刀完成" in entry["message"]
+
+
+def test_union_raid_plan_sheet_id_resolves_from_mapping(monkeypatch):
+    monkeypatch.setattr(
+        union_raid_upload,
+        "load_sheets",
+        lambda: (
+            [
+                {
+                    "type": "UnionRaid",
+                    "sheet_id": "damage-sheet",
+                    "raid_plan_sheet_id": "plan-sheet",
+                    "union_id": "3097",
+                }
+            ],
+            ["UnionRaid"],
+        ),
+    )
+
+    assert union_raid_upload.resolve_union_raid_plan_sheet_id("3097", "damage-sheet") == "plan-sheet"
 
 
 def test_union_raid_pipeline_does_not_plan_before_complete_upload(monkeypatch):

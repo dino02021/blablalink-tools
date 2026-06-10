@@ -104,6 +104,13 @@ def _is_union_upload_complete(result: JobResult) -> bool:
     return bool(str(result.outputs.get("sheet_id", "") or "").strip())
 
 
+def _resolve_raid_plan_sheet_id(result: JobResult) -> str:
+    raid_plan_sheet_id = str(result.outputs.get("raid_plan_sheet_id", "") or "").strip()
+    if raid_plan_sheet_id:
+        return raid_plan_sheet_id
+    return str(result.outputs.get("sheet_id", "") or "").strip()
+
+
 def run_raid_plan_web_app(sheet_id: str) -> JobResult:
     target_sheet_id = str(sheet_id or "").strip()
     if not target_sheet_id:
@@ -216,7 +223,7 @@ def run_union_raid_pipeline(
         entry["ok"] = upload_result.ok
 
         if upload_result.ok and _is_union_upload_complete(upload_result):
-            plan_result = run_raid_plan_web_app(str(upload_result.outputs.get("sheet_id", "") or ""))
+            plan_result = run_raid_plan_web_app(_resolve_raid_plan_sheet_id(upload_result))
             entry["raid_plan"] = _serialize_result(plan_result)
             if plan_result.ok:
                 entry["message"] = f"{upload_result.message}; 排刀完成: {plan_result.message}"

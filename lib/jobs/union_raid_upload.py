@@ -84,6 +84,23 @@ def _find_sheet_by_union_id(union_id: str) -> Tuple[str, str]:
     return "", ""
 
 
+def resolve_union_raid_plan_sheet_id(union_id: str, upload_sheet_id: str = "") -> str:
+    target_union_id = str(union_id or "").strip()
+    fallback_sheet_id = str(upload_sheet_id or "").strip()
+    if not target_union_id:
+        return fallback_sheet_id
+
+    sheets, _ = load_sheets()
+    for item in sheets:
+        if str(item.get("type", "") or "").strip() != UNION_RAID_TYPE:
+            continue
+        if str(item.get("union_id", "") or "").strip() != target_union_id:
+            continue
+        raid_plan_sheet_id = str(item.get("raid_plan_sheet_id", "") or "").strip()
+        return raid_plan_sheet_id or fallback_sheet_id or str(item.get("sheet_id", "") or "").strip()
+    return fallback_sheet_id
+
+
 def resolve_union_sheet_target(
     data_path: str | Path | None = None,
     sheet_id: str | None = None,
@@ -211,6 +228,7 @@ def run_union_raid_upload(
     outputs = {
         "data_path": str(target_data_path),
         "sheet_id": target_sheet_id,
+        "raid_plan_sheet_id": resolve_union_raid_plan_sheet_id(union_id, upload_sheet_id=target_sheet_id),
         "sheet_name": target_sheet_name,
         "month": month_text,
         "union_id": union_id,

@@ -52,7 +52,7 @@ Workflow-managed sheet mappings now come from repo runtime files under `.github/
 
 All JSON secrets must contain the full original file content, not partial fragments.
 
-For `google_sheets_id.json`, `UnionRaid` entries can include `union_id`. When `union_raid_upload` does not receive an explicit `sheet_id`, it resolves the target sheet by matching the downloaded union raid data's `union_id`.
+For `google_sheets_id.json`, `UnionRaid` entries can include `union_id` and `raid_plan_sheet_id`. When `union_raid_upload` does not receive an explicit `sheet_id`, it resolves the damage upload sheet by matching the downloaded union raid data's `union_id`. If `raid_plan_sheet_id` is present, `union_raid_pipeline` triggers raid planning against that spreadsheet after the damage upload completes.
 
 For `union_account_map.json`, each item maps a `union_id` to the login account `username` that should download and upload that union's data. When `union_raid_pipeline` does not receive an explicit `account`, it runs download once for each unique mapped `username`, then upload resolves each downloaded file's `union_id` back to the mapped account.
 
@@ -65,7 +65,8 @@ Example:
     "sheets": [
       {
         "sheet_name": "Main Union",
-        "sheet_id": "your-google-sheet-id",
+        "sheet_id": "your-damage-upload-sheet-id",
+        "raid_plan_sheet_id": "your-raid-plan-sheet-id",
         "union_id": "your-union-id"
       }
     ]
