@@ -3,10 +3,21 @@
   "timezone": "Asia/Taipei",
   "jobs": [
     {
-      "name": "nikke_pipeline_daily",
+      "name": "sync_upload_daily_1150",
       "enabled": true,
       "type": "daily",
-      "time": "17:55",
+      "time": "11:50",
+      "workflow": "sync_upload.yml",
+      "ref": "main",
+      "inputs": {
+        "scope": "all"
+      }
+    },
+    {
+      "name": "nikke_pipeline_daily_1155",
+      "enabled": true,
+      "type": "daily",
+      "time": "11:55",
       "workflow": "nikke_pipeline_run.yml",
       "ref": "main",
       "inputs": {
@@ -14,11 +25,22 @@
       }
     },
     {
-      "name": "sync_upload_daily",
+      "name": "sync_upload_daily_1750",
       "enabled": true,
       "type": "daily",
-      "time": "18:00",
+      "time": "17:50",
       "workflow": "sync_upload.yml",
+      "ref": "main",
+      "inputs": {
+        "scope": "all"
+      }
+    },
+    {
+      "name": "nikke_pipeline_daily_1755",
+      "enabled": true,
+      "type": "daily",
+      "time": "17:55",
+      "workflow": "nikke_pipeline_run.yml",
       "ref": "main",
       "inputs": {
         "scope": "all"
