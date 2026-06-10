@@ -212,6 +212,10 @@ def _failure_entry(account: str, result: JobResult) -> Dict[str, Any]:
     return entry
 
 
+def _is_valid_sync_success(result: JobResult) -> bool:
+    return result.ok and bool(result.stats)
+
+
 def _union_label(item: Dict[str, Any]) -> str:
     sheet_name = str(item.get("sheet_name", "") or "").strip()
     union_id = str(item.get("union_id", "") or "").strip()
@@ -318,7 +322,14 @@ def run_sync_upload(
         return JobResult(ok=False, message="Missing account")
 
     if scope_text == "single":
-        return _run_sync_upload_single(account=accounts[0], worksheet_name=worksheet_name)
+        try:
+            result = _run_sync_upload_single(account=accounts[0], worksheet_name=worksheet_name)
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            return JobResult(ok=False, message=str(exc))
+        if result.ok and not _is_valid_sync_success(result):
+            return JobResult(ok=False, message=result.message, stats=result.stats, outputs=result.outputs)
+        return result
 
     failures: List[Dict[str, Any]] = []
     skipped: List[Dict[str, Any]] = []
@@ -329,8 +340,14 @@ def run_sync_upload(
     total_count = 0
 
     for slug in accounts:
-        result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
-        if result.ok:
+        try:
+            result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            failures.append({"account": slug, "message": str(exc)})
+            continue
+
+        if _is_valid_sync_success(result):
             ok_count += 1
             account_updated_count = int(result.stats.get("updated_count", 0) or 0)
             account_total_count = int(result.stats.get("total_count", 0) or 0)
