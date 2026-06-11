@@ -231,7 +231,7 @@ def _build_sync_message(
     failures: List[Dict[str, Any]],
     skipped: List[Dict[str, Any]],
 ) -> str:
-    status = "完成" if failures else "成功"
+    status = "完成" if failures or skipped else "成功"
     lines = [f"上傳同步{status} ({updated_count}/{total_count})"]
     for item in union_summaries:
         lines.append(f"{_union_label(item)}: {item.get('updated_count', 0)}/{item.get('total_count', 0)}")
@@ -384,7 +384,7 @@ def run_sync_upload(
     message = _build_sync_message(updated_count, total_count, union_summaries, failures, skipped)
 
     return JobResult(
-        ok=failed_count == 0,
+        ok=failed_count == 0 and skipped_count == 0,
         message=message,
         stats=summary,
         outputs={"_summary_only": True, "unions": union_summaries, "failures": failures, "skipped": skipped},
