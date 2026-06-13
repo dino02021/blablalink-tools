@@ -34,9 +34,15 @@ CHAR_DETAILS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharac
 USER_CHARACTERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacters"
 GUILDMEMBERS_URL = "https://api.blablalink.com/api/game/proxy/Game/GetGuildMembers"
 DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwGjC8372aB8Q4MXPyuPV1dVIamV4vbxaUhdff30FEVBjs5i1CcNKZf1LBrw7MQFZxWRQ/exec"
-DEFAULT_UNION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxw9NREhzCCj_2D7qubvTQM-iKwD4l2CiCNvBdui7TC58XHM6kLeyU18kuNt_nNcC3vug/exec"
+DEFAULT_UNION_WEB_APP_URL = DEFAULT_WEB_APP_URL
+RETIRED_UNION_WEB_APP_URLS = {
+    "https://script.google.com/macros/s/AKfycbxw9NREhzCCj_2D7qubvTQM-iKwD4l2CiCNvBdui7TC58XHM6kLeyU18kuNt_nNcC3vug/exec",
+}
 WEB_APP_URL = os.environ.get("BLABLALINK_WEB_APP_URL", DEFAULT_WEB_APP_URL)
-UNION_WEB_APP_URL = os.environ.get("BLABLALINK_UNION_WEB_APP_URL", DEFAULT_UNION_WEB_APP_URL)
+_UNION_WEB_APP_URL_OVERRIDE = os.environ.get("BLABLALINK_UNION_WEB_APP_URL", "").strip()
+if _UNION_WEB_APP_URL_OVERRIDE in RETIRED_UNION_WEB_APP_URLS:
+    _UNION_WEB_APP_URL_OVERRIDE = ""
+UNION_WEB_APP_URL = _UNION_WEB_APP_URL_OVERRIDE or WEB_APP_URL
 
 # 檔案路徑
 LOG_PATH = LOG_DIR / "blablalinkTool.log"
