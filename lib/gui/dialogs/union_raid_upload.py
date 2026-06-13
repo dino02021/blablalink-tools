@@ -39,7 +39,14 @@ from ..layout import (
     create_listbox,
 )
 from ...jobs.union_raid_upload import run_union_raid_upload, resolve_union_sheet_target
-from ...constants import NIKKES_INFO_FILE, UNION_RAID_TEMP_FILE, UNION_WEB_APP_URL
+from ...constants import (
+    CHAR_DETAILS_TYPE,
+    NIKKES_INFO_FILE,
+    UNION_RAID_TEMP_FILE,
+    UNION_RAID_TYPE,
+    UNION_WEB_APP_URL,
+)
+from ...data_store import load_sheets
 from ...github_data_sync import read_cloud_data_json
 from ...utils import col_letter
 from ...utils import load_session, run_with_session_context
@@ -670,7 +677,19 @@ def _upload_to_sheets(
         f"nikke_map={len(id_to_name)} members={len(web_members)} "
         f"sample={json.dumps(_summarize_web_members(web_members), ensure_ascii=False)}"
     )
-    web_ok, web_msg = _notify_union_web_app(month, sheet_id, web_members)
+    notify_sheet_id, notify_union_id = _resolve_raid_plan_sheet_for_union_upload(sheet_id)
+    if notify_sheet_id != sheet_id:
+        log_msg(
+            "union_upload webapp_target "
+            f"union_id={notify_union_id or '-'} damage_sheet_id={sheet_id} raid_plan_sheet_id={notify_sheet_id}"
+        )
+    web_ok, web_msg = _notify_union_web_app(
+        month,
+        notify_sheet_id,
+        web_members,
+        damage_sheet_id=sheet_id,
+        union_id=notify_union_id,
+    )
     log_msg(f"union_upload webapp members={len(web_members)} ok={web_ok} msg={web_msg}")
     return True, web_ok, web_msg
 
@@ -1084,7 +1103,58 @@ def _load_nikke_id_map() -> Dict[int, str]:
     return out
 
 
-def _notify_union_web_app(month: str, sheet_id: str, members: List[Dict[str, Any]]) -> Tuple[bool, str]:
+def _resolve_raid_plan_sheet_for_union_upload(upload_sheet_id: str) -> Tuple[str, str]:
+    """Return the CharacterDetails sheet that owns the uploaded UnionRaid sheet."""
+    target_sheet_id = str(upload_sheet_id or "").strip()
+    if not target_sheet_id:
+        return "", ""
+
+    try:
+        sheets, _ = load_sheets()
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return target_sheet_id, ""
+
+    union_id = ""
+    for item in sheets:
+        if not isinstance(item, dict):
+            continue
+        item_sheet_id = str(item.get("sheet_id", "") or "").strip()
+        item_type = str(item.get("type", "") or "").strip()
+        if item_sheet_id != target_sheet_id:
+            continue
+        union_id = str(item.get("union_id", "") or "").strip()
+        if item_type == CHAR_DETAILS_TYPE:
+            return target_sheet_id, union_id
+        if item_type != UNION_RAID_TYPE:
+            return target_sheet_id, union_id
+        break
+
+    if not union_id:
+        return target_sheet_id, ""
+
+    for item in sheets:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("type", "") or "").strip() != CHAR_DETAILS_TYPE:
+            continue
+        if str(item.get("union_id", "") or "").strip() != union_id:
+            continue
+        raid_plan_sheet_id = str(item.get("sheet_id", "") or "").strip()
+        if raid_plan_sheet_id:
+            return raid_plan_sheet_id, union_id
+
+    return target_sheet_id, union_id
+
+
+def _notify_union_web_app(
+    month: str,
+    sheet_id: str,
+    members: List[Dict[str, Any]],
+    *,
+    damage_sheet_id: str = "",
+    union_id: str = "",
+) -> Tuple[bool, str]:
     if not UNION_WEB_APP_URL:
         return False, "?芾身摰?UNION_WEB_APP_URL"
     payload = {
@@ -1093,6 +1163,12 @@ def _notify_union_web_app(month: str, sheet_id: str, members: List[Dict[str, Any
         "spreadsheet_id": sheet_id,
         "members": members,
     }
+    damage_sheet_id = str(damage_sheet_id or "").strip()
+    if damage_sheet_id and damage_sheet_id != sheet_id:
+        payload["damage_spreadsheet_id"] = damage_sheet_id
+    union_id = str(union_id or "").strip()
+    if union_id:
+        payload["union_id"] = union_id
     try:
         import requests
     except Exception as exc:  # noqa: BLE001
