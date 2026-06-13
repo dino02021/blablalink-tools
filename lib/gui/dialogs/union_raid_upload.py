@@ -1314,7 +1314,9 @@ def _load_nikke_upload_maps() -> Tuple[Dict[int, str], Dict[int, str]]:
         short_avatar_id = int(str(avatar_id)[:4])
         icon_url = _build_nikke_icon_url(resource_id, costume_index if costume_index is not None else 0)
         if icon_url:
-            id_to_image_url[short_avatar_id] = icon_url
+            id_to_image_url[avatar_id] = icon_url
+            if short_avatar_id not in id_to_image_url:
+                id_to_image_url[short_avatar_id] = icon_url
         name = resource_to_name.get(resource_id, "")
         if name and short_avatar_id not in id_to_name:
             id_to_name[short_avatar_id] = name

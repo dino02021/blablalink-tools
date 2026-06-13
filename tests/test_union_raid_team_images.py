@@ -36,6 +36,62 @@ def test_build_union_raid_team_image_formula_uses_existing_cloudinary_style():
     assert "sg-tools-cdn.blablalink.com%2F" in formula
 
 
+def test_avatar_map_does_not_override_nikke_info_short_ids(monkeypatch):
+    cloud_items = [
+        {
+            "id": 3015,
+            "name": "阿妮斯：閃耀夏日",
+            "resource_id": None,
+        },
+        {
+            "id": 3017,
+            "name": "阿妮斯：超級巨星",
+            "resource_id": None,
+        },
+    ]
+    remote_items = [
+        {
+            "id": 301501,
+            "name_localkey": {"name": "阿妮斯：閃耀夏日"},
+            "resource_id": 15,
+        },
+        {
+            "id": 301701,
+            "name_localkey": {"name": "阿妮斯：超級巨星"},
+            "resource_id": 17,
+        },
+        {
+            "id": 583601,
+            "name_localkey": {"name": "櫻"},
+            "resource_id": 836,
+        },
+        {
+            "id": 584201,
+            "name_localkey": {"name": "克蕾兒"},
+            "resource_id": 842,
+        },
+    ]
+    avatar_items = [
+        {"id": 301500, "resource_id": 836, "costume_index": 0},
+        {"id": 301700, "resource_id": 842, "costume_index": 0},
+    ]
+
+    def fake_fetch_json_list(url):
+        if url == union_raid_upload.NIKKES_INFO_URL:
+            return remote_items
+        return avatar_items
+
+    monkeypatch.setattr(union_raid_upload, "read_cloud_data_json", lambda *_args, **_kwargs: cloud_items)
+    monkeypatch.setattr(union_raid_upload, "_fetch_json_list", fake_fetch_json_list)
+
+    _id_to_name, id_to_image_url = union_raid_upload._load_nikke_upload_maps()
+
+    assert id_to_image_url[3015] == union_raid_upload._build_nikke_icon_url(15, 0)
+    assert id_to_image_url[3017] == union_raid_upload._build_nikke_icon_url(17, 0)
+    assert id_to_image_url[301500] == union_raid_upload._build_nikke_icon_url(836, 0)
+    assert id_to_image_url[301700] == union_raid_upload._build_nikke_icon_url(842, 0)
+
+
 def test_apply_formula_updates_uses_user_entered():
     calls = []
 
