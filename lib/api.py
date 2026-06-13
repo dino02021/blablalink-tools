@@ -358,6 +358,7 @@ async def fetch_nikkes_info(context: BrowserContext) -> bool:
                 "name_code": item.get("name_code"),
                 "name": get_nested_value(item, "name_localkey", "name"),
                 "original_rare": item.get("original_rare"),
+                "resource_id": item.get("resource_id"),
                 "weapon_type": get_nested_value(item, "shot_id", "element", "weapon_type"),
                 "use_burst_skill": item.get("use_burst_skill"),
             }

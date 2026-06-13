@@ -8,9 +8,12 @@ import os
 import re
 import threading
 import asyncio
+import base64
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import quote
 
 import tkinter as tk
 from tkinter import ttk
@@ -42,6 +45,7 @@ from ...jobs.union_raid_upload import run_union_raid_upload, resolve_union_sheet
 from ...constants import (
     CHAR_DETAILS_TYPE,
     NIKKES_INFO_FILE,
+    NIKKES_INFO_URL,
     UNION_RAID_TEMP_FILE,
     UNION_RAID_TYPE,
     UNION_WEB_APP_URL,
@@ -489,7 +493,7 @@ def _upload_to_sheets(
         log_msg(f"union_upload fail open_sheet exception={exc}")
         raise ValueError("找不到目標工作表") from exc
 
-    id_to_name = _load_nikke_id_map()
+    id_to_name, id_to_image_url = _load_nikke_upload_maps()
     step_cols = _extract_step_columns(ws)
     if not step_cols:
         log_msg(f"union_upload fail step_columns_empty ws={ws.title}")
@@ -610,6 +614,7 @@ def _upload_to_sheets(
         a_updates.append(_build_row_update(row_idx, 1, [username]))
 
     total_payload: List[Dict[str, Any]] = []
+    image_payload: List[Dict[str, Any]] = []
     damage_cells: List[Dict[str, Any]] = []
     top_row_heights: Dict[int, int] = {}
     image_row_heights: Dict[int, int] = {}
@@ -655,6 +660,9 @@ def _upload_to_sheets(
                         "final_lines": final_line_indexes,
                     }
                 )
+                image_formula = _build_union_raid_team_image_formula(entries, id_to_image_url)
+                if image_formula:
+                    image_payload.append(_build_row_update(row_idx + 1, cols["damage_col"], [image_formula]))
             if level_lines:
                 total_payload.append(
                     _build_row_update(row_idx, cols["level_col"], ["\n".join(level_lines)])
@@ -664,9 +672,11 @@ def _upload_to_sheets(
         _apply_batch_updates(ws, a_updates)
     _apply_row_heights(sh, ws, top_row_heights, image_row_heights)
     _apply_batch_updates(ws, total_payload)
+    _apply_formula_updates(ws, image_payload)
     _apply_damage_cells_with_color(sh, ws, damage_cells)
     log_msg(
-        f"union_upload apply_updates names={len(a_updates)} values={len(total_payload)} damage_cells={len(damage_cells)}"
+        "union_upload apply_updates "
+        f"names={len(a_updates)} values={len(total_payload)} images={len(image_payload)} damage_cells={len(damage_cells)}"
     )
     web_members = []
     for _, _, item in ordered_with_rows:
@@ -906,6 +916,117 @@ def _build_damage_text_runs(text: str, final_line_indexes: List[int]) -> List[Di
     return runs
 
 
+NIKKE_STATIC_RESOURCE_BASE_URL = "https://sg-tools-cdn.blablalink.com"
+NIKKE_AVATAR_MAP_PATH = "character/character_avatar_map.json"
+NIKKE_OBFUSCATION_PRIMES = [224737, 1000639, 2654435761, 2654435769, 1000621, 4294967291]
+UNION_RAID_TEAM_IMAGE_WIDTH = 180
+UNION_RAID_TEAM_IMAGE_UNIT = 36
+UNION_RAID_TEAM_IMAGE_CLOUDINARY_BASE = "https://res.cloudinary.com/dfzoxtcki/image/upload"
+
+
+def _nikke_djb2_mod(text: str, mod_value: int) -> int:
+    value = mod_value
+    for char in text:
+        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+    return value
+
+
+def _nikke_two_letter_hash(text: str, mod_value: int) -> str:
+    result = ((_nikke_djb2_mod(text, mod_value) % mod_value) + mod_value) % mod_value
+    return chr(97 + (result // 26) % 26) + chr(97 + result % 26)
+
+
+def _nikke_two_number_hash(text: str, mod_value: int) -> str:
+    result = ((_nikke_djb2_mod(text, mod_value) % mod_value) + mod_value) % mod_value
+    return str(result % 99).zfill(2)
+
+
+def _obfuscate_nikke_resource_path(path: str) -> str:
+    raw_path = str(path or "").strip().lstrip("/")
+    if not raw_path:
+        return ""
+    parts = [part for part in raw_path.split("/") if part]
+    for idx, part in enumerate(parts):
+        if idx == len(parts) - 1:
+            if "." not in part:
+                parts[idx] = hashlib.md5(raw_path.encode("utf-8")).hexdigest()
+                continue
+            _base, ext = part.rsplit(".", 1)
+            parts[idx] = f"{hashlib.md5(raw_path.encode('utf-8')).hexdigest()}.{ext}"
+            continue
+        prime = NIKKE_OBFUSCATION_PRIMES[idx]
+        parts[idx] = f"{_nikke_two_letter_hash(raw_path, prime)}-{_nikke_two_number_hash(raw_path, prime)}"
+    return "/".join(parts)
+
+
+def _nikke_static_resource_url(path: str) -> str:
+    obfuscated = _obfuscate_nikke_resource_path(path)
+    return f"{NIKKE_STATIC_RESOURCE_BASE_URL}/{obfuscated}" if obfuscated else ""
+
+
+def _build_nikke_icon_url(resource_id: Any, costume_index: Any = 0) -> str:
+    rid = _to_int(resource_id)
+    skin = _to_int(costume_index)
+    if rid is None:
+        return ""
+    if skin is None:
+        skin = 0
+    return _nikke_static_resource_url(f"character/si/si_c{rid:03d}_{skin:02d}_s.webp")
+
+
+def _weserv_png_url(icon_url: str) -> str:
+    raw = str(icon_url or "").strip()
+    prefix = f"{NIKKE_STATIC_RESOURCE_BASE_URL}/"
+    path = raw[len(prefix):] if raw.startswith(prefix) else raw.replace("https://", "").replace("http://", "")
+    return f"https://images.weserv.nl/?url={quote(path, safe='')}&output=png"
+
+
+def _cloudinary_fetch_layer_url(icon_url: str) -> str:
+    weserv_url = _weserv_png_url(icon_url)
+    encoded = base64.b64encode(weserv_url.encode("utf-8")).decode("ascii").rstrip("=")
+    return encoded.replace("+", "-").replace("/", "_")
+
+
+def _build_union_raid_team_image_formula(entries: List[Dict[str, Any]], id_to_image_url: Dict[int, str]) -> str:
+    rows: List[List[str]] = []
+    for entry in entries:
+        squad_ids = entry.get("squad_id", []) if isinstance(entry, dict) else []
+        if not isinstance(squad_ids, list):
+            squad_ids = []
+        urls: List[str] = []
+        for sid in squad_ids[:5]:
+            sid_int = _to_int(sid)
+            if sid_int is None:
+                continue
+            image_url = id_to_image_url.get(sid_int, "")
+            if image_url:
+                urls.append(image_url)
+        if urls:
+            rows.append(urls)
+
+    if not rows:
+        return ""
+
+    canvas_height = UNION_RAID_TEAM_IMAGE_UNIT * len(rows)
+    layers: List[str] = []
+    fallback_url = rows[0][0]
+    for row_idx, urls in enumerate(rows):
+        for col_idx, image_url in enumerate(urls[:5]):
+            layers.append(
+                f"l_fetch:{_cloudinary_fetch_layer_url(image_url)}"
+                f"/c_fill,w_{UNION_RAID_TEAM_IMAGE_UNIT},h_{UNION_RAID_TEAM_IMAGE_UNIT}"
+                f"/fl_layer_apply,g_north_west,x_{col_idx * UNION_RAID_TEAM_IMAGE_UNIT},y_{row_idx * UNION_RAID_TEAM_IMAGE_UNIT}"
+            )
+
+    composite_url = (
+        f"{UNION_RAID_TEAM_IMAGE_CLOUDINARY_BASE}/"
+        f"f_auto,q_auto,c_fill,w_1,h_1/"
+        f"c_pad,w_{UNION_RAID_TEAM_IMAGE_WIDTH},h_{canvas_height},g_north_west,b_transparent/"
+        f"{'/'.join(layers)}/1x1_glmeeu"
+    )
+    return f'=IFERROR(IMAGE("{composite_url}"),IMAGE("{_weserv_png_url(fallback_url)}"))'
+
+
 def _to_int(value: Any) -> Optional[int]:
     coerced = _coerce_number(value)
     if coerced is None or coerced == "":
@@ -1069,6 +1190,12 @@ def _apply_batch_updates(ws, payload: List[Dict[str, Any]]) -> None:
     ws.batch_update(payload, value_input_option="RAW")
 
 
+def _apply_formula_updates(ws, payload: List[Dict[str, Any]]) -> None:
+    if not payload:
+        return
+    ws.batch_update(payload, value_input_option="USER_ENTERED")
+
+
 def _load_union_data(path: Optional[Path]) -> List[Dict[str, Any]]:
     if not path or not path.exists():
         return []
@@ -1085,22 +1212,119 @@ def _load_union_data(path: Optional[Path]) -> List[Dict[str, Any]]:
     return [item for item in items if isinstance(item, dict)]
 
 
-def _load_nikke_id_map() -> Dict[int, str]:
+def _fetch_json_list(url: str) -> List[Dict[str, Any]]:
+    try:
+        import requests
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+    try:
+        resp = requests.get(url, timeout=30)
+        if resp.status_code < 200 or resp.status_code >= 300:
+            log_msg(f"union_upload fetch_json failed url={url} status={resp.status_code}")
+            return []
+        data = resp.json()
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return []
+    return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+
+def _normalize_nikke_info_item(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    try:
+        raw_id = item.get("id")
+        nikke_id = int(str(raw_id)[:4])
+    except Exception:
+        return None
+    name = item.get("name")
+    if not isinstance(name, str) or not name.strip():
+        name = item.get("name_localkey", {}).get("name") if isinstance(item.get("name_localkey"), dict) else ""
+    return {
+        "id": nikke_id,
+        "name": str(name or "").strip(),
+        "resource_id": _to_int(item.get("resource_id")),
+    }
+
+
+def _load_nikke_info_for_union_upload() -> List[Dict[str, Any]]:
     data = read_cloud_data_json(NIKKES_INFO_FILE, default=[])
-    if not isinstance(data, list):
-        return {}
-    out: Dict[int, str] = {}
-    for item in data:
-        if not isinstance(item, dict):
+    cloud_items = [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+    normalized: Dict[int, Dict[str, Any]] = {}
+    for item in cloud_items:
+        mapped = _normalize_nikke_info_item(item)
+        if mapped is not None:
+            normalized[int(mapped["id"])] = mapped
+
+    if not normalized or any(item.get("resource_id") is None for item in normalized.values()):
+        for item in _fetch_json_list(NIKKES_INFO_URL):
+            mapped = _normalize_nikke_info_item(item)
+            if mapped is None:
+                continue
+            current = normalized.get(int(mapped["id"]))
+            if current is None:
+                normalized[int(mapped["id"])] = mapped
+            else:
+                if not current.get("name") and mapped.get("name"):
+                    current["name"] = mapped["name"]
+                if current.get("resource_id") is None and mapped.get("resource_id") is not None:
+                    current["resource_id"] = mapped["resource_id"]
+
+    return list(normalized.values())
+
+
+def _load_nikke_avatar_map() -> List[Dict[str, Any]]:
+    return _fetch_json_list(_nikke_static_resource_url(NIKKE_AVATAR_MAP_PATH))
+
+
+def _load_nikke_upload_maps() -> Tuple[Dict[int, str], Dict[int, str]]:
+    info_items = _load_nikke_info_for_union_upload()
+    id_to_name: Dict[int, str] = {}
+    id_to_image_url: Dict[int, str] = {}
+    resource_to_name: Dict[int, str] = {}
+    resource_default_image: Dict[int, str] = {}
+
+    for item in info_items:
+        nikke_id = _to_int(item.get("id"))
+        if nikke_id is None:
             continue
-        try:
-            nid = int(item.get("id"))
-        except Exception:
+        name = str(item.get("name", "") or "").strip()
+        resource_id = _to_int(item.get("resource_id"))
+        if name:
+            id_to_name[nikke_id] = name
+        if resource_id is not None:
+            if name:
+                resource_to_name[resource_id] = name
+            resource_default_image[resource_id] = _build_nikke_icon_url(resource_id, 0)
+            id_to_image_url[nikke_id] = resource_default_image[resource_id]
+
+    for item in _load_nikke_avatar_map():
+        avatar_id = _to_int(item.get("id"))
+        resource_id = _to_int(item.get("resource_id"))
+        costume_index = _to_int(item.get("costume_index"))
+        if avatar_id is None or resource_id is None:
             continue
-        name = item.get("name")
-        if isinstance(name, str):
-            out[nid] = name
-    return out
+        short_avatar_id = int(str(avatar_id)[:4])
+        icon_url = _build_nikke_icon_url(resource_id, costume_index if costume_index is not None else 0)
+        if icon_url:
+            id_to_image_url[short_avatar_id] = icon_url
+        name = resource_to_name.get(resource_id, "")
+        if name and short_avatar_id not in id_to_name:
+            id_to_name[short_avatar_id] = name
+
+    for item in info_items:
+        nikke_id = _to_int(item.get("id"))
+        resource_id = _to_int(item.get("resource_id"))
+        if nikke_id is None or resource_id is None:
+            continue
+        if nikke_id not in id_to_image_url and resource_id in resource_default_image:
+            id_to_image_url[nikke_id] = resource_default_image[resource_id]
+
+    return id_to_name, id_to_image_url
+
+
+def _load_nikke_id_map() -> Dict[int, str]:
+    id_to_name, _id_to_image_url = _load_nikke_upload_maps()
+    return id_to_name
 
 
 def _resolve_raid_plan_sheet_for_union_upload(upload_sheet_id: str) -> Tuple[str, str]:

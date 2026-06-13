@@ -16,3 +16,10 @@
 - UnionRaid 上傳後通知 WebApp 時，`spreadsheet_id` 必須是同一個 `union_id` 對應的 `CharacterDetails`/排刀目標試算表。
 - UnionRaid 傷害來源試算表只能放在 `damage_spreadsheet_id`，不能拿來當 `spreadsheet_id`，否則 Apps Script 會因為不在聯盟管理表授權清單內回傳 `unauthorized`。
 - headless pipeline 在 strict 模式下會把 WebApp 通知失敗視為上傳未完整完成，因此這個 mapping 失敗會阻擋後續自動排刀。
+
+## UnionRaid team images
+
+- 出刀總表的圖片列使用既有 `IMAGE()` 公式，不使用浮動圖片物件。
+- 上傳流程清空 `A2:L...` 後，必須同步重建每個有傷害欄位下一列的隊伍圖片公式。
+- 圖片公式沿用既有 Cloudinary 拼圖格式：5 個角色頭像為一列，重複同王多刀時在同一格向下堆疊。
+- 角色頭像 URL 必須依 Blablalink 前端的 resource path obfuscation 產生；不得改用無關的第三方圖片來源。
