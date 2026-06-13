@@ -924,10 +924,15 @@ UNION_RAID_TEAM_IMAGE_UNIT = 36
 UNION_RAID_TEAM_IMAGE_CLOUDINARY_BASE = "https://res.cloudinary.com/dfzoxtcki/image/upload"
 
 
+def _signed_32(value: int) -> int:
+    value &= 0xFFFFFFFF
+    return value - 0x100000000 if value & 0x80000000 else value
+
+
 def _nikke_djb2_mod(text: str, mod_value: int) -> int:
     value = mod_value
     for char in text:
-        value = (value * 33 + ord(char)) & 0xFFFFFFFF
+        value = _signed_32(value * 33 + ord(char))
     return value
 
 
