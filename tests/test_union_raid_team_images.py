@@ -15,6 +15,10 @@ def test_obfuscate_nikke_resource_path_matches_blablalink_paths():
         union_raid_upload._obfuscate_nikke_resource_path("character/si/si_c223_01_s.webp")
         == "od-63/hl-27/f078b4261519b0d1f598b6c1e943469a.webp"
     )
+    assert (
+        union_raid_upload._obfuscate_nikke_resource_path("character/si/si_c281_01_s.webp")
+        == "zl-11/wg-66/3ac85e36766abc5e052921bbe2b857ae.webp"
+    )
 
 
 def test_build_union_raid_team_image_formula_uses_existing_cloudinary_style():
