@@ -977,7 +977,10 @@ def _build_nikke_icon_url(resource_id: Any, costume_index: Any = 0) -> str:
 def _weserv_png_url(icon_url: str) -> str:
     raw = str(icon_url or "").strip()
     prefix = f"{NIKKE_STATIC_RESOURCE_BASE_URL}/"
-    path = raw[len(prefix):] if raw.startswith(prefix) else raw.replace("https://", "").replace("http://", "")
+    if raw.startswith(prefix):
+        path = f"sg-tools-cdn.blablalink.com/{raw[len(prefix):]}"
+    else:
+        path = raw.replace("https://", "").replace("http://", "")
     return f"https://images.weserv.nl/?url={quote(path, safe='')}&output=png"
 
 

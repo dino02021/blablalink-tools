@@ -29,6 +29,7 @@ def test_build_union_raid_team_image_formula_uses_existing_cloudinary_style():
     assert "c_pad,w_180,h_36,g_north_west,b_transparent" in formula
     assert "fl_layer_apply,g_north_west,x_0,y_0" in formula
     assert "images.weserv.nl" in formula
+    assert "sg-tools-cdn.blablalink.com%2F" in formula
 
 
 def test_apply_formula_updates_uses_user_entered():
