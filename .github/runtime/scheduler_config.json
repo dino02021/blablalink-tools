@@ -50,7 +50,7 @@
       "name": "union_raid_pipeline_once",
       "enabled": true,
       "type": "interval",
-      "start_date": "2026-06-13",
+      "start_date": "2026-07-11",
       "time": "04:00",
       "interval_minutes": 3,
       "workflow": "union_raid_pipeline.yml",
@@ -58,7 +58,7 @@
       "inputs": {
         "mode": "full",
         "scope": "all",
-        "month": "2026/06"
+        "month": "2026/07"
       }
     }
   ]
