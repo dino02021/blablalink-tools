@@ -216,6 +216,36 @@ def _build_union_raid_output(data: dict, union_id: str) -> dict | None:
     return {"union_id": union_id, "participate_data": out_list}
 
 
+def _describe_union_raid_payload(data: Any) -> str:
+    if not isinstance(data, dict):
+        return "API 回傳格式不是 JSON object"
+
+    parts: List[str] = []
+    for key in ("code", "ret", "status"):
+        value = data.get(key)
+        if value not in (None, ""):
+            parts.append(f"{key}={value}")
+    for key in ("msg", "message", "error"):
+        value = data.get(key)
+        if value not in (None, ""):
+            parts.append(f"{key}={value}")
+
+    data_field = data.get("data")
+    if not isinstance(data_field, dict):
+        parts.append("data 欄位缺失或格式錯誤")
+        return "API 回傳資料無法轉換為聯盟突襲資料: " + ", ".join(parts)
+
+    participate = data_field.get("participate_data")
+    if participate == []:
+        parts.append("participate_data 為空")
+    elif not isinstance(participate, list):
+        parts.append("participate_data 欄位缺失或格式錯誤")
+    else:
+        parts.append("participate_data 沒有可用出刀紀錄")
+
+    return "API 回傳資料無法轉換為聯盟突襲資料: " + ", ".join(parts)
+
+
 def _write_union_raid_output(wrapped: dict, union_id: str) -> bool:
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     out_path = UNION_RAID_TEMP_FILE.parent / f"{UNION_RAID_TEMP_FILE.stem}_{union_id}_{ts}{UNION_RAID_TEMP_FILE.suffix}"
@@ -234,19 +264,39 @@ async def _fetch_and_store_union_raid_data(
     payload: dict[str, Any],
     union_id: str,
 ) -> bool:
+    ok, _message = await _fetch_and_store_union_raid_data_detail(req, url, payload, union_id)
+    return ok
+
+
+async def _fetch_and_store_union_raid_data_detail(
+    req: APIRequestContext,
+    url: str,
+    payload: dict[str, Any],
+    union_id: str,
+) -> Tuple[bool, str]:
     resp = await req.post(url, data=payload)
     if resp.status != 200:
-        return False
+        body_text = ""
+        try:
+            body_text = (await resp.text()).strip()
+        except Exception:
+            body_text = ""
+        detail = f"API HTTP {resp.status}"
+        if body_text:
+            detail = f"{detail}: {body_text[:300]}"
+        return False, detail
     try:
         data = await resp.json()
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return False
+        return False, f"API JSON 解析失敗: {exc}"
 
     wrapped = _build_union_raid_output(data, union_id)
     if not wrapped:
-        return False
-    return _write_union_raid_output(wrapped, union_id)
+        return False, _describe_union_raid_payload(data)
+    if not _write_union_raid_output(wrapped, union_id):
+        return False, "寫入聯盟突襲暫存檔失敗"
+    return True, ""
 
 
 async def fetch_union_raid_data(
@@ -276,6 +326,25 @@ async def fetch_union_raid_data(
         return False
 
 
+async def fetch_union_raid_data_detail(
+    context: BrowserContext,
+    union_id: str,
+    intl_open_id: str,
+    nikke_area_id: str,
+) -> Tuple[bool, str]:
+    try:
+        req = context.request
+        payload = {
+            "guild_id": union_id,
+            "intl_open_id": intl_open_id,
+            "nikke_area_id": nikke_area_id,
+        }
+        return await _fetch_and_store_union_raid_data_detail(req, UNION_RAID_URL, payload, union_id)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False, str(exc)
+
+
 async def fetch_union_raid_data_of_guild_season(
     context: BrowserContext,
     area_id: str,
@@ -294,6 +363,25 @@ async def fetch_union_raid_data_of_guild_season(
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
         return False
+
+
+async def fetch_union_raid_data_of_guild_season_detail(
+    context: BrowserContext,
+    area_id: str,
+    guild_id: str,
+    season_id: str,
+) -> Tuple[bool, str]:
+    try:
+        req = context.request
+        payload = {
+            "area_id": area_id,
+            "guild_id": guild_id,
+            "season_id": f"10000{str(season_id or '').strip()}",
+        }
+        return await _fetch_and_store_union_raid_data_detail(req, UNION_RAID_SEASON_URL, payload, guild_id)
+    except Exception as exc:  # noqa: BLE001
+        log_exc(exc)
+        return False, str(exc)
 
 
 async def fetch_role_info(context: BrowserContext) -> Tuple[Optional[str], Optional[str]]:

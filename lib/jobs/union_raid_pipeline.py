@@ -95,6 +95,65 @@ def _serialize_result(result: JobResult) -> Dict[str, Any]:
     }
 
 
+def _union_label(item: Dict[str, Any]) -> str:
+    sheet_name = str(item.get("sheet_name", "") or "").strip()
+    union_id = str(item.get("union_id", "") or "").strip()
+    if sheet_name and union_id:
+        return f"{sheet_name} ({union_id})"
+    return sheet_name or union_id or "-"
+
+
+def _resolve_account_union_meta(account: str) -> Dict[str, str]:
+    union_id = ""
+    for item in _load_union_account_map_from_env():
+        if str(item.get("username", "") or "").strip() == account:
+            union_id = str(item.get("union_id", "") or "").strip()
+            break
+
+    sheet_name = ""
+    if union_id:
+        try:
+            _sheet_id, sheet_name = resolve_character_sheet_target(union_id)
+        except Exception:
+            sheet_name = ""
+    return {"union_id": union_id, "sheet_name": sheet_name}
+
+
+def _failure_entry(
+    account: str,
+    stage: str,
+    message: str,
+    union_id: str = "",
+    sheet_name: str = "",
+) -> Dict[str, Any]:
+    return {
+        "account": account,
+        "stage": stage,
+        "union_id": union_id,
+        "sheet_name": sheet_name,
+        "message": str(message or "").strip(),
+    }
+
+
+def _build_pipeline_message(
+    ok_count: int,
+    total_count: int,
+    union_summaries: List[Dict[str, Any]],
+    failures: List[Dict[str, Any]],
+) -> str:
+    status = "完成" if failures else "成功"
+    lines = [f"聯盟突襲流程{status} ({ok_count}/{total_count})"]
+    for item in union_summaries:
+        lines.append(f"{_union_label(item)}: {item.get('message', '成功')}")
+    if failures:
+        lines.append("失敗:")
+        for item in failures:
+            lines.append(
+                f"- {_union_label(item)} / {item.get('account', '-')} / {item.get('stage', '-')}: {item.get('message', '')}"
+            )
+    return "\n".join(lines)
+
+
 def _is_union_upload_complete(result: JobResult) -> bool:
     if not result.ok:
         return False
@@ -183,27 +242,51 @@ def run_union_raid_pipeline(
     requested_month = str(month or "").strip()
     requested_season_id = str(season_id or "").strip()
     results: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    union_summaries: List[Dict[str, Any]] = []
     ok_count = 0
 
     for slug in accounts:
+        meta = _resolve_account_union_meta(slug)
         entry: Dict[str, Any] = {
             "account": slug,
             "mode": mode_text,
             "season_id": requested_season_id,
+            "union_id": meta.get("union_id", ""),
+            "sheet_name": meta.get("sheet_name", ""),
             "ok": False,
         }
 
         download_result = run_union_raid_download(account=slug, season_id=requested_season_id or None)
         entry["download"] = _serialize_result(download_result)
         entry["message"] = download_result.message
+        if not entry["union_id"]:
+            entry["union_id"] = str(download_result.outputs.get("union_id", "") or "").strip()
 
         if not download_result.ok:
+            failures.append(
+                _failure_entry(
+                    slug,
+                    "download",
+                    download_result.message,
+                    union_id=str(entry.get("union_id", "") or ""),
+                    sheet_name=str(entry.get("sheet_name", "") or ""),
+                )
+            )
             results.append(entry)
             continue
 
         if mode_text == "download":
             entry["ok"] = True
             ok_count += 1
+            union_summaries.append(
+                {
+                    "account": slug,
+                    "union_id": str(entry.get("union_id", "") or ""),
+                    "sheet_name": str(entry.get("sheet_name", "") or ""),
+                    "message": "下載成功",
+                }
+            )
             results.append(entry)
             continue
 
@@ -215,6 +298,15 @@ def run_union_raid_pipeline(
             except Exception as exc:  # noqa: BLE001
                 entry["message"] = str(exc)
                 entry["resolved_month"] = ""
+                failures.append(
+                    _failure_entry(
+                        slug,
+                        "resolve_month",
+                        str(exc),
+                        union_id=str(entry.get("union_id", "") or ""),
+                        sheet_name=str(entry.get("sheet_name", "") or ""),
+                    )
+                )
                 results.append(entry)
                 continue
 
@@ -227,6 +319,8 @@ def run_union_raid_pipeline(
         entry["upload"] = _serialize_result(upload_result)
         entry["message"] = upload_result.message
         entry["ok"] = upload_result.ok
+        if not entry["union_id"]:
+            entry["union_id"] = str(upload_result.outputs.get("union_id", "") or "").strip()
 
         if upload_result.ok and _is_union_upload_complete(upload_result):
             plan_result = run_raid_plan_web_app(_resolve_raid_plan_sheet_id(upload_result))
@@ -243,6 +337,24 @@ def run_union_raid_pipeline(
 
         if entry["ok"]:
             ok_count += 1
+            union_summaries.append(
+                {
+                    "account": slug,
+                    "union_id": str(entry.get("union_id", "") or ""),
+                    "sheet_name": str(entry.get("sheet_name", "") or ""),
+                    "message": "上傳成功 / 排刀完成",
+                }
+            )
+        else:
+            failures.append(
+                _failure_entry(
+                    slug,
+                    "upload" if not upload_result.ok else "raid_plan",
+                    str(entry.get("message", "") or ""),
+                    union_id=str(entry.get("union_id", "") or ""),
+                    sheet_name=str(entry.get("sheet_name", "") or ""),
+                )
+            )
 
         results.append(entry)
 
@@ -255,14 +367,11 @@ def run_union_raid_pipeline(
         "ok_count": ok_count,
         "failed_count": failed_count,
     }
-    if failed_count:
-        message = f"union raid pipeline finished with failures: ok={ok_count} failed={failed_count}"
-    else:
-        message = f"union raid pipeline finished: ok={ok_count}"
+    message = _build_pipeline_message(ok_count, len(results), union_summaries, failures)
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"results": results},
+        outputs={"_summary_only": True, "unions": union_summaries, "failures": failures, "results": results},
     )

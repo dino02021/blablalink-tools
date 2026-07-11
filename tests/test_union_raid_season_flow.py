@@ -16,15 +16,15 @@ def test_download_union_async_switches_by_season(monkeypatch):
 
     async def fake_old(_ctx, union_id, intl_open_id, nikke_area_id):
         calls.append(("old", union_id, intl_open_id, nikke_area_id))
-        return True
+        return True, ""
 
     async def fake_new(_ctx, area_id, guild_id, season_id):
         calls.append(("new", area_id, guild_id, season_id))
-        return True
+        return True, ""
 
     monkeypatch.setattr(union_raid_download, "fetch_union_info", fake_fetch_union_info)
-    monkeypatch.setattr(union_raid_download, "fetch_union_raid_data", fake_old)
-    monkeypatch.setattr(union_raid_download, "fetch_union_raid_data_of_guild_season", fake_new)
+    monkeypatch.setattr(union_raid_download, "fetch_union_raid_data_detail", fake_old)
+    monkeypatch.setattr(union_raid_download, "fetch_union_raid_data_of_guild_season_detail", fake_new)
 
     common.run_coro_sync(lambda: union_raid_download._download_union_async(object(), None))
     common.run_coro_sync(lambda: union_raid_download._download_union_async(object(), "99"))
@@ -45,6 +45,23 @@ def test_run_union_raid_download_reports_season(monkeypatch):
 
     assert result.ok is True
     assert result.stats["season_id"] == "12"
+
+
+def test_run_union_raid_download_reports_failure_detail(monkeypatch):
+    monkeypatch.setattr(union_raid_download, "resolve_account", lambda account: "tester")
+    monkeypatch.setattr(union_raid_download, "load_session", lambda slug: {"slug": slug})
+    monkeypatch.setattr(union_raid_download, "_find_latest_union_raid_file", lambda: None)
+    monkeypatch.setattr(
+        union_raid_download,
+        "run_coro_sync",
+        lambda fn: (False, {"union_id": "3097", "message": "API HTTP 500: maintenance"}),
+    )
+
+    result = union_raid_download.run_union_raid_download(account="tester")
+
+    assert result.ok is False
+    assert "API HTTP 500" in result.message
+    assert result.outputs["union_id"] == "3097"
 
 
 def test_union_raid_pipeline_passes_season_id(monkeypatch):
@@ -259,3 +276,54 @@ def test_cli_union_raid_pipeline_accepts_season(monkeypatch, capsys):
     assert exit_code == 0
     assert captured["args"]["season_id"] == "222"
     assert capsys.readouterr().out.strip() == "ok"
+
+
+def test_union_raid_pipeline_outputs_concise_failure_summary(monkeypatch):
+    monkeypatch.setattr(union_raid_pipeline, "_resolve_accounts", lambda scope, account: ["moon", "star"])
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "_load_union_account_map_from_env",
+        lambda: [
+            {"union_id": "3097", "username": "moon"},
+            {"union_id": "5010", "username": "star"},
+        ],
+    )
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "resolve_character_sheet_target",
+        lambda union_id: ("sheet-id", "月下") if union_id == "3097" else ("sheet-id", "星詠"),
+    )
+
+    def fake_download(account=None, season_id=None):
+        if account == "moon":
+            return common.JobResult(
+                ok=False,
+                message="下載聯盟突襲資料失敗: API HTTP 500",
+                outputs={"union_id": "3097"},
+            )
+        return common.JobResult(ok=True, message="download ok", outputs={"data_path": "tmp.json", "union_id": "5010"})
+
+    monkeypatch.setattr(union_raid_pipeline, "run_union_raid_download", fake_download)
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_union_raid_upload",
+        lambda account=None, month=None, data_path=None: common.JobResult(
+            ok=True,
+            message="upload ok",
+            stats={"partial": False, "web_ok": True},
+            outputs={"sheet_id": "damage-sheet", "union_id": "5010"},
+        ),
+    )
+    monkeypatch.setattr(
+        union_raid_pipeline,
+        "run_raid_plan_web_app",
+        lambda sheet_id: common.JobResult(ok=True, message="ok: wrote 32 raid plan rows"),
+    )
+
+    result = union_raid_pipeline.run_union_raid_pipeline(mode="full", scope="all", month="2026/07")
+
+    assert result.ok is False
+    assert result.outputs["_summary_only"] is True
+    assert "聯盟突襲流程完成 (1/2)" in result.message
+    assert "星詠 (5010): 上傳成功 / 排刀完成" in result.message
+    assert "- 月下 (3097) / moon / download: 下載聯盟突襲資料失敗: API HTTP 500" in result.message

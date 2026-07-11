@@ -682,11 +682,12 @@ def _upload_to_sheets(
     for _, _, item in ordered_with_rows:
         web_members.append(_build_web_member(item, id_to_name))
 
-    log_msg(
-        "union_upload webapp_payload "
-        f"nikke_map={len(id_to_name)} members={len(web_members)} "
-        f"sample={json.dumps(_summarize_web_members(web_members), ensure_ascii=False)}"
-    )
+    if os.getenv("BLABLALINK_DEBUG_UNION_UPLOAD") == "1":
+        log_msg(
+            "union_upload webapp_payload "
+            f"nikke_map={len(id_to_name)} members={len(web_members)} "
+            f"sample={json.dumps(_summarize_web_members(web_members), ensure_ascii=False)}"
+        )
     notify_sheet_id, notify_union_id = _resolve_raid_plan_sheet_for_union_upload(sheet_id)
     if notify_sheet_id != sheet_id:
         log_msg(

@@ -63,14 +63,16 @@ def _emit_result(result: JobResult, as_json: bool) -> int:
     outputs = result.outputs or {}
     public_outputs = {key: value for key, value in outputs.items() if not str(key).startswith("_")}
     if as_json:
+        payload = {
+            "ok": result.ok,
+            "message": result.message,
+            "stats": result.stats,
+        }
+        if not outputs.get("_summary_only"):
+            payload["outputs"] = public_outputs
         print(
             json.dumps(
-                {
-                    "ok": result.ok,
-                    "message": result.message,
-                    "stats": result.stats,
-                    "outputs": public_outputs,
-                },
+                payload,
                 ensure_ascii=False,
             )
         )
