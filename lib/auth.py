@@ -11,6 +11,21 @@ from .log import log_msg, log_exc
 from .utils import load_session, save_session
 
 
+ACCOUNT_INPUT_SELECTOR = (
+    "#loginPwdForm_account, "
+    "input[autocomplete='username'], "
+    "input[type='email'], "
+    "input[placeholder='電郵地址']"
+)
+PASSWORD_INPUT_SELECTOR = (
+    "#loginPwdForm_password, "
+    "input[autocomplete='current-password'], "
+    "input[type='password'], "
+    "input[placeholder='密碼']"
+)
+LOGIN_BUTTON_SELECTOR = "button[name='confirm'], button[type='submit'], button.login-btn"
+
+
 async def save_state_snapshot(ctx, username: str, label: str) -> None:
     """儲存 storage_state（僅記錄數量與網域），集中共用。"""
     try:
@@ -60,17 +75,23 @@ async def click_cookie_once(page, steps: list[str]) -> bool:
 async def choose_region_once(page, steps: list[str]) -> bool:
     """點擊地區選單中的目標地區，確認消失才算成功。"""
     try:
-        li = page.locator(
-            "li.flex.items-center.justify-between.mb-\\[14px\\].last-of-type\\:mb-0.cursor-pointer",
-            has_text=REGION_TARGET,
-        )
-        count = await li.count()
-        log_msg(f"region li count (target={REGION_TARGET})={count}")
-        if count == 0:
+        li = page.locator("li", has_text=REGION_TARGET)
+        target = await _first_visible_locator(li)
+        if target is None:
+            opener = await _first_visible_locator(page.locator("button", has_text="選擇地區"))
+            if opener is None:
+                log_msg("region selector button not found")
+                return False
+            await opener.click(timeout=2000, force=True)
+            await page.wait_for_timeout(300)
+            target = await _first_visible_locator(page.locator("li", has_text=REGION_TARGET))
+
+        log_msg(f"region target found={target is not None} (target={REGION_TARGET})")
+        if target is None:
             return False
-        await li.first.click(timeout=2000, force=True)
+        await target.click(timeout=2000, force=True)
         await page.wait_for_timeout(300)
-        still_visible = await li.first.is_visible(timeout=3000)
+        still_visible = await target.is_visible(timeout=3000)
         if not still_visible:
             steps.append(f"region:{REGION_TARGET}")
             log_msg("region selected and dismissed (locator)")
@@ -81,8 +102,7 @@ async def choose_region_once(page, steps: list[str]) -> bool:
     return False
 
 
-async def _first_visible(page, sel: str):
-    loc = page.locator(sel)
+async def _first_visible_locator(loc):
     cnt = await loc.count()
     for i in range(cnt):
         item = loc.nth(i)
@@ -95,11 +115,15 @@ async def _first_visible(page, sel: str):
     return None
 
 
+async def _first_visible(page, sel: str):
+    return await _first_visible_locator(page.locator(sel))
+
+
 async def fill_creds_once(page, username: str, password: str, steps: list[str]) -> bool:
     """填入帳號與密碼欄位。"""
     try:
-        user_input = await _first_visible(page, "#loginPwdForm_account")
-        pass_input = await _first_visible(page, "#loginPwdForm_password")
+        user_input = await _first_visible(page, ACCOUNT_INPUT_SELECTOR)
+        pass_input = await _first_visible(page, PASSWORD_INPUT_SELECTOR)
         log_msg(f"user_found={user_input is not None}, pass_found={pass_input is not None}")
         if not user_input or not pass_input:
             return False
@@ -116,7 +140,10 @@ async def fill_creds_once(page, username: str, password: str, steps: list[str]) 
 async def click_login_once(page, steps: list[str]) -> bool:
     """按下登入按鈕。"""
     try:
-        btn = page.locator("button[type='submit'], button.login-btn, .ant-btn[type='button'], button[name='confirm']").first
+        btn = await _first_visible(page, LOGIN_BUTTON_SELECTOR)
+        if btn is None:
+            log_msg("login button not found")
+            return False
         await btn.click(timeout=2000)
         steps.append("loginClicked")
         log_msg("login clicked (locator)")
@@ -149,17 +176,14 @@ async def region_worker(page, steps: List[str], state: Dict[str, Any], start_ts:
     attempt = 0
     while not state["is_abort"] and not state["is_region_ok"] and (datetime.datetime.now() - start_ts).total_seconds() < 120:
         try:
-            region_count = await page.locator(
-                "li.flex.items-center.justify-between.mb-\\[14px\\].last-of-type\\:mb-0.cursor-pointer",
-                has_text=REGION_TARGET,
-            ).count()
-            region_present = region_count > 0
+            region_count = await page.locator("li", has_text=REGION_TARGET).count()
+            opener_count = await page.locator("button", has_text="選擇地區").count()
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
             region_count = -1
-            region_present = False
-        log_msg(f"attempt={attempt}, present={region_present} (count={region_count})")
-        if not state["is_region_ok"] and region_present:
+            opener_count = -1
+        log_msg(f"attempt={attempt}, region_count={region_count}, opener_count={opener_count}")
+        if not state["is_region_ok"]:
             state["is_region_ok"] = await choose_region_once(page, steps)
         await page.wait_for_timeout(500)
         attempt += 1
@@ -175,8 +199,8 @@ async def creds_worker(page, username: str, password: str, steps: List[str], sta
             attempt += 1
             continue
         try:
-            user_count = await page.locator("input[name='username'], input[type='email'], input[type='text']").count()
-            pass_count = await page.locator("input[name='password'], input[type='password']").count()
+            user_count = await page.locator(ACCOUNT_INPUT_SELECTOR).count()
+            pass_count = await page.locator(PASSWORD_INPUT_SELECTOR).count()
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
             user_count = pass_count = -1
@@ -250,12 +274,12 @@ async def run_playwright(username: str, password: str):
         "uid_value": None,
         "role_name_value": None,
     }
-    log_msg(f"using state account key: {slug}")
+    log_msg("login session lookup started")
 
     # 先用 headless + storage_state 嘗試直接拿 UID，成功就直接返回，不再開瀏覽器
     existing_state = load_session(slug)
     if existing_state:
-        log_msg(f"found stored state for {slug}, try headless reuse")
+        log_msg("stored session found, try headless reuse")
         try:
             hb = await p.chromium.launch(headless=True)
             hctx = await hb.new_context(storage_state=existing_state)

@@ -4,14 +4,16 @@
 """
 import datetime
 import inspect
+import traceback
 
 from .constants import LOG_PATH, LOG_DIR
+from .log_redaction import redact_sensitive_data
 
 
 def log(msg: str) -> None:
     """寫入日誌並印出，若發生例外則安靜忽略。"""
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{ts}] {msg}"
+    line = f"[{ts}] {redact_sensitive_data(msg)}"
     try:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -33,18 +35,25 @@ def log(msg: str) -> None:
 
 def _resolve_func_name() -> str:
     """自動取得呼叫端的函式名。"""
-    caller = inspect.currentframe().f_back  # type: ignore[assignment]
+    frame = inspect.currentframe()
+    caller = frame.f_back.f_back if frame and frame.f_back else None
     try:
         return caller.f_code.co_name if caller else "unknown"
     finally:
-        # 避免參照環造成 GC 問題
+        del frame
         del caller
 
 
 def log_exc(exc: Exception) -> None:
     """統一的例外紀錄格式：[呼叫端] exception: <exc>。"""
     name = _resolve_func_name()
-    log(f"[{name}] exception: {exc}")
+    detail = str(exc).strip() or repr(exc)
+    exc_type = type(exc).__name__
+    trace = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)).strip()
+    message = f"[{name}] exception: {detail} (type={exc_type})"
+    if trace:
+        message += f"\n{trace}"
+    log(message)
 
 
 def log_msg(msg: str) -> None:

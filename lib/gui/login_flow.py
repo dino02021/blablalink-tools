@@ -27,7 +27,7 @@ def start_login(app) -> None:
 def _login_worker(app, username: str, password: str) -> None:
     try:
         app._last_slug = username
-        log_msg(f"login start: {username}")
+        log_msg("login started")
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
 

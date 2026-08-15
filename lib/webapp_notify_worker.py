@@ -10,10 +10,15 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+try:
+    from .log_redaction import redact_sensitive_data
+except ImportError:
+    from log_redaction import redact_sensitive_data
+
 
 def _log(message: str) -> None:
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    line = f"[{ts}] [webapp_notify_worker] {message}"
+    line = f"[{ts}] [webapp_notify_worker] {redact_sensitive_data(message)}"
     try:
         project_root = Path(__file__).resolve().parent.parent
         log_dir = project_root / "logs"

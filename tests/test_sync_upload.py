@@ -86,6 +86,35 @@ def test_sync_member_levels_without_member_id_updates_only_level_on_name_match()
     ]
 
 
+def test_sync_upload_reports_spreadsheet_permission_error(monkeypatch):
+    class FakeClient:
+        def open_by_key(self, sheet_id):
+            raise PermissionError()
+
+    monkeypatch.setattr(sync_upload, "resolve_account", lambda account: account)
+    monkeypatch.setattr(sync_upload, "load_session", lambda account: {"cookies": []})
+    monkeypatch.setattr(
+        sync_upload,
+        "run_coro_sync",
+        lambda factory: (
+            "5631",
+            [{"nickname": "Member", "member_id": "member-1", "synchro_level": 655}],
+        ),
+    )
+    monkeypatch.setattr(
+        sync_upload,
+        "resolve_character_sheet_target",
+        lambda guild_id: ("sheet-id", "COA"),
+    )
+    monkeypatch.setattr(sync_upload, "get_gspread_client", lambda: FakeClient())
+
+    result = sync_upload._run_sync_upload_single(account="account")
+
+    assert result.ok is False
+    assert result.message == "無法存取試算表 COA (sheet-id)：Google 服務帳號沒有權限"
+    assert result.outputs == {"sheet_id": "sheet-id", "sheet_name": "COA", "union_id": "5631"}
+
+
 def test_run_sync_upload_all_outputs_union_summary_and_failures(monkeypatch):
     monkeypatch.setattr(sync_upload, "_resolve_accounts", lambda scope, account: ["ok", "fail", "skip"])
 

@@ -94,6 +94,10 @@ def _parse_int(value: Any) -> Optional[int]:
         return None
 
 
+def _exception_message(exc: Exception) -> str:
+    return str(exc).strip() or repr(exc)
+
+
 def _normalize_sync_members(members: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     normalized: List[Dict[str, Any]] = []
     for item in members:
@@ -259,7 +263,7 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
         guild_id, members = run_coro_sync(functools.partial(run_with_session_context, state, fetch_guild_members))
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return JobResult(ok=False, message=str(exc))
+        return JobResult(ok=False, message=_exception_message(exc))
 
     if not guild_id:
         return JobResult(ok=False, message="找不到工會資訊")
@@ -288,9 +292,17 @@ def _run_sync_upload_single(account: str | None = None, worksheet_name: str = "�
 
         if updated_count == 0:
             return JobResult(ok=False, message="沒有符合的成員名稱或 member_id")
+    except PermissionError as exc:
+        log_exc(exc)
+        target = f"{sheet_name} ({sheet_id})" if sheet_name else sheet_id
+        return JobResult(
+            ok=False,
+            message=f"無法存取試算表 {target}：Google 服務帳號沒有權限",
+            outputs={"sheet_id": sheet_id, "sheet_name": sheet_name, "union_id": guild_id},
+        )
     except Exception as exc:  # noqa: BLE001
         log_exc(exc)
-        return JobResult(ok=False, message=str(exc))
+        return JobResult(ok=False, message=_exception_message(exc))
 
     return JobResult(
         ok=True,
@@ -326,7 +338,7 @@ def run_sync_upload(
             result = _run_sync_upload_single(account=accounts[0], worksheet_name=worksheet_name)
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            return JobResult(ok=False, message=str(exc))
+            return JobResult(ok=False, message=_exception_message(exc))
         if result.ok and not _is_valid_sync_success(result):
             return JobResult(ok=False, message=result.message, stats=result.stats, outputs=result.outputs)
         return result
@@ -344,7 +356,7 @@ def run_sync_upload(
             result = _run_sync_upload_single(account=slug, worksheet_name=worksheet_name)
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            failures.append({"account": slug, "message": str(exc)})
+            failures.append({"account": slug, "message": _exception_message(exc)})
             continue
 
         if _is_valid_sync_success(result):

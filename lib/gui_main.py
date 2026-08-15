@@ -539,7 +539,8 @@ class LoginApp:
             message = result.message if result.ok else f"上傳同步失敗：{result.message}"
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            message = f"上傳同步失敗：{exc}"
+            detail = str(exc).strip() or repr(exc)
+            message = f"上傳同步失敗：{detail}"
         finally:
             self.root.after(0, lambda: self._finish_upload_sync(ok, message))
 
