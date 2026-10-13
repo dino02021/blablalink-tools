@@ -139,7 +139,7 @@ def _run_dialog_task(
             payload = worker()
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            dlg.after(0, lambda: (_set_widgets_enabled(widgets, True), _set_message(msg_var, msg_label, f"{error_message}: {exc}", "red")))
+            dlg.after(0, lambda error=exc: (_set_widgets_enabled(widgets, True), _set_message(msg_var, msg_label, f"{error_message}: {error}", "red")))
             return
 
         def finish() -> None:
@@ -247,7 +247,7 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
         index = int(selected[0])
 
         def worker() -> bool:
-            return delete_healthcheck_member_by_index(index)
+            return delete_healthcheck_member_by_index(index, expected_member=row)
 
         def on_success(ok: bool) -> None:
             if not ok:
@@ -283,14 +283,14 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
 
     def _upload_worker() -> None:
         ok = False
-        message = "上傳健檢妮姬失敗"
+        message = "檢查欄位同步失敗"
         try:
             result_obj = run_healthcheck_upload(account=getattr(app, "_last_slug", "") or "")
             ok = result_obj.ok
-            message = result_obj.message if ok else f"上傳健檢妮姬失敗: {result_obj.message}"
+            message = result_obj.message if ok else f"檢查欄位同步失敗: {result_obj.message}"
         except Exception as exc:  # noqa: BLE001
             log_exc(exc)
-            message = f"上傳健檢妮姬失敗: {exc}"
+            message = f"檢查欄位同步失敗: {exc}"
         finally:
             dlg.after(0, lambda: _finish_upload(ok, message))
 
@@ -304,13 +304,13 @@ def open_healthcheck_members_dialog(app: Any, parent: tk.Misc) -> Optional[Dict[
             app._set_busy(True)
         except Exception:
             pass
-        _set_message(msg_var, msg_label, "上傳資料中...", "green")
+        _set_message(msg_var, msg_label, "檢查角色與詞條欄位中...", "green")
         threading.Thread(target=_upload_worker, daemon=True).start()
 
     add_btn = create_btn_between(btn_frame, "新增", _on_add, row=0, column=0, sticky="we")
     edit_btn = create_btn_between(btn_frame, "編輯", _on_edit, row=0, column=1, sticky="e")
     delete_btn = create_btn_between(btn_frame, "刪除", _on_delete, row=0, column=2, sticky="e")
-    upload_btn = create_btn_last(btn_frame, "上傳健檢妮姬", _on_upload, row=0, column=3, sticky="e")
+    upload_btn = create_btn_last(btn_frame, "檢查欄位同步", _on_upload, row=0, column=3, sticky="e")
     action_buttons.extend([add_btn, edit_btn, delete_btn, upload_btn])
 
     _refresh_async()
@@ -453,12 +453,13 @@ def open_add_healthcheck_member_dialog(parent: tk.Misc) -> Optional[Dict[str, An
 
         def worker() -> tuple[bool, str]:
             items = load_healthcheck_members()
+            expected_members = [dict(item) for item in items]
             existing_keys = {(int(item.get("name_code")), str(item.get("type"))) for item in items}
             key = (name_code, member_type)
             if key in existing_keys:
                 return False, "該健檢妮姬與 type 已存在"
             items.append({"name_code": name_code, "type": member_type, **selected_functions})
-            if not save_healthcheck_members(items):
+            if not save_healthcheck_members(items, expected_members=expected_members):
                 return False, "新增資料失敗"
             return True, "已新增健檢妮姬"
 
@@ -552,6 +553,7 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
 
         def worker() -> tuple[bool, str]:
             items = load_healthcheck_members()
+            expected_members = [dict(item) for item in items]
             for item in items:
                 try:
                     item_name_code = int(item.get("name_code"))
@@ -569,6 +571,8 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
                     continue
                 item_type = str(item.get("type", "") or "").strip()
                 if item_name_code == target_name_code and item_type == old_type:
+                    if any(item.get(key, "") != old_functions.get(key, "") for key in HEALTHCHECK_FUNCTION_KEYS):
+                        return False, "健檢詞條已變更，請重新讀取後再編輯"
                     item["type"] = new_type
                     for key in HEALTHCHECK_FUNCTION_KEYS:
                         item.pop(key, None)
@@ -578,7 +582,7 @@ def open_edit_healthcheck_member_dialog(parent: tk.Misc, row: Dict[str, Any]) ->
 
             if not updated:
                 return False, "找不到要更新的健檢妮姬"
-            if not save_healthcheck_members(items):
+            if not save_healthcheck_members(items, expected_members=expected_members):
                 return False, "更新資料失敗"
             return True, "已更新健檢妮姬"
 

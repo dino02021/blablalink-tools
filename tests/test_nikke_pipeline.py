@@ -2,6 +2,7 @@
 
 from lib.jobs import nikke_pipeline
 from lib.jobs.common import JobResult
+from types import SimpleNamespace
 
 
 def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
@@ -13,10 +14,13 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
         lambda scope, account: ["bad@example.com", "good@example.com"],
     )
 
-    monkeypatch.setattr(nikke_pipeline, "build_healthcheck_function_id_targets", lambda: {"1001": [70005, None, None]})
+    snapshot = SimpleNamespace(function_id_targets={"1001": [70005, None, None]})
+    reads = []
+    monkeypatch.setattr(nikke_pipeline, "load_healthcheck_snapshot", lambda: reads.append(True) or snapshot)
 
-    def fake_download(account=None, function_id_targets=None):
-        calls.append(("download", account, function_id_targets))
+    def fake_download(account=None, healthcheck_snapshot=None):
+        assert healthcheck_snapshot is snapshot
+        calls.append(("download", account, healthcheck_snapshot.function_id_targets))
         if account == "bad@example.com":
             return JobResult(ok=False, message="找不到聯盟資訊")
         return JobResult(
@@ -25,7 +29,8 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
             outputs={"guild_id": "3097", "files": ["member.json"]},
         )
 
-    def fake_upload(account=None, files=None, sheet_id=None):
+    def fake_upload(account=None, files=None, sheet_id=None, healthcheck_snapshot=None):
+        assert healthcheck_snapshot is snapshot
         calls.append(("upload", account, list(files or []), sheet_id))
         return JobResult(
             ok=False,
@@ -89,3 +94,26 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
         ("download", "good@example.com", {"1001": [70005, None, None]}),
         ("upload", "good@example.com", ["member.json"], "sheet-id"),
     ]
+    assert len(reads) == 1
+
+
+def test_unreadable_source_stops_before_any_download(monkeypatch):
+    monkeypatch.setattr(nikke_pipeline, "_resolve_accounts", lambda *args: ["account"])
+    monkeypatch.setattr(nikke_pipeline, "load_healthcheck_snapshot", lambda: (_ for _ in ()).throw(ValueError("sheet unavailable")))
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not download")))
+    result = nikke_pipeline.run_nikke_pipeline()
+    assert not result.ok
+    assert "sheet unavailable" in result.message
+
+
+def test_unmapped_union_is_skipped_without_upload(monkeypatch):
+    monkeypatch.setattr(nikke_pipeline, "_resolve_accounts", lambda *args: ["account"])
+    monkeypatch.setattr(nikke_pipeline, "load_healthcheck_snapshot", lambda: object())
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", lambda **kwargs: JobResult(
+        ok=False, message="missing target", outputs={"guild_id": "3097", "skip_reason": "missing target"},
+    ))
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not upload")))
+    result = nikke_pipeline.run_nikke_pipeline(scope="all")
+    assert result.ok
+    assert result.stats["skipped_count"] == 1
+    assert result.outputs["skipped"] == [{"account": "account", "union_id": "3097", "message": "missing target"}]

@@ -11,6 +11,13 @@ from typing import Any, Dict, List, Tuple
 from ..api import fetch_union_info
 from ..constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE
 from ..data_store import load_sheets
+from ..healthcheck_config import (
+    HealthcheckSnapshot,
+    ensure_healthcheck_snapshot_current,
+    load_healthcheck_snapshot,
+    validate_download_context,
+    validate_training_headers,
+)
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
 from .common import JobResult, resolve_account, run_coro_sync
@@ -100,6 +107,7 @@ def run_nikke_upload(
     files: List[str] | None = None,
     input_dir: str | Path | None = None,
     sheet_id: str | None = None,
+    healthcheck_snapshot: HealthcheckSnapshot | None = None,
 ) -> JobResult:
     try:
         union_id, target_sheet_id, target_sheet_name = resolve_character_sheet_for_account(account, sheet_id=sheet_id)
@@ -135,6 +143,9 @@ def run_nikke_upload(
     try:
         cli = get_gspread_client()
         sh = cli.open_by_key(target_sheet_id)
+        snapshot = healthcheck_snapshot or load_healthcheck_snapshot()
+        ensure_healthcheck_snapshot_current(snapshot)
+        header_fingerprint = validate_training_headers(sh, snapshot)
 
         worksheets = sh.worksheets()
         main_sheets = _collect_character_sheets(worksheets)
@@ -175,6 +186,11 @@ def run_nikke_upload(
                 failed_files.append({"file": fname, "message": "資料檔格式錯誤"})
                 continue
 
+            try:
+                validate_download_context(obj, snapshot, target_sheet_id, header_fingerprint)
+            except ValueError as exc:
+                raise ValueError(f"{fname}: {exc}") from exc
+
             updates_by_ws, changes_by_ws = _build_updates(
                 details,
                 nickname,
@@ -209,6 +225,9 @@ def run_nikke_upload(
             change_nick_to_row,
             change_header_pos,
         )
+        ensure_healthcheck_snapshot_current(snapshot)
+        if validate_training_headers(sh, snapshot) != header_fingerprint:
+            raise ValueError("角色練度表頭已變更，請重新下載後再上傳")
         ok, notify_items = _apply_updates(combined_updates)
         if change_sheet and combined_changes:
             change_ok, change_notify_items = _apply_updates(combined_changes)

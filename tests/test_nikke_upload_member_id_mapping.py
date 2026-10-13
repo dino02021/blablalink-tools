@@ -185,3 +185,15 @@ def test_build_updates_falls_back_to_nickname_without_member_id():
 
     assert list(updates) == [role_ws]
     assert updates[role_ws][0][0] == 3
+
+
+def test_equivalent_role_names_match_across_sheet_and_download():
+    worksheet = type("Worksheet", (), {"title": "角色練度_燃燒"})()
+    worksheet.row_values = lambda row: ["成員", "拉毗：小紅帽"]
+    worksheet.col_values = lambda col: ["", "", "Member"] if col == 1 else []
+    nicknames, member_names, member_rows, headers = nikke_upload._load_sheet_headers([worksheet])
+    updates, _ = nikke_upload._build_updates(
+        [{"name": "拉毗: 小紅帽"}], "Member", "", [worksheet], nicknames,
+        member_names, member_rows, headers, None, {}, {},
+    )
+    assert updates[worksheet][0][:2] == (3, 2)

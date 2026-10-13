@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Tuple, Optional
 
 from ...jobs.nikke_upload import run_nikke_upload
 from ...constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE, WEB_APP_URL
+from ...google_sheets.healthcheck import normalize_label
 from ...log import log_exc, log_msg
 
 def open_upload_nikke_dialog(app) -> None:
@@ -93,7 +94,7 @@ def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[i
         hdrs = []
     pos_map: Dict[str, List[int]] = {}
     for idx, h in enumerate(hdrs, start=1):
-        name = h.strip()
+        name = normalize_label(h)
         if not name:
             continue
         pos_map.setdefault(name, []).append(idx)
@@ -147,7 +148,7 @@ def _load_sheet_headers(
             hdrs = []
         pos_map: Dict[str, List[int]] = {}
         for idx, h in enumerate(hdrs, start=1):
-            name = h.strip()
+            name = normalize_label(h)
             if not name:
                 continue
             pos_map.setdefault(name, []).append(idx)
@@ -171,7 +172,7 @@ def _build_updates(
     updates_by_ws: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
     pending_changes: List[Tuple[Any, int, int, List[Any], str, str]] = []
     for detail in details:
-        name = detail.get("name")
+        name = normalize_label(detail.get("name"))
         if not name:
             continue
         for ws in main_sheets:

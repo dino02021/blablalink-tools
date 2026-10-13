@@ -1,82 +1,30 @@
 # -*- coding: utf-8 -*-
 
+from types import SimpleNamespace
+
 from lib.jobs import healthcheck_upload
 
 
-class FakeSpreadsheet:
-    def __init__(self):
-        self._worksheets = {}
-
-    def worksheet(self, name):
-        return self._worksheets[name]
-
-
-class FakeWorksheet:
-    def __init__(self, spreadsheet, title, values, *, col_count=5):
-        self.title = title
-        self._values = [list(row) for row in values]
-        self.col_count = col_count
-        self.row_count = max(len(values), 1)
-        self.updates = []
-        self.added_cols = 0
-        self.deleted_rows = []
-        spreadsheet._worksheets[title] = self
-
-    def get_all_values(self):
-        return [list(row) for row in self._values]
-
-    def add_cols(self, count):
-        self.added_cols += count
-        self.col_count += count
-
-    def update(self, cell_range, values):
-        self.updates.append((cell_range, values))
-
-    def delete_rows(self, start, end):
-        self.deleted_rows.append((start, end))
+def test_check_reads_common_source_without_uploading_another_copy(monkeypatch):
+    snapshot = SimpleNamespace(spreadsheet_id="common", checklist_items=[(1001, "Alice")])
+    spreadsheet = object()
+    calls = []
+    monkeypatch.setattr(healthcheck_upload, "load_healthcheck_snapshot", lambda: snapshot)
+    monkeypatch.setattr(healthcheck_upload, "resolve_character_sheet_for_account", lambda account: ("3097", "union", "Union"))
+    monkeypatch.setattr(healthcheck_upload, "get_gspread_client", lambda: SimpleNamespace(open_by_key=lambda key: spreadsheet))
+    monkeypatch.setattr(healthcheck_upload, "validate_training_headers", lambda sheet, source: calls.append((sheet, source)))
+    monkeypatch.setattr(healthcheck_upload, "ensure_healthcheck_snapshot_current", lambda source: calls.append(source))
+    result = healthcheck_upload.run_healthcheck_upload("account")
+    assert result.ok
+    assert result.outputs["source_sheet_id"] == "common"
+    assert calls == [(spreadsheet, snapshot), snapshot]
 
 
-def test_sync_healthcheck_sheet_uploads_functions_without_touching_extra_columns():
-    spreadsheet = FakeSpreadsheet()
-    ws = FakeWorksheet(
-        spreadsheet,
-        healthcheck_upload.HEALTHCHECK_WORKSHEET,
-        [
-            healthcheck_upload.HEALTHCHECK_HEADERS + ["備註"],
-            ["Alice", "電擊", "輸出", "old1", "old2", "old3", "keep"],
-            ["Removed", "水冷", "輔助", "R1", "R2", "R3", "old"],
-        ],
-        col_count=7,
-    )
-
-    synced = healthcheck_upload._sync_healthcheck_sheet(
-        spreadsheet,
-        [
-            {
-                "name": "Alice",
-                "element": "燃燒",
-                "type": "輸出",
-                "function1": "優越代碼傷害",
-                "function2": "攻擊力",
-                "function3": "裝彈數",
-            }
-        ],
-    )
-
-    assert synced == [
-        {
-            "name": "Alice",
-            "element": "燃燒",
-            "type": "輸出",
-            "function1": "優越代碼傷害",
-            "function2": "攻擊力",
-            "function3": "裝彈數",
-        }
-    ]
-    assert ws.updates[0] == ("A1:F1", [healthcheck_upload.HEALTHCHECK_HEADERS])
-    assert ws.updates[1] == (
-        "A2:F2",
-        [["Alice", "燃燒", "輸出", "優越代碼傷害", "攻擊力", "裝彈數"]],
-    )
-    assert ws.updates[2] == ("A3:F3", [["", "", "", "", "", ""]])
-    assert ws.deleted_rows == []
+def test_check_reports_unsynchronized_headers(monkeypatch):
+    monkeypatch.setattr(healthcheck_upload, "load_healthcheck_snapshot", lambda: object())
+    monkeypatch.setattr(healthcheck_upload, "resolve_character_sheet_for_account", lambda account: ("3097", "union", "Union"))
+    monkeypatch.setattr(healthcheck_upload, "get_gspread_client", lambda: SimpleNamespace(open_by_key=lambda key: object()))
+    monkeypatch.setattr(healthcheck_upload, "validate_training_headers", lambda *args: (_ for _ in ()).throw(ValueError("請先在試算表執行健檢嚴格同步")))
+    result = healthcheck_upload.run_healthcheck_upload("account")
+    assert not result.ok
+    assert "嚴格同步" in result.message

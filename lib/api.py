@@ -480,6 +480,7 @@ async def fetch_user_character_details(
     nikke_area_id: str | None = None,
     function_id_targets: Dict[str, List[int | None]] | None = None,
     user_character_lookup: Dict[str, Dict[str, Any]] | None = None,
+    healthcheck_context: Dict[str, str] | None = None,
 ) -> bool:
     """
     取得角色詳細資訊並寫入暫存檔：
@@ -589,6 +590,7 @@ async def fetch_user_character_details(
             results.append(
                 {
                     "name": name,
+                    "name_code": name_code,
                     "breakthrough": user_character.get("breakthrough", ""),
                     "skill1_lv": itm.get("skill1_lv"),
                     "skill2_lv": itm.get("skill2_lv"),
@@ -615,7 +617,12 @@ async def fetch_user_character_details(
             outfile = build_character_details_path(nickname)
             outfile.write_text(
                 json.dumps(
-                    {"nickname": nickname, "member_id": str(intl_id), "character_details": results},
+                    {
+                        "nickname": nickname,
+                        "member_id": str(intl_id),
+                        "character_details": results,
+                        **({"healthcheck_context": healthcheck_context} if healthcheck_context is not None else {}),
+                    },
                     ensure_ascii=False,
                     indent=2,
                 ),

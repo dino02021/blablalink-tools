@@ -77,16 +77,16 @@ CLI 入口點：
 - [lib/jobs/nikke_batch_download.py](../../lib/jobs/nikke_batch_download.py)
 
 流程：
-1. 準備檢查清單項目
-2. 建立一次 `function_id_targets`，後續同一批次下載反覆使用，不可每個成員重讀雲端 `function_names.json`
+1. 讀取共用試算表的 `健檢名單`，建立一次設定快照與角色檢查清單
+2. 從該快照建立一次 `function_id_targets`，同一批次下載反覆使用，不可每個成員重讀設定或詞條字典
 3. 從會話上下文讀取 `guild_id` 與 `nikke_area_id`
-4. 取得聯盟成員
+4. 解析目標試算表並核對角色與詞條表頭後，取得聯盟成員
 5. 為每個成員取得角色與角色詳情
-6. 寫入 `CharacterDetails/*.json`
+6. 寫入 `CharacterDetails/*.json`，包含角色 `name_code` 及 `healthcheck_context` 來源/目標表頭指紋
 
 詞條規則：
-- `function_id_targets` 由 `nikke_healthcheck_members.json` 的 `function1/2/3` 依序比對 `function_names.json.function_name`
-- 比對只要求包含文字即可，並套用健檢詞條正規化規則
+- `function_id_targets` 由共用 `健檢名單` 的詞條1/2/3 依序比對 `function_names.json.function_name`
+- 套用詞條正規化後必須完整且唯一匹配，不接受部分文字
 - 角色詳情輸出的 `functions` 必須維持 `function1/2/3` 順序
 - 取出的詞條數值若為負數，必須先取絕對值再加總與輸出
 
@@ -100,6 +100,8 @@ CLI 入口點：
 - 允許選定 `files`
 - 找不到對應試算表時失敗
 - 上傳角色練度時，詞條欄位使用 `CharacterDetails/*.json` 中 `functions` 的既有順序，不重新排序
+- 首次寫入前再次核對來源名單、目標表頭、JSON 來源指紋、角色代碼及詞條 ID；任一不符停止整批寫入
+- 舊檔未包含 `healthcheck_context` 時，提示重新下載，不猜測舊詞條設定
 
 ### `run_nikke_pipeline`
 
@@ -112,7 +114,7 @@ CLI 入口點：
 規則：
 - `all` 讀取 `BLABLALINK_UNION_ACCOUNT_MAP_JSON`，再降級到本地 `union_account_map.json`
 - 依 `username` 去重複
-- 執行 pipeline 時先建立一次 `function_id_targets`，再傳給每個帳號的 `run_nikke_batch_download`
+- 執行 pipeline 時先建立一次 `HealthcheckSnapshot`，再傳給每個帳號的下載與上傳；GUI 單一及全部模式採相同規則
 - 跳過沒有對應 `CharacterDetails` 試算表的帳號
 - 若任何帳號確實失敗則整個管線失敗
 
@@ -202,7 +204,7 @@ CLI 入口點：
 5. 規格
 ## Healthcheck Sheet Layout Notes
 
-- Python headless job 只負責寫入 `健檢名單`。
+- Python 健檢名單編輯直接更新共用試算表；原名單上傳 job 改成唯讀的欄位同步檢查。
 - Python headless job 不呼叫 gs web app route，也不直接補欄、刪欄或同步 `練度評分結果` 暱稱。
 - `角色練度_{element}`、`角色練度_變化`、`練度標準`、`練度評分結果` 的欄位新增、欄寬、外框、底色、合併儲存格、插入位置、刪除欄位與暱稱同步，全部交由試算表內的嚴格同步模式處理。
-- Python headless job 上傳 `健檢名單` 後即結束；使用者需要在試算表內手動確認嚴格同步預覽清單後，才會修改其他工作表。
+- 使用者仍需在試算表內確認嚴格同步預覽清單後，才會修改其他工作表的角色欄位；Python 欄位核對失敗時只提示，不自動增刪角色欄位。

@@ -1,120 +1,34 @@
 # -*- coding: utf-8 -*-
-"""Upload healthcheck member list to the CharacterDetails spreadsheet."""
+"""Check a union's layout against the authoritative common healthcheck sheet."""
 
 from __future__ import annotations
 
-from typing import Any
-
-import requests
-from gspread.utils import rowcol_to_a1
-
-from ..data_store import build_healthcheck_upload_rows
-from ..constants import WEB_APP_URL
-from ..log import log_exc
+from ..google_sheets.auth import get_gspread_client
+from ..healthcheck_config import (
+    ensure_healthcheck_snapshot_current,
+    load_healthcheck_snapshot,
+    validate_training_headers,
+)
 from .common import JobResult
 from .nikke_upload import resolve_character_sheet_for_account
 
-HEALTHCHECK_WORKSHEET = "健檢名單"
-HEALTHCHECK_HEADERS = ["名稱", "屬性", "類型", "詞條1", "詞條2", "詞條3"]
-
-
-def _normalize_text(value: Any) -> str:
-    return str(value or "").strip()
-
-
-def _get_used_values(ws) -> list[list[str]]:
-    return ws.get_all_values()
-
-
-def _ensure_min_columns(ws, width: int) -> None:
-    if ws.col_count < width:
-        ws.add_cols(width - ws.col_count)
-
-
-def _sync_healthcheck_sheet(spreadsheet, rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    ws = spreadsheet.worksheet(HEALTHCHECK_WORKSHEET)
-    existing_values = _get_used_values(ws)
-    width = len(HEALTHCHECK_HEADERS)
-    _ensure_min_columns(ws, width)
-
-    output_rows: list[list[str]] = []
-    synced_entries: list[dict[str, str]] = []
-    for row in rows:
-        name = _normalize_text(row.get("name"))
-        element = _normalize_text(row.get("element"))
-        member_type = _normalize_text(row.get("type"))
-        function1 = _normalize_text(row.get("function1"))
-        function2 = _normalize_text(row.get("function2"))
-        function3 = _normalize_text(row.get("function3"))
-        output_rows.append([name, element, member_type, function1, function2, function3])
-        synced_entries.append(
-            {
-                "name": name,
-                "element": element,
-                "type": member_type,
-                "function1": function1,
-                "function2": function2,
-                "function3": function3,
-            }
-        )
-
-    header_range = f"A1:{rowcol_to_a1(1, len(HEALTHCHECK_HEADERS))}"
-    ws.update(header_range, [HEALTHCHECK_HEADERS])
-    if output_rows:
-        ws.update(f"A2:{rowcol_to_a1(len(output_rows) + 1, width)}", output_rows)
-
-    old_count = max(len(existing_values) - 1, 0)
-    if old_count > len(output_rows):
-        blank_rows = [[""] * width for _ in range(old_count - len(output_rows))]
-        start_row = len(output_rows) + 2
-        ws.update(f"A{start_row}:{rowcol_to_a1(old_count + 1, width)}", blank_rows)
-
-    return synced_entries
-
-
 def run_healthcheck_upload(account: str | None = None) -> JobResult:
-    rows = build_healthcheck_upload_rows()
-    if not rows:
-        return JobResult(ok=False, message="nikke_healthcheck_members.json 沒有可上傳的資料")
-
+    """Keep the entry point; configuration edits now save directly to Sheets."""
     try:
+        snapshot = load_healthcheck_snapshot()
         union_id, target_sheet_id, target_sheet_name = resolve_character_sheet_for_account(account)
-    except ValueError as exc:
+        spreadsheet = get_gspread_client().open_by_key(target_sheet_id)
+        validate_training_headers(spreadsheet, snapshot)
+        ensure_healthcheck_snapshot_current(snapshot)
+    except Exception as exc:
         return JobResult(ok=False, message=str(exc))
-
-    outputs = {
-        "union_id": union_id,
-        "sheet_id": target_sheet_id,
-        "sheet_name": target_sheet_name,
-        "row_count": len(rows),
-    }
-
-    if not WEB_APP_URL:
-        return JobResult(ok=False, message="Missing WEB_APP_URL", outputs=outputs)
-
-    try:
-        payload = {
-            "kind": "sync_healthcheck_members",
-            "spreadsheet_id": target_sheet_id,
-            "rows": rows,
-        }
-        resp = requests.post(WEB_APP_URL, json=payload, timeout=600)
-        body_text = (resp.text or "").strip()
-        if resp.status_code < 200 or resp.status_code >= 300:
-            return JobResult(
-                ok=False,
-                message=f"WebApp HTTP {resp.status_code}: {body_text[:300]}",
-                outputs=outputs,
-            )
-        if body_text.startswith(("bad_request", "unauthorized", "error")):
-            return JobResult(ok=False, message=f"WebApp {body_text[:300]}", outputs=outputs)
-        outputs["web_app_response"] = body_text
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return JobResult(ok=False, message=f"健檢名單同步失敗: {exc}", outputs=outputs)
-
     return JobResult(
         ok=True,
-        message=f"健檢名單已同步 ({len(rows)})",
-        outputs=outputs,
+        message=f"角色與詞條欄位已同步 ({len(snapshot.checklist_items)} 位角色)",
+        outputs={
+            "union_id": union_id,
+            "sheet_id": target_sheet_id,
+            "sheet_name": target_sheet_name,
+            "source_sheet_id": snapshot.spreadsheet_id,
+        },
     )

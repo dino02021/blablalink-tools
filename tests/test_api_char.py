@@ -119,6 +119,7 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
         [("nc1", "NAME1")],
         "nick",
         user_character_lookup={"nc1": {"grade": 3, "core": 3, "breakthrough": 6}},
+        healthcheck_context={"source_fingerprint": "version", "target_spreadsheet_id": "union"},
     )
     assert ok is True
 
@@ -128,10 +129,12 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     assert isinstance(content, dict) and "character_details" in content
     assert content.get("nickname") == "nick"
     assert content.get("member_id") == "intl1"
+    assert content["healthcheck_context"] == {"source_fingerprint": "version", "target_spreadsheet_id": "union"}
     details = content["character_details"]
     assert isinstance(details, list) and details, "輸出內容應為非空 list"
     entry = details[0]
     assert entry["name"] == "NAME1"
+    assert entry["name_code"] == "nc1"
     assert entry["breakthrough"] == 6
     assert "grade" not in entry
     assert "core" not in entry

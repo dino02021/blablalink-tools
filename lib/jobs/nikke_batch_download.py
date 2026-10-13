@@ -14,10 +14,18 @@ from ..api import (
     fetch_user_characters,
 )
 from ..constants import CHAR_DETAILS_DIR
-from ..data_store import build_healthcheck_function_id_targets, prepare_checklist_items
+from ..healthcheck_config import (
+    HealthcheckSnapshot,
+    build_download_context,
+    ensure_healthcheck_snapshot_current,
+    load_healthcheck_snapshot,
+    validate_training_headers,
+)
+from ..google_sheets.auth import get_gspread_client
 from ..log import log_exc
 from ..utils import load_session, run_with_session_context
 from .common import JobResult, resolve_account, run_coro_sync
+from .nikke_upload import resolve_character_sheet_target
 
 
 def _filter_checklist_items(
@@ -64,12 +72,21 @@ async def _batch_download_with_ctx(
     ctx,
     checklist_items: List[Tuple[int, str]],
     function_id_targets: Dict[str, List[int | None]],
+    healthcheck_snapshot: HealthcheckSnapshot,
 ) -> Dict[str, Any]:
     guild_id, _fetched_open_id, nikke_area_id = await fetch_union_info(ctx)
     target_guild_id = str(guild_id or "").strip()
     target_nikke_area_id = str(nikke_area_id or "").strip()
     if not target_guild_id or not target_nikke_area_id:
         return {"guild_id": "", "files": [], "ok_count": 0, "total_count": 0}
+    try:
+        target_sheet_id, _target_sheet_name = resolve_character_sheet_target(target_guild_id)
+    except ValueError as exc:
+        return {"guild_id": target_guild_id, "files": [], "ok_count": 0, "total_count": 0, "skip_reason": str(exc)}
+    spreadsheet = get_gspread_client().open_by_key(target_sheet_id)
+    ensure_healthcheck_snapshot_current(healthcheck_snapshot)
+    header_fingerprint = validate_training_headers(spreadsheet, healthcheck_snapshot)
+    healthcheck_context = build_download_context(healthcheck_snapshot, target_sheet_id, header_fingerprint)
     guild_id, members = await fetch_guild_members(
         ctx,
         guild_id=target_guild_id,
@@ -112,6 +129,7 @@ async def _batch_download_with_ctx(
             nikke_area_id=target_nikke_area_id,
             function_id_targets=function_id_targets,
             user_character_lookup=user_character_lookup,
+            healthcheck_context=healthcheck_context,
         )
         if not ok:
             continue
@@ -134,31 +152,29 @@ async def _batch_download_with_ctx(
 def run_nikke_batch_download(
     account: str | None = None,
     function_id_targets: Dict[str, List[int | None]] | None = None,
+    healthcheck_snapshot: HealthcheckSnapshot | None = None,
 ) -> JobResult:
     slug = resolve_account(account)
     if not slug:
         return JobResult(ok=False, message="缺少帳號")
-
-    name_ok, checklist_items, prep_msg = prepare_checklist_items()
-    if not name_ok:
-        return JobResult(ok=False, message=prep_msg or "無法準備妮姬檢查清單")
-
-    if function_id_targets is None:
-        function_id_targets = build_healthcheck_function_id_targets()
 
     state = load_session(slug)
     if not state:
         return JobResult(ok=False, message="找不到登入 Session")
 
     try:
+        snapshot = healthcheck_snapshot or load_healthcheck_snapshot()
+        if function_id_targets is not None and function_id_targets != snapshot.function_id_targets:
+            raise ValueError("下載詞條設定與共用健檢名單不同")
         result = run_coro_sync(
             functools.partial(
                 run_with_session_context,
                 state,
                 functools.partial(
                     _batch_download_with_ctx,
-                    checklist_items=checklist_items,
-                    function_id_targets=function_id_targets,
+                    checklist_items=snapshot.checklist_items,
+                    function_id_targets=snapshot.function_id_targets,
+                    healthcheck_snapshot=snapshot,
                 ),
             )
         )
@@ -170,6 +186,9 @@ def run_nikke_batch_download(
     files = [str(item).strip() for item in result.get("files", []) if str(item).strip()]
     ok_count = int(result.get("ok_count", 0) or 0)
     total_count = int(result.get("total_count", 0) or 0)
+    skip_reason = str(result.get("skip_reason", "") or "").strip()
+    if skip_reason:
+        return JobResult(ok=False, message=skip_reason, outputs={"guild_id": guild_id, "files": files, "skip_reason": skip_reason})
 
     if not guild_id:
         return JobResult(

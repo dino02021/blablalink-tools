@@ -8,7 +8,8 @@ import json
 import os
 from typing import Any, Dict, List
 
-from ..data_store import build_healthcheck_function_id_targets, load_union_account_map
+from ..data_store import load_union_account_map
+from ..healthcheck_config import load_healthcheck_snapshot
 from .common import JobResult, resolve_account
 from .nikke_batch_download import run_nikke_batch_download
 from .nikke_upload import resolve_character_sheet_target, run_nikke_upload
@@ -146,12 +147,19 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
     skipped_count = 0
     upload_ok_count = 0
     upload_total_count = 0
-    function_id_targets = build_healthcheck_function_id_targets()
+    try:
+        snapshot = load_healthcheck_snapshot()
+    except Exception as exc:
+        return JobResult(ok=False, message=f"讀取共用健檢名單失敗: {exc}")
 
     for slug in accounts:
-        download_result = run_nikke_batch_download(account=slug, function_id_targets=function_id_targets)
+        download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
 
         if not download_result.ok:
+            if download_result.outputs.get("skip_reason"):
+                skipped_count += 1
+                skipped.append({"account": slug, "union_id": download_result.outputs.get("guild_id", ""), "message": download_result.message})
+                continue
             failures.append(_failure_entry(slug, "download", download_result))
             continue
 
@@ -169,7 +177,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             skipped.append({"account": slug, "union_id": guild_id, "message": str(exc)})
             continue
 
-        upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id)
+        upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
         account_ok_count = int(upload_result.stats.get("ok_count", 0) or 0)
         account_total_count = int(upload_result.stats.get("total_count", 0) or 0)
         upload_ok_count += account_ok_count

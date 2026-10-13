@@ -7,7 +7,8 @@ import functools
 import threading
 from typing import TYPE_CHECKING
 
-from ..data_store import build_healthcheck_function_id_targets, load_union_account_map
+from ..data_store import load_union_account_map
+from ..healthcheck_config import load_healthcheck_snapshot
 from ..jobs.nikke_batch_download import run_nikke_batch_download
 from ..jobs.nikke_upload import run_nikke_upload, resolve_character_sheet_target
 from ..log import log_exc
@@ -51,8 +52,8 @@ def _process_single_account(app) -> None:
     slug = app._last_slug
     
     # 下載
-    function_id_targets = build_healthcheck_function_id_targets()
-    download_result = run_nikke_batch_download(account=slug, function_id_targets=function_id_targets)
+    snapshot = load_healthcheck_snapshot()
+    download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
     if not download_result.ok:
         app.root.after(0, functools.partial(_finish_update, app, False, download_result.message))
         return
@@ -78,7 +79,7 @@ def _process_single_account(app) -> None:
         return
 
     # 上傳
-    upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id)
+    upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
     ok = upload_result.ok
     msg = upload_result.message
     
@@ -95,7 +96,7 @@ def _process_all_accounts(app) -> None:
 
     all_ok = True
     messages = []
-    function_id_targets = build_healthcheck_function_id_targets()
+    snapshot = load_healthcheck_snapshot()
 
     for idx, item in enumerate(account_map):
         username = str(item.get("username", "")).strip()
@@ -110,8 +111,11 @@ def _process_all_accounts(app) -> None:
         ))
 
         # 下載
-        download_result = run_nikke_batch_download(account=username, function_id_targets=function_id_targets)
+        download_result = run_nikke_batch_download(account=username, healthcheck_snapshot=snapshot)
         if not download_result.ok:
+            if download_result.outputs.get("skip_reason"):
+                messages.append(f"⊘ {username}: {download_result.message}")
+                continue
             messages.append(f"❌ {username}: 下載失敗 - {download_result.message}")
             all_ok = False
             continue
@@ -137,7 +141,7 @@ def _process_all_accounts(app) -> None:
             continue
 
         # 上傳
-        upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id)
+        upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
         if upload_result.ok:
             messages.append(f"✅ {username}: 成功")
         else:

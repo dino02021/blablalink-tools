@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Helpers for runtime JSON-backed settings and cloud data."""
+"""Runtime settings, cloud dictionaries, and sheet-backed healthcheck selections."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from typing import Any, Dict, List, Tuple
 from .constants import (
     FUNCTION_NAMES_FILE,
     GOOGLE_SHEETS_ID_FILE,
-    NIKKE_HEALTHCHECK_MEMBERS_FILE,
     NIKKES_INFO_FILE,
     UNION_ACCOUNT_MAP_FILE,
     UNION_RAID_TYPE,
 )
-from .github_data_sync import read_cloud_data_json, write_data_text_and_sync_if_changed
+from .github_data_sync import read_cloud_data_json
+from .google_sheets.healthcheck import normalize_label, read_healthcheck_rows, write_healthcheck_rows
 from .github_secrets_sync import write_text_and_sync_if_changed
 from .log import log_exc
 
@@ -241,31 +241,25 @@ def _match_healthcheck_function_id(selected_name: Any, definitions: List[Dict[st
     if not selected and not selected_normalized:
         return None
 
-    for item in definitions:
-        raw_name = str(item.get("function_name", "") or "")
-        normalized_name = str(item.get("name", "") or "")
-        if selected and (selected in raw_name or selected in normalized_name):
-            return int(item["function_id"])
-        if selected_normalized and (selected_normalized in raw_name or selected_normalized in normalized_name):
-            return int(item["function_id"])
-    return None
+    matches = {int(item["function_id"]) for item in definitions if selected_normalized == item["name"]}
+    if len(matches) != 1:
+        raise ValueError(f"健檢詞條無法唯一對應 function_id: {selected}")
+    return matches.pop()
 
 
-def build_healthcheck_function_id_targets() -> Dict[str, List[int | None]]:
+def build_healthcheck_function_id_targets(members: List[Dict[str, Any]] | None = None) -> Dict[str, List[int | None]]:
     """Return name_code -> function1/2/3 ids resolved from function_names.json."""
     definitions = load_healthcheck_function_definitions()
-    if not definitions:
-        return {}
-
     result: Dict[str, List[int | None]] = {}
-    for item in load_healthcheck_members():
+    for item in members if members is not None else load_healthcheck_members():
         code = str(item.get("name_code", "") or "").strip()
-        if not code or code in result:
-            continue
-        result[code] = [
+        targets = [
             _match_healthcheck_function_id(item.get(key), definitions)
             for key in HEALTHCHECK_FUNCTION_KEYS
         ]
+        if code in result and result[code] != targets:
+            raise ValueError(f"同一角色的輸出與輔助設定使用不同詞條: {item.get('name', code)}")
+        result[code] = targets
     return result
 
 
@@ -287,6 +281,7 @@ def _normalize_healthcheck_member(
     element = translate_nikke_element(raw_element or info.get("element"))
     normalized = {
         "name_code": name_code,
+        "name": str(item.get("name") or info.get("name") or "").strip(),
         "element": element,
         "type": member_type,
     }
@@ -301,59 +296,71 @@ def _normalize_healthcheck_member(
 
 
 def load_healthcheck_members() -> List[Dict[str, Any]]:
-    """Read nikke_healthcheck_members.json from cloud data repo."""
-    raw_items = read_cloud_data_json(NIKKE_HEALTHCHECK_MEMBERS_FILE, default=[])
-    if not isinstance(raw_items, list):
-        return []
+    """Read role selections and traits exclusively from the common spreadsheet."""
+    return normalize_healthcheck_rows(read_healthcheck_rows())
 
+
+def normalize_healthcheck_rows(raw_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     info_lookup = _build_nikke_info_lookup()
+    name_to_codes: Dict[str, list[int]] = {}
+    for code, info in info_lookup.items():
+        name_to_codes.setdefault(normalize_label(info.get("name")), []).append(code)
     result: List[Dict[str, Any]] = []
-    for item in raw_items:
-        if not isinstance(item, dict):
-            continue
-        normalized = _normalize_healthcheck_member(item, info_lookup)
-        if normalized is None:
-            continue
+    seen = set()
+    for index, item in enumerate(raw_items, start=2):
+        if str(item.get("element", "") or "").strip() not in ELEMENT_ZH_MAP.values():
+            raise ValueError(f"健檢名單第 {index} 列的屬性無效")
+        codes = name_to_codes.get(normalize_label(item.get("name")), [])
+        if len(codes) != 1:
+            raise ValueError(f"健檢名單第 {index} 列角色無法唯一對應 name_code: {item.get('name', '')}")
+        normalized = _normalize_healthcheck_member({**item, "name_code": codes[0]}, info_lookup)
+        if normalized is None or normalized["element"] not in ELEMENT_ZH_MAP.values():
+            raise ValueError(f"健檢名單第 {index} 列的屬性或類型無效")
+        key = (normalized["name_code"], normalized["type"])
+        if key in seen:
+            raise ValueError(f"健檢名單第 {index} 列角色與類型重複")
+        seen.add(key)
+        traits = [normalize_healthcheck_function_name(item.get(key)) for key in HEALTHCHECK_FUNCTION_KEYS]
+        if len([trait for trait in traits if trait]) != len({trait for trait in traits if trait}):
+            raise ValueError(f"健檢名單第 {index} 列的詞條重複")
         result.append(normalized)
     return result
 
 
-def save_healthcheck_members(items: List[Dict[str, Any]]) -> bool:
-    """Write nikke_healthcheck_members.json in normalized format."""
+def save_healthcheck_members(
+    items: List[Dict[str, Any]],
+    expected_members: List[Dict[str, Any]] | None = None,
+) -> bool:
+    """Edit the authoritative sheet and preserve its tracking/nickname/priority cells."""
     info_lookup = _build_nikke_info_lookup()
     normalized: List[Dict[str, Any]] = []
     seen: set[tuple[int, str]] = set()
     for item in items:
-        if not isinstance(item, dict):
-            continue
         normalized_item = _normalize_healthcheck_member(item, info_lookup)
-        if normalized_item is None:
-            continue
+        if normalized_item is None or not normalized_item["name"]:
+            raise ValueError("健檢角色設定無效")
         key = (int(normalized_item["name_code"]), str(normalized_item["type"]))
         if key in seen:
-            continue
+            raise ValueError("該健檢角色與類型已存在")
         seen.add(key)
         normalized.append(normalized_item)
 
-    try:
-        write_data_text_and_sync_if_changed(
-            NIKKE_HEALTHCHECK_MEMBERS_FILE,
-            json.dumps(normalized, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        return True
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return False
+    build_healthcheck_function_id_targets(normalized)
+    expected_rows = build_healthcheck_upload_rows(expected_members) if expected_members is not None else None
+    write_healthcheck_rows(build_healthcheck_upload_rows(normalized), expected_rows=expected_rows)
+    return True
 
 
-def delete_healthcheck_member_by_index(index: int) -> bool:
+def delete_healthcheck_member_by_index(index: int, expected_member: Dict[str, Any] | None = None) -> bool:
     """Delete one healthcheck member by the current list order."""
     items = load_healthcheck_members()
     if index < 0 or index >= len(items):
         return False
+    if expected_member is not None and any(items[index].get(key, "") != expected_member.get(key, "") for key in ("name_code", "type", *HEALTHCHECK_FUNCTION_KEYS)):
+        raise ValueError("健檢名單已變更，請重新讀取後再刪除")
+    expected = [dict(item) for item in items]
     del items[index]
-    return save_healthcheck_members(items)
+    return save_healthcheck_members(items, expected_members=expected)
 
 
 def load_healthcheck_display_items() -> List[Dict[str, Any]]:
@@ -363,7 +370,7 @@ def load_healthcheck_display_items() -> List[Dict[str, Any]]:
     for item in load_healthcheck_members():
         name_code = int(item["name_code"])
         info = info_lookup.get(name_code, {})
-        name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
+        name = str(item.get("name") or info.get("name") or "").strip() or f"未知角色({name_code})"
         element = str(item.get("element", "") or "").strip()
         member_type = str(item.get("type", "") or "").strip()
         row = {
@@ -381,14 +388,14 @@ def load_healthcheck_display_items() -> List[Dict[str, Any]]:
     return result
 
 
-def build_healthcheck_upload_rows() -> List[Dict[str, str]]:
+def build_healthcheck_upload_rows(members: List[Dict[str, Any]] | None = None) -> List[Dict[str, str]]:
     """Return normalized rows for healthcheck sheet upload."""
-    info_lookup = _build_nikke_info_lookup()
+    info_lookup = _build_nikke_info_lookup() if members is None or any(not item.get("name") for item in members) else {}
     rows: List[Dict[str, str]] = []
-    for item in load_healthcheck_members():
+    for item in members if members is not None else load_healthcheck_members():
         name_code = int(item["name_code"])
         info = info_lookup.get(name_code, {})
-        name = str(info.get("name", "") or "").strip() or f"未知角色({name_code})"
+        name = str(item.get("name") or info.get("name") or "").strip() or f"未知角色({name_code})"
         row = {
             "name": name,
             "element": str(item.get("element", "") or "").strip(),
@@ -402,13 +409,13 @@ def build_healthcheck_upload_rows() -> List[Dict[str, str]]:
     return rows
 
 
-def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
+def prepare_checklist_items(members: List[Dict[str, Any]] | None = None) -> Tuple[bool, List[Tuple[int, str]], str]:
     """Load healthcheck members and map to unique checklist items."""
-    raw_items = load_healthcheck_members()
+    raw_items = members if members is not None else load_healthcheck_members()
     if not raw_items:
-        return False, [], "nikke_healthcheck_members.json 格式錯誤、不存在或沒有可用資料"
+        return False, [], "共用試算表的健檢名單沒有可用資料"
 
-    name_lookup = _build_name_lookup()
+    name_lookup = _build_name_lookup() if any(not item.get("name") for item in raw_items) else {}
     seen_codes: set[int] = set()
     checklist_items: List[Tuple[int, str]] = []
     for item in raw_items:
@@ -416,8 +423,8 @@ def prepare_checklist_items() -> Tuple[bool, List[Tuple[int, str]], str]:
         if name_code_int in seen_codes:
             continue
         seen_codes.add(name_code_int)
-        checklist_items.append((name_code_int, name_lookup.get(name_code_int, "")))
+        checklist_items.append((name_code_int, item.get("name") or name_lookup.get(name_code_int, "")))
 
     if not checklist_items:
-        return False, [], "nikke_healthcheck_members.json 沒有可用的角色代碼"
+        return False, [], "共用健檢名單沒有可用的角色代碼"
     return True, checklist_items, ""

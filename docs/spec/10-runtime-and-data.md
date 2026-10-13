@@ -10,11 +10,10 @@
 - `nikkes_info.json`
 - `nikkes_nickname.json`
 - `function_names.json`
-- `nikke_healthcheck_members.json`
 
 用途：
 - Nikke 查詢表
-- 健檢名單設定
+- 角色名稱、代碼與詞條 ID 字典；健檢名單設定另以共用試算表為準
 - 角色詳情正規化
 
 規則：
@@ -136,37 +135,42 @@
 ]
 ```
 
-### `nikke_healthcheck_members.json`
+### 共用試算表的 `健檢名單`
 
 目的：
-- 定義健檢表使用的妮姬名單
+- 作為 Python 與 Apps Script 唯一的健檢角色與詞條設定來源
 - 作為 Nikke 批次下載的 checklist 來源
 
 規則：
-- 每筆資料固定包含 `name_code`、`element` 與 `type`
+- 來源預設為共用設定試算表 `167RcdRZu8OY5Im9wqWHDBUjZAiENJvv7mvFD74ZXzgU`；可用 `BLABLALINK_COMMON_CONFIG_SPREADSHEET_ID` 覆寫，必須與 Apps Script 的共用設定表一致。
+- A-F 表頭固定為 `名稱`、`屬性`、`類型`、`詞條1`、`詞條2`、`詞條3`。
+- 角色名稱經空白、全半形及冒號正規化後，必須唯一對應 `nikkes_info.json` 的 `name_code`。
 - `type` 只允許 `輸出` 或 `輔助`
-- `element` 由 `nikkes_info.json.element` 轉中文後存入，允許值固定為 `電擊`、`水冷`、`燃燒`、`風壓`、`鐵甲`
+- `element` 讀取試算表 B 欄，允許值固定為 `電擊`、`水冷`、`燃燒`、`風壓`、`鐵甲`；新增時可使用角色字典預設屬性。
 - 可選欄位為 `function1`、`function2`、`function3`，對應健檢表詞條 1/2/3
 - `function1`、`function2`、`function3` 儲存的是正規化後的 function 名稱，不是 id
 - function 名稱正規化規則：移除空白與括號類符號，並移除結尾 `增加`
 - 同一 `name_code + type` 不可重複
 - 下載 checklist 仍只使用 `name_code`，不使用 `type` 參與路由
-- 練度資料擷取會用該 `name_code` 的 `function1/2/3` 依序比對 `function_names.json.function_name`，比對成功後取 `function_id`
+- 詞條正規化後必須完整匹配 `function_names.json` 的名稱，不使用包含文字的模糊比對。
+- 無法辨識的角色、屬性、類型、詞條或重複設定必須明確失敗，不可略過。
+- 同一角色同時存在輸出與輔助設定時，兩筆的詞條順序必須一致。
+- GitHub `nikke_healthcheck_members.json` 不再參與執行時讀寫，也不作為失敗時的降級來源。
 
 例子：
 
 ```json
 [
   {
-    "name_code": 5007,
+    "name": "範例角色",
     "element": "水冷",
     "type": "輸出",
     "function1": "優越代碼傷害",
     "function2": "攻擊力",
-    "function3": "裝彈數"
+    "function3": "最大裝彈數"
   },
   {
-    "name_code": 5124,
+    "name": "另一位範例角色",
     "element": "燃燒",
     "type": "輔助"
   }
@@ -313,9 +317,10 @@
 
 ## 健檢同步補充規格
 
-- `nikke_healthcheck_members.json` 為唯一健檢妮姬來源；欄位契約以前文 `nikke_healthcheck_members.json` 為準。
-- 健檢名單上傳目標沿用既有 `type=CharacterDetails + union_id` 路由，不新增新的 sheet type。
-- 健檢名單同步寫入目標 worksheet 名稱固定為 `健檢名單`。
+- 共用試算表的 `健檢名單` 是唯一健檢角色與詞條設定來源。
+- GUI 名單新增與編輯直接儲存到共用表；既有角色在原列更新 A-F，G 欄以後的追蹤、暱稱與優先度不覆蓋。
+- 刪除角色時刪除共用名單中對應整列，其他角色的 G 欄以後資料隨原列移動；新增角色追加新列。
+- 儲存前核對讀取時的名單內容，若名單已被他人修改則拒絕儲存。
 - `健檢名單` worksheet 的 Python 寫入欄位固定為 A-F：
   - A：名稱
   - B：屬性
@@ -324,6 +329,9 @@
   - E：詞條2
   - F：詞條3
 - Python 端只更新 `健檢名單` 的 A-F 範圍；G 欄以後的既有儲存格不得被覆蓋。
-- 若雲端名單比既有工作表列數少，Python 端只清空多餘列的 A-F，不刪除整列，避免影響同列其他欄位。
-- Python 端只負責上傳 `健檢名單`，不呼叫 gs web app 補欄，也不直接新增、刪除或格式化其他工作表的角色欄位。
+- `run_healthcheck_upload` 保留呼叫入口，行為改為唯讀核對目前帳號的目標表角色與詞條欄位，不再送出另一份名單覆寫共用來源。
+- 每次下載與上傳共用同一份 `HealthcheckSnapshot`；來源名單與目標表頭內容指紋寫入 `CharacterDetails/*.json.healthcheck_context`。
+- JSON 角色資料包含 `name_code`，上傳前核對角色及三個 `function_id` 的順序。
+- 下載前與寫入前檢查角色區塊為 12 欄、分類位置與詞條縮寫，雙屬性角色 `拉毗：小紅帽` 同時核對燃燒及鐵甲表。
+- 名單或表頭已變更、舊檔缺少來源紀錄、檔案屬於其他試算表時，停止上傳並提示重新下載；欄位不一致時提示先執行試算表內的健檢嚴格同步。
 - Python 端不得直接新增、刪除或格式化 `角色練度_{element}`、`角色練度_變化`、`練度標準`、`練度評分結果` 的角色欄位，避免與 gs 端同步流程重複操作。

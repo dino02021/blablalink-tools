@@ -18,6 +18,20 @@ The following runtime data is intentionally excluded:
 
 These files must be prepared locally before running features that depend on them.
 
+## Healthcheck configuration
+
+Nikke downloads, uploads, and the desktop healthcheck editor use the common Google
+spreadsheet's `健檢名單` worksheet as the only role/trait selection source. The
+service account needs access to both the common sheet and the union target sheets.
+The default common spreadsheet ID is `167RcdRZu8OY5Im9wqWHDBUjZAiENJvv7mvFD74ZXzgU`;
+`BLABLALINK_COMMON_CONFIG_SPREADSHEET_ID` can override it and must match Apps Script.
+GitHub's `nikke_healthcheck_members.json` is no longer read or edited at runtime.
+
+After changing the list, run the spreadsheet's healthcheck strict sync to update
+role/trait columns. Python checks those headers before downloading and uploading.
+Previously downloaded JSON files must be downloaded again to include the source
+configuration and destination header fingerprints.
+
 ## GitHub Actions runtime secrets
 
 Cloud workflows rebuild the existing local runtime files from GitHub Secrets.
