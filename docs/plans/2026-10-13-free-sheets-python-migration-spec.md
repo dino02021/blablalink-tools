@@ -854,7 +854,7 @@ blablalink-tools/
 ### 17.4 仍可獨立完成的待辦
 
 1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
-2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
+2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、基本格子請求與舊 GS 六列／十二欄標準 decoder 已完成；十一欄遷移、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
@@ -1071,3 +1071,9 @@ blablalink-tools/
 - 追加：啟用前即持久保存 activation_uncertain，程序消失不能變成自動 retry；stage 回讀成功只更新 stage，不自行解除 coordinator 資源鎖。
 - 新增 6 項 mock 驗收，包含實際多片上傳重啟、before／after timeout、取消、人工區保留與 schema 變動；仍未使用正式試算表。
 - A21 新增本地流程證據，但 Google staging tab、逐格格式／保護／merge 與跨 API 啟用原子性尚未驗證；本地單次檔案替換不可代表正式能力。細節見 docs/spec/60-local-workbook-staging.md。
+
+### 17.25 第二十二批：GS 全員評分迴圈對照（2026-10-15）
+
+- 凍結本地 GS 實際角色計算、屬性／輔助加權總分與 competition rank 函式，保留來源 head／檔案／fixture hash；沒有執行 GS 服務或讀取正式試算表。
+- 50 組固定合成 cohort 精確比對 Python 每成員／角色分數、群組分數與排名；包含空洞列的超高無關值、同分、零值、多屬性／類型、浮點權重與負係數。
+- A03／A04 增加完整計算迴圈證據；header config／nickname 與 sheet range 仍為 mock 邊界，不代表完整工作簿結構相容。詳細界線見 docs/spec/61-gs-cohort-scoring-parity.md。

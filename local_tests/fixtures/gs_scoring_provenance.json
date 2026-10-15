@@ -1,0 +1,24 @@
+{
+  "source_repository": "nikke-union-management",
+  "source_head": "309b7c8c342e97d3cdb8441c23d0ab21c8f138b4",
+  "captured_date": "2026-10-15",
+  "functions": [
+    "_toScoreNumber",
+    "_truncatePercentInteger",
+    "_collectScoreWritesForSheetRows",
+    "_appendScoreWritesToBatch",
+    "_buildScoreTotalWeightMap",
+    "_buildCompetitionRankMap",
+    "_appendHelperTotalWrites",
+    "_collectTotalRankWrites",
+    "normalizeLabel",
+    "_displayNameFromSheet"
+  ],
+  "files_sha256": {
+    "score_engine.gs": "50b91f2eaafa6af3d0a3904dcb4727d8d26efcbbf75ce891fde2cca6fe5b19f5",
+    "utils.gs": "9b5f423a727c3570fed59951d53d9d73c46b73f8ad6bcf450edad9c83166460c",
+    "constants.gs": "9ba2929af647217fbafbc41b10a2e22a3f525b898f31ba002ddae65f02388b3b"
+  },
+  "fixture_sha256": "0715d04bcfc86b23eda634b42753582c09fec7b53879c0e22ad2cb78d0e3f98d",
+  "scope": "Exact scoring collection, weighted totals and rank functions. Header/config resolution and Sheets I/O are synthetic boundary stubs, not a full workbook compatibility claim."
+}
