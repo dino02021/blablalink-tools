@@ -2,6 +2,7 @@
 
 - adapters/process_memory.py 讀取目前程序 resident bytes：Windows 使用本機 process memory API，Linux 讀 /proc/self/statm；其他 Unix 使用 getrusage peak 作保守替代。讀取失敗不得當 0。
 - local_compute_budget 固定預設 240 秒、預留 10 秒、500000 次檢查、512 MiB 記憶體上限，延用 ComputeBudget。worker 為每個計算工作建立獨立 budget，非整批共享計時。
+- Windows API handle 與 ctypes counter class 快取；不得每次 check 重建 native type metadata。實測與回歸見[核心 profile](68-local-core-profile.md)。
 - ComputeExecutionCheck 提供共用 budget check 與每 15 秒 heartbeat；RaidExecutionCheck 保留相容名稱。
 - run_healthcheck_job 可明確注入 budget；worker 預設啟用。健檢成員／角色 coverage、報告 records／角色、評分角色／成員與群組迴圈加入合作式檢查，封存 result 前再檢查。
 - ComputeLimit 使工作進入 capacity_blocked，未產生結果不發布。健檢目前沒有中途 stage checkpoint，明確 resume 後從同一不可變輸入重算；排刀沿用完成 stage 的 checkpoint。

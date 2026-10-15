@@ -1123,3 +1123,10 @@ blablalink-tools/
 - 0008 migration 加入每 principal 分鐘／全域日的新 envelope 持久預算；alias 新 nonce 也計數，精確重播不重扣，超限回 429 與 Retry-After，交易全部回滾。
 - 追加：清理 nonce 前必須保存 server time watermark，時間倒退停止受理；只有已超簽章時間窗的 nonce 可刪，歷史 request 去重不能一併忘記。
 - 新增 5 項 mock 流程／兩連線驗收；未讀取正式用量或連線平台。這是本地保守入庫上限，不替代 provider CPU／D1 行數／帳戶共享預算。詳見 docs/spec/67-local-control-capacity.md。
+
+### 17.33 第二十九批：本地 profile 找出並修正 reader 配置增長（2026-10-15）
+
+- 新增有界合成核心 profile，保存 wall／CPU／取樣 RSS／check 次數與固定結果 hash，保留首次失敗與修正後 JSON。
+- 實測發現 Windows RSS reader 每 check 重建 ctypes 型別／pointer signature，30 人／200 角色在約 6 秒達 512 MiB；快取 API／型別後，同輸入三次健檢約 1.47–1.83 秒、最高約 41.1 MiB，結果 hash 一致。
+- 追加：資源 reader 自身必須接受高頻穩定性驗收，不可只測一次讀值為正。新增一萬次讀取、profile 結果穩定與範圍測試，共 3 項。
+- 30 人合成排刀約 0.48–0.50 秒、三次同 hash；這不是 hosted／完整 trait／歷史矩陣或 billing 容量驗收。詳見 docs/spec/68-local-core-profile.md。

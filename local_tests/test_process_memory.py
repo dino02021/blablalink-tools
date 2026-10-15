@@ -25,5 +25,12 @@ def test_real_memory_reader_can_enforce_explicit_small_limit():
         budget.check()
 
 
+def test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types():
+    before = resident_bytes()
+    for _ in range(10000):
+        assert resident_bytes() > 0
+    assert resident_bytes() - before < 32 * 1024 * 1024
+
+
 def failing_reader():
     raise OSError("synthetic OS read failure")

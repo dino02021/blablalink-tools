@@ -76,6 +76,7 @@
 - [65：薄 GS reconcile 橋接](65-thin-gs-reconcile-bridge.md)
 - [66：控制 HTTP 離線契約](66-offline-control-http.md)
 - [67：控制請求容量與 nonce 保留](67-local-control-capacity.md)
+- [68：本地核心 profile 與 reader 修正](68-local-core-profile.md)
 
 ## 撰寫規則
 

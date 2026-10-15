@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "is_mock": true,
+  "platform": "Windows",
+  "python": "3.13.6",
+  "members": 30,
+  "roles": 200,
+  "requested_repeats": 3,
+  "measurement_scope": "pure_core_plus_cooperative_checks_no_provider_billing",
+  "measurements": [
+    {
+      "kind": "healthcheck",
+      "samples": [
+        {
+          "status": "compute_memory_limit",
+          "result_id": null,
+          "wall_seconds": 6.256990500027314,
+          "cpu_seconds": 6.15625,
+          "sampled_peak_rss_bytes": 536875008,
+          "checks": 61358
+        }
+      ],
+      "wall_p50_seconds": 6.256990500027314,
+      "wall_p95_seconds": 6.256990500027314,
+      "is_deterministic": false
+    },
+    {
+      "kind": "raid",
+      "samples": [
+        {
+          "status": "compute_memory_limit",
+          "result_id": null,
+          "wall_seconds": 0.00012449995847418904,
+          "cpu_seconds": 0.0,
+          "sampled_peak_rss_bytes": 536887296,
+          "checks": 1
+        }
+      ],
+      "wall_p50_seconds": 0.00012449995847418904,
+      "wall_p95_seconds": 0.00012449995847418904,
+      "is_deterministic": false
+    }
+  ]
+}

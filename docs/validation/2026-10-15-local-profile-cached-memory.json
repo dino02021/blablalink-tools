@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "is_mock": true,
+  "platform": "Windows",
+  "python": "3.13.6",
+  "members": 30,
+  "roles": 200,
+  "requested_repeats": 3,
+  "measurement_scope": "pure_core_plus_cooperative_checks_no_provider_billing",
+  "measurements": [
+    {
+      "kind": "healthcheck",
+      "samples": [
+        {
+          "status": "succeeded",
+          "result_id": "01ef73afa89932ee076f4fd751dd11c5df5f27e444ce75e6233ce1536d0eb5e1",
+          "wall_seconds": 1.5518793999799527,
+          "cpu_seconds": 1.546875,
+          "sampled_peak_rss_bytes": 40071168,
+          "checks": 198238
+        },
+        {
+          "status": "succeeded",
+          "result_id": "01ef73afa89932ee076f4fd751dd11c5df5f27e444ce75e6233ce1536d0eb5e1",
+          "wall_seconds": 1.8274061999982223,
+          "cpu_seconds": 1.734375,
+          "sampled_peak_rss_bytes": 43147264,
+          "checks": 198238
+        },
+        {
+          "status": "succeeded",
+          "result_id": "01ef73afa89932ee076f4fd751dd11c5df5f27e444ce75e6233ce1536d0eb5e1",
+          "wall_seconds": 1.4731116999755614,
+          "cpu_seconds": 1.4375,
+          "sampled_peak_rss_bytes": 43081728,
+          "checks": 198238
+        }
+      ],
+      "wall_p50_seconds": 1.5518793999799527,
+      "wall_p95_seconds": 1.8274061999982223,
+      "is_deterministic": true
+    },
+    {
+      "kind": "raid",
+      "samples": [
+        {
+          "status": "succeeded",
+          "result_id": "6dcb50f4f04fa7ce8f2d0c8036fbf0ef9348680e568dc9aec9923251a8a9a4ed",
+          "wall_seconds": 0.4808277999982238,
+          "cpu_seconds": 0.484375,
+          "sampled_peak_rss_bytes": 41918464,
+          "checks": 24260
+        },
+        {
+          "status": "succeeded",
+          "result_id": "6dcb50f4f04fa7ce8f2d0c8036fbf0ef9348680e568dc9aec9923251a8a9a4ed",
+          "wall_seconds": 0.4755159000051208,
+          "cpu_seconds": 0.46875,
+          "sampled_peak_rss_bytes": 41189376,
+          "checks": 24260
+        },
+        {
+          "status": "succeeded",
+          "result_id": "6dcb50f4f04fa7ce8f2d0c8036fbf0ef9348680e568dc9aec9923251a8a9a4ed",
+          "wall_seconds": 0.5036415999638848,
+          "cpu_seconds": 0.515625,
+          "sampled_peak_rss_bytes": 41193472,
+          "checks": 24260
+        }
+      ],
+      "wall_p50_seconds": 0.4808277999982238,
+      "wall_p95_seconds": 0.5036415999638848,
+      "is_deterministic": true
+    }
+  ]
+}

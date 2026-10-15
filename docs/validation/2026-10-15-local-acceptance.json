@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 412,
+  "observed_test_cases": 415,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -232,13 +232,14 @@
       "id": "A20",
       "tests": [
         "local_tests/test_raid_execution.py::test_operation_limit_preserves_checkpoint_and_local_retry_finishes",
-        "local_tests/test_local_worker.py::test_healthcheck_budget_interrupts_without_partial_results"
+        "local_tests/test_local_worker.py::test_healthcheck_budget_interrupts_without_partial_results",
+        "local_tests/test_process_memory.py::test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types"
       ],
       "remaining": [
         "實際 hosted deadline／memory profile 與硬性程序隔離"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 5
+      "observed_cases": 6
     },
     {
       "id": "A21",

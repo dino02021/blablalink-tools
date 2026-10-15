@@ -1,6 +1,7 @@
 """Read this process's resident memory using local operating-system facilities."""
 
 import os
+from functools import lru_cache
 from pathlib import Path
 import sys
 
@@ -25,6 +26,17 @@ def local_compute_budget() -> ComputeBudget:
 
 def _windows_resident_bytes() -> int:
     import ctypes
+    kernel, psapi, counter_type = _windows_memory_api()
+    counters = counter_type()
+    counters.cb = ctypes.sizeof(counters)
+    if not psapi.GetProcessMemoryInfo(kernel.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+        raise OSError(ctypes.get_last_error(), "local process memory read failed")
+    return int(counters.WorkingSetSize)
+
+
+@lru_cache(maxsize=1)
+def _windows_memory_api():
+    import ctypes
     from ctypes import wintypes
 
     class ProcessMemoryCounters(ctypes.Structure):
@@ -39,8 +51,4 @@ def _windows_resident_bytes() -> int:
     kernel.GetCurrentProcess.restype = wintypes.HANDLE
     psapi.GetProcessMemoryInfo.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessMemoryCounters), wintypes.DWORD)
     psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
-    counters = ProcessMemoryCounters()
-    counters.cb = ctypes.sizeof(counters)
-    if not psapi.GetProcessMemoryInfo(kernel.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
-        raise OSError(ctypes.get_last_error(), "local process memory read failed")
-    return int(counters.WorkingSetSize)
+    return kernel, psapi, ProcessMemoryCounters
