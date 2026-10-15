@@ -853,7 +853,7 @@ blablalink-tools/
 
 ### 17.4 仍可獨立完成的待辦
 
-1. 快照模型、本地物件持久化、分片續傳、封存與原始 API mock normalizer 已完成；仍需 collector 端完整來源證明、保留清理與遠端 transport 契約。
+1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、基本格子請求與舊 GS 六列／十二欄標準 decoder 已完成；十一欄遷移、完整格式／維度、分片 staging 與完整表格對照仍待完成。
@@ -1047,3 +1047,11 @@ blablalink-tools/
 - 追加：健檢中斷尚無 stage checkpoint，resume 從同 pinned 輸入重算；整個程序 RSS 與其他 Unix peak fallback 不能當單一工作精確用量。
 - 7 項新增 mock／本機測試涵蓋四處健檢中斷、恢復成功、本機 memory 讀值、小上限與 OS 讀取失敗。
 - 單次 JSON／排序／阻塞 I/O 仍不能合作式中止；硬性子程序隔離、平台 deadline 與 hosted 量測證據仍待驗收。完整契約見 docs/spec/57-local-compute-resources.md。
+
+### 17.22 第十九批：mock collector 與來源分頁證據（2026-10-15）
+
+- 新增 CollectionPort／MockCollection 與 run_collection_job，依不可變 roster／reference 輸入產生 raw→training；完整且無 issues 才封存成功 result，不自動發布試算表。
+- 追加：不能僅信任 caller 的 complete 字串。分頁需固定身份／source／reference、同 revision／total、無重複與循環、terminal 數量正確，details／effects 精確覆蓋 request。partial 不推定 not_owned，缺 effects 不推定零詞條。
+- 對 auth 停止該成員後續請求；逾時／缺頁有限重試，結構矛盾隔離。白名單後才保存 rows hash，cursor／revision 只保存 hash。
+- 新增 19 項 mock 驗收；未呼叫真實 API、未讀取憑證或正式設定。
+- provider 仍是可信 port，未證明真實 API 有 revision／total 或跨 source 原子性；實際 adapter 必須提供真實證據，不得虛構完整性欄位。durable 分頁 checkpoint、roster 擷取與傳輸仍待完成。契約見 docs/spec/58-offline-collection-evidence.md。

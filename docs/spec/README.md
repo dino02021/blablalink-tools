@@ -66,6 +66,7 @@
 - [55：已發布報告的本地發送候選](55-report-delivery-compilation.md)
 - [56：有界本地 worker](56-offline-worker.md)
 - [57：本地計算資源檢查](57-local-compute-resources.md)
+- [58：本地蒐集分頁證據](58-offline-collection-evidence.md)
 
 ## 撰寫規則
 
