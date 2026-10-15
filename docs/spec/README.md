@@ -21,6 +21,10 @@
    需要改 CLI、job layer 或 workflow 時看這份。
 5. [05-coding-style.md](./05-coding-style.md)
    程式風格、命名規範與 UI 佈局規則。
+6. [40-local-migration-core.md](./40-local-migration-core.md)
+   新架構的本地計算核心，尚未接入正式流程。
+7. [41-local-snapshots-and-reports.md](./41-local-snapshots-and-reports.md)
+   不可變快照、人工修正、報告及本地完整性閘門。
 
 ## 涵蓋範圍
 

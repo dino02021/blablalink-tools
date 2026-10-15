@@ -1,0 +1,12 @@
+{
+  "source_repository": "nikke-union-management",
+  "source_head": "309b7c8c342e97d3cdb8441c23d0ab21c8f138b4",
+  "captured_date": "2026-10-15",
+  "files_sha256": {
+    "constants.gs": "9ba2929af647217fbafbc41b10a2e22a3f525b898f31ba002ddae65f02388b3b",
+    "utils.gs": "eb67716b1bb8b99897cd99091cc030903682e59f8bbc1f3b594f67f884b01ac7",
+    "score_engine.gs": "6bbc4884e1a757b1b53ceeb4af58417f8b19b6101792e26ad1fa9a999a2e7c0b"
+  },
+  "fixture_sha256": "d38f2ce8e347bd5308a84e7f5ed1f62ea123ed8a33d024bdb17397bedcddfff9",
+  "scope": "Exact numeric helpers only; not a complete Sheets scoring integration test. No workbook or credential data."
+}

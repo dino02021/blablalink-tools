@@ -853,11 +853,34 @@ blablalink-tools/
 
 ### 17.4 仍可獨立完成的待辦
 
-1. 不可變原始／設定快照、coverage、人工修正與內容指紋。
-2. 結構化健檢報告、真實資料快照差異、完整 GS mock／固定來源對照。
+1. 快照模型已完成；仍需原始 API mock normalizer、物件持久化與完整來源 coverage 契約。
+2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖。
 4. mock Sheets publisher、layout planner、未知發布與舊任務覆蓋測試。
 5. Python 排刀移轉、歷史／指定刀與固定案例／效能測試。
 6. mock Discord outbox、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
+
+### 17.5 第二批完成與新增契約（2026-10-15）
+
+- domain/snapshots.py：canonical JSON、SHA-256、UTC 時間、完整 envelope、來源與設定版本、不可變訓練記錄、人工修正及快照差異。
+- domain/reports.py：結構化缺項與相同結果派生的報告。未知擁有狀態不產生「請抽取」，缺資料的預覽標示不完整。
+- application/healthcheck.py：以固定設定、資料、cohort、人工修正、顯示名稱與程式版本產生可重現 result_id；資料不足則拒絕產出可發布結果。
+- 82 項本地測試通過，含多組參數／對照案例；Python 編譯及 Node 語法檢查通過。
+- 凍結 GS helper fixture 來源 head 為 309b7c8c342e97d3cdb8441c23d0ab21c8f138b4，另保存實際來源檔與 fixture SHA-256。這是純函式對照，不代表完整試算表／排刀相容驗收完成。
+
+追加的規格細節：
+
+1. 門檻解析依舊 GS 移除內部空白；評分解析只去頭尾空白。不能用單一 whitespace 規則改變兩者。
+2. Python 新版 sum 可能採用較精確的浮點加總；相容評分必須維持顯式逐項 binary64 累加。
+3. JavaScript Math.round 不應以 floor(x + 0.5) 粗略模擬，因相鄰浮點值可能先被加法進位；本地已對照 0.5 下鄰值及大整數。
+4. 新輸入契約只接受十進位 ASCII 數值及支援等級；十六進位、二進位、單獨加號、非有限值及全形數字不按 JS Number 的寬鬆行為解析。
+5. trait_1／2／3 必須附 function_id。原始詞條完整保留在 function ID 映射，換追蹤順序重新投影即可。
+6. 人工修正的 0、明確空白、停用與 clear 分開處理；重複目標阻擋。養成修正不能推定角色已持有，也不能新增未涵蓋身份。
+7. 缺資料、未知擁有狀態、空名單或缺少有權重的數值不得被轉成正常 0 分結果。真正清空／停用聯盟需獨立確認流程，不能和擷取失敗共用分支。
+8. 快照差異只比較同聯盟、同字典版本、可比較的共同 metric／function ID。新資料補齊、詞條換位及數值表示差異不算養成進步。
+9. 舊報告不輸出突破缺項；目前保留文字相容行為，突破檢查仍存在結構化 assessments 中，不能視為達標。
+10. 報告顯示文字會移除控制換行並處理引號、反引號及 @，防止顯示名稱破壞程式碼區塊或插入額外 mention。
+11. JSON envelope 不接受重複 key；內容變更必須符合 expected SHA-256。秘密欄位防呆不是完整 collector 欄位白名單的替代品，收集器仍待實作。
+12. Node 子程序只執行固定原始碼 fixture 與合成 JSON，清除 provider 秘密及 NODE_OPTIONS；其 VM 不提供 require／fetch。Python socket guard 不應被描述成能攔截任意子程序網路。
