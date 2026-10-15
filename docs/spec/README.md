@@ -29,6 +29,8 @@
    本地持久任務、設定發布、執行與發布權限、預算及競爭測試。
 9. [43-mock-sheet-publication.md](./43-mock-sheet-publication.md)
    mock 工作簿生成區、封存結果發布與部分成功恢復。
+10. [44-local-snapshot-chunks.md](./44-local-snapshot-chunks.md)
+    大型快照分片、續傳、完整性與封存閘門。
 
 ## 涵蓋範圍
 

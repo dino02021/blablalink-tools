@@ -853,7 +853,7 @@ blablalink-tools/
 
 ### 17.4 仍可獨立完成的待辦
 
-1. 快照模型已完成；仍需原始 API mock normalizer、物件持久化與完整來源 coverage 契約。
+1. 快照模型、本地物件持久化、分片續傳與封存已完成；仍需原始 API mock normalizer、完整來源 coverage、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布及舊權限測試已完成；精確格子／格式 layout planner、分片 staging 與完整表格對照仍待完成。
@@ -913,3 +913,12 @@ blablalink-tools/
 - 追加：mock 人工區與生成區分離，生成區採完整替換避免舊尾端資料殘留。layout revision 衝突須拒絕覆寫並保留未明狀態。
 - 這批是邏輯生成區模型，尚不包含正式格子座標、格式、公式、保護區、分片 staging 或 Google HTTP 模擬；不能宣稱完整 Sheets 相容性。
 - 追加：封存 manifest 以 canonical JSON 比對，不能用 Python 的寬鬆數值相等取代不可變內容契約。全套 135 項 mock 測試通過。
+
+### 17.8 第五批：本地快照 transport（2026-10-15）
+
+- domain/chunks.py 實作 zlib／SHA-256 manifest、32 KiB 分片、最多 512 片與 16 MiB 物件限制；原始／壓縮大小均受限制。
+- adapters/local_chunks.py 支援持久化任意順序上傳、缺片查詢、重播、重啟續傳與完整封存。未封存不得 read，已封存每次讀取仍重新驗證。
+- 追加：封存必須拒絕不完整序號、hash／精確大小不符、尾隨壓縮資料、未結束 stream 與超出宣告解壓大小。解壓器輸出有界，不能先無限制解壓再檢查。
+- 追加：同一物件首份 manifest 固定；重新壓縮結果若不同需沿用已登記版本，不得混傳不同分片。SHA 與 schema／大小欄位皆嚴格驗證。
+- 測試使用合成資料並涵蓋 sealed 快照匯入本地狀態庫。此功能尚未接上 HTTP／D1，也未取代工作簿 staging；儲存配額、保留清理與遠端封裝仍待實作。
+- 全套 151 項本地測試及新增模組的 Python 語法檢查通過。
