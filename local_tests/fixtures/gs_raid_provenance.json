@@ -1,0 +1,29 @@
+{
+  "source_head": "309b7c8c342e97d3cdb8441c23d0ab21c8f138b4",
+  "sources": {
+    "raid_plan_output.gs": {
+      "sha256": "e87eaeb24cf490be207e45e6681d9e35ec22c7593a1fcab8885747966801f3e0",
+      "symbols": [
+        "_estimateRaidKnifeDamageYi"
+      ]
+    },
+    "raid_plan_execution.gs": {
+      "sha256": "acdd428996e8947db30e0cddb0cd80d91c098fd7f54bf16d8dd2d21da82f9fb4",
+      "symbols": [
+        "_createRaidFinitePhaseRemaining",
+        "_getRaidCurrentFinitePhaseFromRemaining",
+        "_isRaidFiniteFrontClearedFromRemaining",
+        "_collectRaidPlanStageItemsForBoss",
+        "_assignRaidKnifeFiniteStageForBoss",
+        "_assignRaidTailStageKnives"
+      ]
+    },
+    "raid_plan_round.gs": {
+      "sha256": "651d4d8fe74530ed25f48d4f5667f9403ae664f10f69d7ea4cb7003d125cb77b",
+      "symbols": [
+        "_normalizeRaidRoundPlanStagesByBoss"
+      ]
+    }
+  },
+  "fixture_sha256": "81a33667f2244d6690d902469f3066debfff8202a02667f5eb58d8fa8050f53d"
+}

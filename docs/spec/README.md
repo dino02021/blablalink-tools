@@ -37,6 +37,8 @@
     原始欄位白名單、來源完整性、持有判斷與全部詞條投影。
 13. [47-local-report-outbox.md](./47-local-report-outbox.md)
     固定發送意圖、分段狀態、未知結果與 mock Discord。
+14. [48-local-raid-inputs-and-simulation.md](./48-local-raid-inputs-and-simulation.md)
+    排刀輸入、指定／歷史刀與精確階段扣血模擬。
 
 ## 涵蓋範圍
 
