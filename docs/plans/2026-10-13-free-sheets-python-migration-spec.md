@@ -856,7 +856,7 @@ blablalink-tools/
 1. 快照模型、本地物件持久化、分片續傳與封存已完成；仍需原始 API mock normalizer、完整來源 coverage、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
-4. mock 生成區 publisher、未知發布及舊權限測試已完成；精確格子／格式 layout planner、分片 staging 與完整表格對照仍待完成。
+4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. Python 排刀移轉、歷史／指定刀與固定案例／效能測試。
 6. mock Discord outbox、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
@@ -922,3 +922,13 @@ blablalink-tools/
 - 追加：同一物件首份 manifest 固定；重新壓縮結果若不同需沿用已登記版本，不得混傳不同分片。SHA 與 schema／大小欄位皆嚴格驗證。
 - 測試使用合成資料並涵蓋 sealed 快照匯入本地狀態庫。此功能尚未接上 HTTP／D1，也未取代工作簿 staging；儲存配額、保留清理與遠端封裝仍待實作。
 - 全套 151 項本地測試及新增模組的 Python 語法檢查通過。
+
+### 17.9 第六批：穩定欄位與 layout 確認（2026-10-15）
+
+- domain/layout.py 提供 Column／Layout／LayoutPlan，按穩定 ID 規劃更新、封存、恢復與附加；確認綁定完整計畫、base revision、設定及程式版本。
+- mock 工作簿保存變更前的結構與生成資料，確認失敗保持原狀；未實作真正刪除。
+- render_columns 輸出精確 system 欄範圍、型別化值、結構化狀態顏色與尾列清除；字串不轉公式，拒絕非有限數值及不精確大整數。
+- 追加：混合人工欄的同表不能直接按新名單重排生成列；必須核對舊 member ID 順序。人工資料應獨立成區，以 ID 關聯，避免備註跟著位置錯配。
+- 追加：既有實體欄保持位置，desired 順序只決定新欄附加順序。屬性分組重排需另有可確認的遷移計畫，不能假稱目前已支援。
+- 目前是單列標題的新模型，尚需舊 GS 多列／12 欄模板轉換、隱藏／維度請求、格子級 mock 與中央 layout publisher 串接；不以純模型測試宣稱完整表格相容。
+- 全套 167 項本地 mock 測試及新增／變更模組的 Python 語法檢查通過。

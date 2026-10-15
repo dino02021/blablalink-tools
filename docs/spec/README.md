@@ -31,6 +31,8 @@
    mock 工作簿生成區、封存結果發布與部分成功恢復。
 10. [44-local-snapshot-chunks.md](./44-local-snapshot-chunks.md)
     大型快照分片、續傳、完整性與封存閘門。
+11. [45-local-layout-planning.md](./45-local-layout-planning.md)
+    穩定欄位、確認計畫、封存與型別化儲存格請求。
 
 ## 涵蓋範圍
 

@@ -5,10 +5,12 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 from application.tasks import StateConflict
 from domain.snapshots import canonical_json
+from domain.layout import Column, Layout, LayoutPlan, confirm_layout
 
 
 class MockSheets:
@@ -33,6 +35,29 @@ class MockSheets:
         book = self.read(resource)
         book["inputs"] = copy.deepcopy(inputs)
         self._save(resource, book)
+
+    def initialize_layout(self, layout: Layout) -> None:
+        book = self.read(layout.resource)
+        if "layout" in book:
+            raise StateConflict("layout already initialized")
+        book["layout"] = asdict(layout)
+        book["layout_revision"] = layout.revision
+        book["layout_archives"] = []
+        self._save(layout.resource, book)
+
+    def read_layout(self, resource: str) -> Layout:
+        data = self.read(resource)["layout"]
+        return Layout(data["resource"], data["tab_id"], tuple(Column(**c) for c in data["columns"]), data["schema_version"])
+
+    def apply_layout(self, plan: LayoutPlan, confirmed_plan_id: str, config_id: str, code_sha: str) -> None:
+        current = self.read_layout(plan.before.resource)
+        updated = confirm_layout(plan, current, confirmed_plan_id, config_id, code_sha)
+        book = self.read(current.resource)
+        book["layout_archives"].append({"layout": asdict(current), "generated": copy.deepcopy(book["generated"]),
+                                         "plan_id": plan.plan_id})
+        book["layout"] = asdict(updated)
+        book["layout_revision"] = updated.revision
+        self._save(current.resource, book)
 
     def apply(self, resource: str, revision: str, generated: dict, commit_id: str,
               fault: str | None = None) -> None:
