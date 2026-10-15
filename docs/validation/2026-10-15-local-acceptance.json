@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 653,
+  "observed_test_cases": 673,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -210,13 +210,17 @@
       "tests": [
         "local_tests/test_raid_confirmation.py::test_sorted_generated_view_keeps_identity_original_inputs_and_multiline_tail",
         "local_tests/test_raid_workbook.py::test_sorted_overview_does_not_reorder_or_rewrite_fixed_inputs",
-        "local_tests/test_raid_workbook.py::test_stale_confirmation_keeps_its_original_workbook"
+        "local_tests/test_raid_workbook.py::test_stale_confirmation_keeps_its_original_workbook",
+        "local_tests/test_raid_inputs.py::test_compiler_binds_actual_ranks_roster_and_original_human_inputs",
+        "local_tests/test_raid_inputs.py::test_new_healthcheck_desired_makes_existing_confirmation_stale_immediately",
+        "local_tests/test_raid_inputs.py::test_roster_change_stales_confirmed_plan_without_replacing_problem_or_old_view",
+        "local_tests/test_raid_inputs.py::test_compiled_raid_job_loses_eligibility_when_healthcheck_desired_changes"
       ],
       "remaining": [
-        "排刀工作簿實體 adapter、路由與 confirmed publisher eligibility"
+        "confirmed publisher eligibility、實體 adapter／路由與 raid 人工來源採用 head"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 3
+      "observed_cases": 9
     },
     {
       "id": "A17",

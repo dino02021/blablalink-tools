@@ -5,6 +5,7 @@ from dataclasses import asdict
 from application.compute_budget import ComputeBudget, ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
 from application.raid_workbook import render_raid_workbook
+from application.raid_inputs import COMPILER, is_raid_dependency_current
 from domain.execution import execution_checks
 from domain.raid import RaidKnife, RaidSimulation
 from domain.raid_finalize import FinalRaidPlan, finalize_rounds
@@ -21,6 +22,10 @@ def run_raid_job(store, lease, problem: RaidProblem, budget: ComputeBudget):
     if (job.spec.command != "generate_raid_draft" or job.spec.code_sha != problem.code_sha
             or job.spec.version_map.get("problem") != problem.problem_id):
         raise StateConflict("raid job does not match immutable computation inputs")
+    if (dict(problem.input_versions).get("raid_compiler") == COMPILER
+            and (any(job.spec.version_map.get(key) != value for key, value in problem.input_versions)
+                or not is_raid_dependency_current(store, job.spec.scope_id, problem))):
+        raise StateConflict("raid job source dependencies are stale or unbound")
     if job.spec.executor_type == "vercel" and (budget.seconds > 240 or budget.memory_limit_bytes is None
             or budget.memory_limit_bytes > 1500000000):
         raise ValueError("Vercel profile requires bounded time and memory evidence")

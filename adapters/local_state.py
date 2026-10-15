@@ -65,6 +65,17 @@ class LocalStateStore:
     def is_job_current(self, job_id: str) -> bool:
         return self._is_current(self._job_row(job_id))
 
+    def has_successful_publication(self, job_id: str) -> bool:
+        job = self.get_job(job_id)
+        return job.state == "succeeded" and self._connection.execute(
+            "SELECT 1 FROM publications WHERE job_id=? AND state='succeeded' LIMIT 1", (job_id,)
+        ).fetchone() is not None
+
+    def union_input_version(self, scope_id: str) -> dict | None:
+        validate_identifier(scope_id)
+        row = self._connection.execute("SELECT * FROM union_input_heads WHERE scope_id=?", (scope_id,)).fetchone()
+        return dict(row) if row else None
+
     def list_jobs(self) -> tuple[Job, ...]:
         return tuple(_job(row) for row in self._connection.execute("SELECT * FROM jobs ORDER BY created_at, job_id"))
 
@@ -683,7 +694,7 @@ class LocalStateStore:
             if replay["signature"] != signature:
                 raise StateConflict("request ID reused with different content")
             return self.get_job(replay["job_id"])
-        if not self._is_union_input_current(spec):
+        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec):
             raise StateConflict("task union input head is stale, missing, or inactive")
         config_id = spec.version_map.get("healthcheck_config")
         if config_id is not None and self._connection.execute(
@@ -764,7 +775,7 @@ class LocalStateStore:
 
     def _is_current(self, row: sqlite3.Row) -> bool:
         spec = _job(row).spec
-        if not self._is_union_input_current(spec):
+        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec):
             return False
         if row["command"] not in AUTO_COMMANDS:
             return True
@@ -782,13 +793,27 @@ class LocalStateStore:
         return desired is None or desired["fingerprint"] == row["fingerprint"]
 
     def _is_union_input_current(self, spec: TaskSpec) -> bool:
-        head = self._connection.execute("SELECT input_id,roster_state FROM union_input_heads WHERE scope_id=?", (spec.scope_id,)).fetchone()
+        head = self.union_input_version(spec.scope_id)
         if head is None:
             return True
         bound = spec.version_map.get("union_inputs")
         if bound is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft"):
             return True
         return bound == head["input_id"] and head["roster_state"] == "active"
+
+    def _is_raid_source_current(self, spec: TaskSpec) -> bool:
+        if spec.command != "generate_raid_draft":
+            return True
+        versions = spec.version_map
+        if self.union_input_version(spec.scope_id) is None and "raid_compiler" not in versions:
+            return True
+        from application.raid_codec import restore_problem
+        from application.raid_inputs import COMPILER, is_raid_dependency_current
+        if versions.get("raid_compiler") != COMPILER or "problem" not in versions:
+            return False
+        problem = restore_problem(self.get_result(versions["problem"]))
+        return (problem.problem_id == versions["problem"] and problem.code_sha == spec.code_sha and all(versions.get(key) == value for key, value in problem.input_versions)
+            and is_raid_dependency_current(self, spec.scope_id, problem))
 
     def _require_no_publisher(self) -> None:
         if (self._connection.execute("SELECT 1 FROM resource_locks LIMIT 1").fetchone()

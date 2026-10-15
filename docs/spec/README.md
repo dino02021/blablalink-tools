@@ -95,6 +95,8 @@
 
 - [83：本地名單輸入 head 與採用](83-local-union-input-heads.md)
 
+- [84：排刀輸入編譯與來源過期](84-raid-input-compiler.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

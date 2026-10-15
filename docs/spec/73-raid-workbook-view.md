@@ -21,3 +21,5 @@ LocalRaidPlans.confirmation_workbook 從確認記錄所指的原始 problem／fi
 呈現前限制最多 3000 成員、9000 歷史刀及 9000 warnings，各 ViewTab 與整本格數也有界；逐成員／警示保留 execution budget 檢查。這不是 hosted 性能承諾。
 
 local_tests/test_raid_workbook.py 六項案例加上既有 raid job 驗收，涵蓋五 tab、重名與 literal、排序不改指定刀、精確大額傷害、混合歷史來源、警示／缺口、stale 確認保持原視圖與錯誤依賴拒絕。
+
+84 的 compiled problem 會在名單或來源健檢目前性改變後立即 stale，不必等待 problem head 更新。原 confirmed workbook 維持原內容，沒有實體 publisher 接線。

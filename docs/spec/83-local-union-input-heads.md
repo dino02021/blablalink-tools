@@ -33,3 +33,5 @@ head、candidate、adoption 的 object IDs／JSON signature 由現有 retention 
 local_tests/test_local_union_inputs.py 驗證固定確認、精確重播、雙連線競爭、重啟、DB rollback、queued／running／computed 舊工作 fence、unknown publisher、不刪最後發布、inactive／reactivate、retention roots 及唯讀狀態。
 
 raid 現有 confirmed head 還依 problem head 判斷 stale，尚需 input compiler 把 union_inputs／healthcheck dependency 固定並整合確認資格。其他獨立缺口為 head 變更後自動提交重算／補抓、實體人工欄遷移與共享狀態 publisher。平台 D1 行為、provider 名單完整性與正式採用均未驗證。
+
+84 已補上 raid compiler 與名單／來源健檢變更的即時 stale 防護；本節 head 採用仍不自動排補抓或重算。

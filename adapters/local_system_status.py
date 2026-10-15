@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 import sqlite3
 
-from application.tasks import AUTO_COMMANDS, TaskSpec, validate_identifier
+from adapters.local_state import LocalStateStore
+from application.raid_codec import restore_problem
+from application.raid_inputs import is_raid_dependency_current
+from application.tasks import AUTO_COMMANDS, StateConflict, TaskSpec, validate_identifier
 from domain.snapshots import canonical_json
 from domain.mock_workspace import MOCK_WORKSPACE_MARKER as MARKER
 
@@ -35,7 +38,7 @@ def read_system_status(directory, scope_ids) -> dict:
         for scope in scopes:
             try:
                 rows.append(_scope_status(connection, scope))
-            except (ValueError, KeyError, TypeError):
+            except (ValueError, KeyError, TypeError, StateConflict):
                 rows.append({"scope_id": scope, "is_available": False, "error_code": "status_input_invalid"})
         result = {"schema_version": 1, "is_mock": True, "is_read_only": True,
             "is_restore_fenced": (directory / "restore-lock.json").exists(), "scopes": rows, "global": global_status}
@@ -64,6 +67,7 @@ def _scope_status(connection, scope):
             spec.version_map.get("union_inputs") == input_head["input_id"] and input_head["roster_state"] == "active")
         desired.append({"family": spec.family, "job_id": row["job_id"], "command": spec.command, "state": row["state"],
             "is_union_input_current": input_current,
+            "is_job_current": _ReadOnlyStatusState(connection).is_job_current(row["job_id"]),
             "error_code": row["error_code"], "is_config_current": config_current, "code_sha": spec.code_sha,
             "executor_type": spec.executor_type, "versions": spec.versions, "result_id": row["result_id"], "lease_expires_at": row["expires_at"]})
     counts = dict(connection.execute("SELECT state,COUNT(*) FROM jobs WHERE scope_id=? GROUP BY state", (scope,)).fetchall())
@@ -73,20 +77,26 @@ def _scope_status(connection, scope):
     if last_published:
         last_published["is_live_workbook_verified"] = False
         target = next((target for target in desired if target["family"] == last_published["family"]), None)
-        last_published["is_current_target"] = target is not None and target["job_id"] == last_published["job_id"] and target["is_config_current"] and target["is_union_input_current"]
+        last_published["is_current_target"] = target is not None and target["job_id"] == last_published["job_id"] and target["is_job_current"]
         last_published.pop("fingerprint")
     confirmed = connection.execute("SELECT h.confirmation_id,d.draft_id,d.problem_id,i.problem_id AS current_problem_id FROM raid_confirmed_heads h "
         "JOIN raid_confirmations c ON c.confirmation_id=h.confirmation_id JOIN raid_drafts d ON d.scope_id=c.scope_id AND d.draft_id=c.draft_id "
         "LEFT JOIN raid_input_heads i ON i.scope_id=h.scope_id WHERE h.scope_id=?", (scope,)).fetchone()
     confirmation = None if confirmed is None else {"confirmation_id": confirmed["confirmation_id"], "draft_plan_id": confirmed["draft_id"],
         "problem_id": confirmed["problem_id"], "is_stale": confirmed["problem_id"] != confirmed["current_problem_id"]}
+    if confirmation is not None and not confirmation["is_stale"]:
+        reader = _ReadOnlyStatusState(connection)
+        data = reader.get_result(confirmed["problem_id"])
+        if len(canonical_json(data).encode()) > 8*1024*1024:
+            raise ValueError("status raid problem exceeds byte bound")
+        confirmation["is_stale"] = not is_raid_dependency_current(reader, scope, restore_problem(data))
     batches = dict(connection.execute("SELECT is_accepted,COUNT(*) FROM report_send_candidates WHERE scope_id=? GROUP BY is_accepted", (scope,)).fetchall())
     return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "desired": desired, "historical_job_counts": counts,
         "last_published": last_published, "raid_confirmation": confirmation,
         "report_batch_counts": {"prepared": batches.get(0, 0), "accepted": batches.get(1, 0)},
-        "has_blocked_target": any(target["state"] in BLOCKED or not target["is_config_current"] or not target["is_union_input_current"] for target in desired),
+        "has_blocked_target": any(target["state"] in BLOCKED or not target["is_job_current"] for target in desired),
         "has_pending_target": any(target["state"] not in BLOCKED | {"succeeded", "superseded", "cancelled"} for target in desired),
-        "is_all_desired_completed": bool(desired) and all(target["state"] == "succeeded" and target["is_config_current"] and target["is_union_input_current"] for target in desired)}
+        "is_all_desired_completed": bool(desired) and all(target["state"] == "succeeded" and target["is_job_current"] for target in desired)}
 
 
 def _global_status(connection, scopes):
@@ -112,3 +122,10 @@ def _bounded(connection, query, parameters, limit):
     if len(rows) > limit or sum(sum(len(value.encode()) for value in row if isinstance(value, str)) for row in rows) > 8*1024*1024:
         raise ValueError("status scope exceeds row or byte bounds")
     return rows
+
+
+class _ReadOnlyStatusState(LocalStateStore):
+    """Reuse verified reads inside the existing query-only snapshot; never migrate."""
+
+    def __init__(self, connection):
+        self._connection = connection

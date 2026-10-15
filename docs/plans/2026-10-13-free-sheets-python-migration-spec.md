@@ -1237,3 +1237,10 @@ blablalink-tools/
 - 追加：純計畫確認不足以保護並行採用；head 變更必須使舊工作在 claim／完成／發布失效，且不得越過 unresolved publisher。舊 receipt 重播只回結果，不倒回 head。
 - inactive 可持久採用並阻擋綁定名單的計算；最後成功輸出保留但狀態不再標為 current。唯讀狀態表增為十六欄，保留名單 head 與工作符合性。
 - 尚未自動排重算／補抓，獨立來源收集不因未綁名單而被取消；raid confirmed eligibility 與 compiler 仍待完成。詳見 docs/spec/83-local-union-input-heads.md。
+
+### 17.49 第四十五批：排刀輸入編譯與來源過期（2026-10-15）
+
+- 新 compiler 從同 code、目前且已發布的健檢重算核對排名，結合固定名單、raid 設定、完整身分對應的 sync／指定刀／history，產生具完整 lineage 的 problem。
+- 追加：problem head 尚未更新不能視為舊確認仍有效。名單或來源健檢 desired 變更，確認及排刀工作都必須即時失效；已確認 view 保留原內容。
+- observe 時重編譯比對；compiled task 固定全部來源，queued／running／computed 均共用 fence。唯讀狀態沿用 query-only snapshot，不因依賴檢查執行 migration。
+- confirmed publisher、raid 設定／人工輸入的獨立採用 head 及正式格線來源仍待完成。詳見 docs/spec/84-raid-input-compiler.md。

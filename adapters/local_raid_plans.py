@@ -9,6 +9,7 @@ from application.tasks import StateConflict, validate_identifier
 from application.raid_codec import restore_problem
 from application.raid_execution import restore_final
 from application.raid_workbook import render_raid_workbook
+from application.raid_inputs import compile_raid_problem, is_raid_dependency_current
 from domain.raid_finalize import FinalRaidPlan
 from domain.raid_planner import RaidProblem
 from domain.raid_view import build_raid_view
@@ -21,6 +22,13 @@ class LocalRaidPlans(LocalStateStore):
         if type(expected_revision) is not int or expected_revision < 0:
             raise ValueError("nonnegative input revision required")
         with _transaction(self._connection):
+            if not is_raid_dependency_current(self, scope_id, problem):
+                raise StateConflict("raid source dependencies are stale")
+            versions = dict(problem.input_versions)
+            if "raid_compiler" in versions:
+                rebuilt = compile_raid_problem(self, versions["healthcheck_job"], versions["raid_settings"], versions["raid_member_inputs"], problem.code_sha)
+                if rebuilt != problem:
+                    raise StateConflict("compiled raid problem differs from source artifacts")
             head = self.input_head(scope_id)
             revision = head["revision"] if head else 0
             if revision != expected_revision:
@@ -91,6 +99,8 @@ class LocalRaidPlans(LocalStateStore):
                 current = self.input_head(scope_id)
                 if not current or current["revision"] != expected_input_revision or current["problem_id"] != draft["problem_id"]:
                     raise StateConflict("raid draft dependencies are stale")
+                if not is_raid_dependency_current(self, scope_id, restore_problem(self.get_result(draft["problem_id"]))):
+                    raise StateConflict("raid source dependencies are stale")
                 if self.confirmed_head(scope_id) != expected_confirmed_id:
                     raise StateConflict("another raid confirmation changed the head")
                 final = self.get_result(draft["final_id"])
@@ -116,7 +126,7 @@ class LocalRaidPlans(LocalStateStore):
         record = self.confirmation(confirmation_id)
         draft = self.draft(record["scope_id"], record["draft_id"])
         current = self.input_head(record["scope_id"])
-        return {"confirmation_id": confirmation_id, "is_stale": current is None or current["problem_id"] != draft["problem_id"],
+        return {"confirmation_id": confirmation_id, "is_stale": current is None or current["problem_id"] != draft["problem_id"] or not is_raid_dependency_current(self, record["scope_id"], restore_problem(self.get_result(draft["problem_id"]))),
                 "is_current_confirmation": self.confirmed_head(record["scope_id"]) == confirmation_id}
 
     def confirmation_workbook(self, confirmation_id: str) -> dict:
