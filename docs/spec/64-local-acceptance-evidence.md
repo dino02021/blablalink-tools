@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，1,056 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md) 與 [101](101-connected-raid-mock-scenario.md)，後者區分已採用工作完成與未採用人工草稿。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，1,096 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md) 與 [101](101-connected-raid-mock-scenario.md)，後者區分已採用工作完成與未採用人工草稿。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
 | A05 | 缺 detail 不當零、function ID 投影、coverage／成員補抓 executor、reference CAS 與相容衍生投影 | hosted／細粒度／真實完整性 |
 | A06 | composite identity、名單轉換／封存、epoch、head CAS／舊工作 fence 與補抓後計算 | 全域 inactive 與舊人工區搬移 |
-| A07 | request／dispatch 持久去重、D1 七步與 receipt-driven 的實際 Miniflare CAS／schema pin／並行／response-loss／positive lookup | 完整 D1 任務 adapter／遠端主體與平台 callback |
+| A07 | request／dispatch 持久去重、D1 七步與 receipt-driven CAS、16 MiB 分片、分頁／sealed object、共用 schema session、並行／response-loss／positive lookup | 完整 D1 任務 adapter／遠端主體與平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |
 | A09 | shared resource 鎖、route head／sender CAS 與 claim 競爭互斥 | 真實路由／principal／遠端 CAS |
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |

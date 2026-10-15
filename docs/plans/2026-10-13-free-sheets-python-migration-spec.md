@@ -1390,3 +1390,22 @@ blablalink-tools/
 - 同批持續完成：marked persistent D1、原子 schema bootstrap、操作前 DDL guard 與 Python object port；實際 SDK 驗證跨程序續傳、未 seal 拒絕與完整讀回。大型 D1 效能／上限與遠端授權尚未驗收，完整回歸進行中。
 
 - 本批完整回歸：1,056 項通過、22 項本地證據通過，正式驗收仍為 false。大型 inventory 合併回覆可能超限，已追加分頁遺漏，繼續處理。
+
+### 17.70 第六十六批：D1 最大分片清單分頁（開發中）
+
+- 將 inventory 改為 ordinal keyset、固定每頁 64 筆，完整核對每頁順序、hash、大小與欄位，最多八頁。
+- 最大形狀 fixture 分開證明 D1 儲存與分頁，並不以 zeroblob 假稱合法 zlib／seal 驗收。詳見 docs/spec/105-d1-inventory-pagination.md。
+
+### 17.71 第六十七批：本地 D1 大物件有界會話（開發中）
+
+- 每 frame 維持 64 KiB，fixture input／reply 分別限制 24／32 MiB；stdout 僅回報父程序管理 sidecar 的大小與 hash，沿用既有程序樹限制。
+- 支援多片上傳與讀回 session，正在驗證完整 16 MiB 合法物件；尚不宣稱正式 Worker 或完整 coordinator 已完成。詳見 docs/spec/106-bounded-d1-object-sessions.md。
+
+- 後續 D1 coordinator 接線補充：統一 schema／同一 authoritative DB、claim 回覆遺失 receipt、大 upload lease heartbeat、sealed result 引用與完整 free admission 均須完成，詳見 docs/spec/107-d1-coordinator-integration-contract.md；尚未實作，不算完成驗收。
+
+### 17.72 第六十八批：共用本地 D1 schema／session
+
+- 新增共用 prepared statement／schema／session，固定 schema guard 加業務 statements 不超過 50，每組不超過 32 frames。
+- 同一實際本地 D1 串接 sealed object 與 receipt-driven head CAS；partial schema 先拒絕，不自動補建遺失表。十四項 focused tests 通過，完整回歸待重跑；不宣稱完整 coordinator 已完成。詳見 docs/spec/108-shared-local-d1-session.md。
+
+- 第六十六至六十八批完整回歸已通過：1,096 項、22 項本地證據，正式驗收維持 false。保存先前 SDK memory failure 與單次比較器失敗的診斷限制；下一步為同一 D1 的原子任務／lease 契約。

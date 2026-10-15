@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 1056,
+  "observed_test_cases": 1096,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -138,13 +138,21 @@
         "local_tests/test_d1_objects.py::test_schema_guard_rejects_extra_trigger_before_writing",
         "local_tests/test_d1_persistence.py::test_actual_d1_survives_two_owned_sdk_processes_and_atomic_schema_failure",
         "local_tests/test_d1_binary_runtime.py::test_actual_maximum_chunk_round_trip_stays_within_output_bound",
-        "local_tests/test_d1_object_codec.py::test_full_sixteen_mib_canonical_object_round_trip_and_limit"
+        "local_tests/test_d1_object_codec.py::test_full_sixteen_mib_canonical_object_round_trip_and_limit",
+        "local_tests/test_d1_object_inventory.py::test_actual_d1_largest_declared_inventory_does_not_exceed_output",
+        "local_tests/test_d1_large_objects.py::test_actual_sixteen_mib_canonical_object_upload_restart_seal_and_read",
+        "local_tests/test_d1_large_objects.py::test_successful_multi_chunk_write_with_lost_reply_can_replay_without_sealing",
+        "local_tests/test_d1_large_objects.py::test_owned_session_reply_digest_is_checked_before_consuming_results",
+        "local_tests/test_d1_objects.py::test_stored_chunk_corruption_cannot_be_promoted_to_sealed_input",
+        "local_tests/test_d1_objects.py::test_alternative_valid_encodings_share_object_identity_and_admission_is_bounded",
+        "local_tests/test_d1_shared_session.py::test_actual_shared_database_keeps_sealed_objects_and_atomic_heads_together",
+        "local_tests/test_d1_shared_session.py::test_existing_partial_schema_is_rejected_without_silently_recreating_missing_table"
       ],
       "remaining": [
         "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 33
+      "observed_cases": 41
     },
     {
       "id": "A08",

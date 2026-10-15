@@ -24,11 +24,17 @@ def run_receipt_d1_comparison():
     if supervision['outcome']!='completed' or not supervision['is_child_stopped']:
         raise StateConflict('receipt-driven local runtime outcome is unproven')
     result=json.loads(supervision.pop('stdout'))
+    if result.get('outcome')=='emulator_failed':
+        raise StateConflict(f"comparison emulator failed: {result.get('error_name')}: {str(result.get('error_message',''))[:1000]}")
     if (result.get('is_mock') is not True or result.get('network_providers')!=[] or result.get('are_sdk_children_closed') is not True
             or result.get('is_environment_sanitized') is not True or result.get('is_network_blocked') is not True
             or result.get('sdk_child_count',0)<1 or len(result.get('operations',[]))!=5
             or result.get('miniflare_version')!=baseline['miniflare_version'] or result.get('workerd_version')!=baseline['workerd_version']):
-        raise StateConflict('comparison runtime or fixture boundaries differ')
+        fields=('is_mock','network_providers','are_sdk_children_closed','is_environment_sanitized','is_network_blocked',
+                'sdk_child_count','miniflare_version','workerd_version')
+        diagnostic={key:result.get(key) for key in fields}
+        diagnostic['operation_count']=len(result.get('operations',[]))
+        raise StateConflict('comparison runtime or fixture boundaries differ: '+canonical_diagnostic(diagnostic))
     observed=result['operations']
     for index,intent in ((0,initial),(2,changed),(3,initial)):
         if observed[index]['outcome']!='completed':raise StateConflict('receipt-driven CAS did not complete')
@@ -45,6 +51,10 @@ def run_receipt_d1_comparison():
         'baseline_usage':baseline['emulator_query_usage'],'receipt_driven_usage':usage,
         'baseline_supervision':baseline['supervision'],'receipt_supervision':supervision,
         'baseline_details':baseline,'receipt_details':result}
+
+
+def canonical_diagnostic(value):
+    return json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))[:2000]
 
 
 def main():

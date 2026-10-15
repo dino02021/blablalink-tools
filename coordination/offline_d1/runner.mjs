@@ -5,8 +5,10 @@ import { syncBuiltinESMExports } from "node:module";
 
 // The parent attaches its Job Object before opening this one-use start gate.
 const gate=fs.readFileSync(0,"utf8");
-if(gate!=="start\n" || !process.argv[2] || fs.statSync(process.argv[2]).size>65536)process.exit(2);
+const objectSession=Boolean(process.argv[4]);
+if(gate!=="start\n" || !process.argv[2] || fs.statSync(process.argv[2]).size>(objectSession?24*1024*1024:65536))process.exit(2);
 const input=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+if(objectSession&&(!Array.isArray(input.operations)||input.operations.length<1||input.operations.length>2048||input.operations.some(operation=>operation.kind!=="batch"||!Array.isArray(operation.statements)||operation.statements.length<1||operation.statements.length>50||Buffer.byteLength(JSON.stringify(operation))>65536)))process.exit(2);
 function bindValue(value){
   if(value===null||typeof value!=="object")return value;
   if(Object.keys(value).sort().join(',')!=="base64,sha256,type"||value.type!=="d1_binary_v1"||typeof value.base64!=="string"||value.base64.length>43692)throw new Error("invalid binary control value");
@@ -66,12 +68,18 @@ try{
   // these trusted, semicolon-delimited fixture statements via prepare().run().
   const schemaStatements=Array.isArray(input.schema_statements)?input.schema_statements:
     input.schema.replace(/^\s*--.*$/gm,"").split(";").map(statement=>statement.trim()).filter(Boolean);
-  if(schemaStatements.length)await db.batch(schemaStatements.map(sql=>db.prepare(sql)));
+  if(schemaStatements.length)await db.batch(schemaStatements.map(statement=>typeof statement==="string"?
+    db.prepare(statement):db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))));
   const operations=[];
+  const collect=operation=>{
+    const encoded=encodeBinaryResults(operation);
+    if(objectSession&&Buffer.byteLength(JSON.stringify(encoded))>65536)throw new Error("object reply frame exceeds 64 KiB");
+    operations.push(encoded);
+  };
   for(const operation of input.operations){
     try{
       if(operation.kind==="batch"){
-        operations.push({outcome:"completed",results:await db.batch(operation.statements.map(statement=>
+        collect({outcome:"completed",results:await db.batch(operation.statements.map(statement=>
           db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))))});
       }else if(operation.kind==="parallel_batches"){
         const batches=await Promise.all(operation.batches.map(async statements=>{
@@ -114,4 +122,9 @@ for(const child of children){
   });
 }
 result.are_sdk_children_closed=children.every(child=>child.exitCode!==null||child.signalCode!==null);
-process.stdout.write(JSON.stringify(encodeBinaryResults(result))+"\n");
+const serialized=JSON.stringify(encodeBinaryResults(result));
+if(objectSession){
+  if(Buffer.byteLength(serialized)>32*1024*1024)throw new Error("object session reply exceeds bound");
+  fs.writeFileSync(process.argv[4],serialized,{flag:"wx"});
+  process.stdout.write(JSON.stringify({reply_size:Buffer.byteLength(serialized),reply_sha256:createHash("sha256").update(serialized).digest("hex")})+"\n");
+}else process.stdout.write(serialized+"\n");

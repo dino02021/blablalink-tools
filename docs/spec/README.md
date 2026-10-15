@@ -124,6 +124,11 @@
 - [101：人工來源到排刀發布的整合 mock 情境](101-connected-raid-mock-scenario.md)
 - [102：本地 Miniflare D1 runtime 與有界程序樹](102-local-miniflare-d1-runtime.md)
 - [103：以 receipt 驅動的低寫入 D1 CAS 候選](103-receipt-driven-d1-cas.md)
+- [104：D1 物件分片傳輸基礎](104-d1-object-transport.md)
+- [105：D1 分片清單有界分頁](105-d1-inventory-pagination.md)
+- [106：本地 D1 大物件有界會話](106-bounded-d1-object-sessions.md)
+- [107：D1 coordinator 後續整合契約（尚未實作）](107-d1-coordinator-integration-contract.md)
+- [108：共用本地 D1 schema／session](108-shared-local-d1-session.md)
 
 ## 撰寫規則
 

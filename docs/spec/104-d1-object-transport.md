@@ -37,3 +37,5 @@ Seal 由 Python 逐片讀回，核對 wire digest、manifest digest、大小、�
 實際案例已確認跨程序保留、缺片拒絕、未 seal 不讀、完整 seal／read、重播及額外 trigger 拒絕；SQLite 同驗證 immutable statements 與 guard。完整 local_tests 已通過 1,056 項，22 項本地證據通過；is_production_accepted 維持 false。
 
 追加檢查發現：最多 512 片的 inventory 與 manifest 合併回覆可能超過 64 KiB stdout，即使單片合規仍需分頁。後續需分離 manifest 查詢與 bounded inventory pages，再驗證最大形狀。現況超限會終止並拒絕確認，不可宣稱大型物件已可用。
+
+後續進度：最大 inventory 分頁見 [105](105-d1-inventory-pagination.md)，完整合法 16 MiB 實際本地 D1 與回覆遺失／完整性案例見 [106](106-bounded-d1-object-sessions.md)，同 DB schema/session 組合見 [108](108-shared-local-d1-session.md)。前述待辦中的已完成部分依後續文件更新；完整 coordinator／auth／admission 仍未完成。

@@ -1,10 +1,10 @@
 """Immutable D1 transport statements; Python performs all content verification."""
 
-from dataclasses import dataclass
 import hashlib
 import json
 
 from coordination.d1_binary import D1Binary
+from coordination.d1_statement import D1Statement as ObjectStatement
 from domain.chunks import ChunkManifest, verify_chunk
 from domain.snapshots import canonical_json
 
@@ -16,25 +16,6 @@ SCHEMA_STATEMENTS = (
     'CREATE TABLE IF NOT EXISTS object_heads(object_id TEXT PRIMARY KEY,transport_id TEXT NOT NULL) WITHOUT ROWID',
 )
 SCHEMA_ID = hashlib.sha256(canonical_json(SCHEMA_STATEMENTS).encode()).hexdigest()
-
-
-@dataclass(frozen=True)
-class ObjectStatement:
-    sql: str
-    parameters: tuple
-
-    def __post_init__(self):
-        if type(self.sql) is not str or not 0 < len(self.sql.encode()) <= 4096 or len(self.parameters) > 100:
-            raise ValueError('bounded D1 object statement required')
-        for value in self.parameters:
-            if value is not None and type(value) not in (str, int) and not isinstance(value, D1Binary):
-                raise ValueError('invalid D1 object binding')
-        if len(canonical_json(self.wire).encode()) > 65536:
-            raise ValueError('D1 object control frame exceeds 64 KiB')
-
-    @property
-    def wire(self):
-        return {'sql': self.sql, 'parameters': [value.wire if isinstance(value, D1Binary) else value for value in self.parameters]}
 
 
 def transport_id(manifest):
@@ -77,8 +58,11 @@ def read_chunk(identity, ordinal):
     return ObjectStatement('SELECT ordinal,chunk_hash,chunk_data FROM object_chunks WHERE transport_id=? AND ordinal=?', (_digest(identity), ordinal))
 
 
-def list_chunks(identity):
-    return ObjectStatement('SELECT ordinal,chunk_hash,length(chunk_data) AS size FROM object_chunks WHERE transport_id=? ORDER BY ordinal', (_digest(identity),))
+def list_chunks(identity, after=-1):
+    if type(after) is not int or not -1 <= after < 512:
+        raise ValueError('invalid chunk inventory cursor')
+    return ObjectStatement('SELECT ordinal,chunk_hash,length(chunk_data) AS size FROM object_chunks '
+        'WHERE transport_id=? AND ordinal>? ORDER BY ordinal LIMIT 64', (_digest(identity), after))
 
 
 def seal_verified_transport(manifest):
