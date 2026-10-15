@@ -105,6 +105,8 @@
 
 - [88：worker 的 mock 收集 transport](88-mock-collector-worker-transport.md)
 
+- [89：健檢持久後續調度](89-local-healthcheck-followup.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

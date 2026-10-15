@@ -8,6 +8,7 @@ import sqlite3
 from adapters.local_state import LocalStateStore
 from application.raid_codec import restore_problem
 from application.raid_inputs import is_raid_dependency_current
+from application.healthcheck_workflow import read_healthcheck_workflow
 from application.tasks import AUTO_COMMANDS, StateConflict, TaskSpec, validate_identifier
 from domain.snapshots import canonical_json
 from domain.mock_workspace import MOCK_WORKSPACE_MARKER as MARKER
@@ -52,6 +53,7 @@ def _scope_status(connection, scope):
     input_row = connection.execute("SELECT scope_id,input_id,revision,roster_state FROM union_input_heads WHERE scope_id=?", (scope,)).fetchone()
     input_head = dict(input_row) if input_row else None
     raid_source_head = _ReadOnlyStatusState(connection).raid_source_version(scope)
+    workflow = _workflow_status(connection, scope)
     jobs = _bounded(connection, "SELECT j.*,d.family AS desired_family FROM desired_targets d JOIN jobs j ON j.fingerprint=d.fingerprint WHERE d.scope_id=? ORDER BY d.family", (scope,), 50)
     desired = []
     for row in jobs:
@@ -100,7 +102,7 @@ def _scope_status(connection, scope):
             raise ValueError("status raid problem exceeds byte bound")
         confirmation["is_stale"] = not is_raid_dependency_current(reader, scope, restore_problem(data))
     batches = dict(connection.execute("SELECT is_accepted,COUNT(*) FROM report_send_candidates WHERE scope_id=? GROUP BY is_accepted", (scope,)).fetchall())
-    return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "raid_source_head": raid_source_head, "desired": desired, "historical_job_counts": counts,
+    return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "raid_source_head": raid_source_head, "healthcheck_workflow": workflow, "desired": desired, "historical_job_counts": counts,
         "last_published": last_published, "published_by_family": published_by_family, "raid_confirmation": confirmation,
         "report_batch_counts": {"prepared": batches.get(0, 0), "accepted": batches.get(1, 0)},
         "has_blocked_target": any(target["state"] in BLOCKED or not target["is_job_current"] for target in desired),
@@ -131,6 +133,22 @@ def _bounded(connection, query, parameters, limit):
     if len(rows) > limit or sum(sum(len(value.encode()) for value in row if isinstance(value, str)) for row in rows) > 8*1024*1024:
         raise ValueError("status scope exceeds row or byte bounds")
     return rows
+
+
+def _workflow_status(connection, scope):
+    row = connection.execute("SELECT h.policy_id,h.revision AS policy_revision,s.policy_id AS state_policy,s.state_json,s.state_hash,s.revision AS state_revision FROM healthcheck_workflow_heads h "
+        "LEFT JOIN healthcheck_workflow_state s ON s.scope_id=h.scope_id WHERE h.scope_id=?", (scope,)).fetchone()
+    if row is None:
+        return None
+    document = _ReadOnlyStatusState(connection).get_document(row["policy_id"])
+    read_healthcheck_workflow(document)
+    if document.envelope["scope_id"] != scope or row["state_policy"] != row["policy_id"] or row["state_json"] is None or len(row["state_json"].encode()) > 65536:
+        raise StateConflict("workflow status differs from scoped policy")
+    state = json.loads(row["state_json"])
+    expected = hashlib.sha256(canonical_json({"scope_id":scope,"policy_id":row["policy_id"],"state":state}).encode()).hexdigest()
+    if not isinstance(state, dict) or expected != row["state_hash"]:
+        raise StateConflict("workflow status checksum differs")
+    return {"policy_id":row["policy_id"],"policy_revision":row["policy_revision"],"state_revision":row["state_revision"],"state":state}
 
 
 class _ReadOnlyStatusState(LocalStateStore):

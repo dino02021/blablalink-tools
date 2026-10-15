@@ -1272,3 +1272,10 @@ blablalink-tools/
 - 追加：executor 能力篩選必須發生在候選 LIMIT 前。未綁 script 的 collection 保持 queued／attempt=0，不能塞滿前 100 筆而阻擋可執行工作。
 - 普通與 supplementary collection 均可由標記 workspace worker／native child 執行，結果仍只有觀測，不自動排健檢或發布。
 - 十七項 mock 案例通過；採用後調度、hosted／細粒度／真實 provider 契約仍待完成。詳見 docs/spec/88-mock-collector-worker-transport.md。
+
+### 17.54 第五十批：健檢採用後持久後續調度（2026-10-15）
+
+- 0014 將 code／reference／baseline raw／mock script／config scope 固定為明確 policy，以 CAS／receipt 採用；逐 scope tick 原子處理補抓結果與新工作，不直接 fetch 或發布。
+- 追加：cycle 必須包含 head revision，避免回到相同內容時錯誤重播 desired；完整觀測仍缺欄時每 cycle 最多三輪，重啟不能重設。外部 desired owner 變更須回衝突，不能互相搶 head。
+- 二十項 mock 案例驗證實際補抓→重算→工作簿發布、門檻改版不重抓、競爭／回滾、auth／inactive／missing fixture、有限輪次、ABA、來源 proof 與唯讀狀態。狀態表增加調度欄，共十八欄。
+- 本批為明確本地 tick API，尚未接背景排程或 worker 自動 hook；公平輪巡／hosted／D1／正式 provider 仍待完成。詳見 docs/spec/89-local-healthcheck-followup.md。

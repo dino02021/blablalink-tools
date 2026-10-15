@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 741,
+  "observed_test_cases": 761,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -75,13 +75,15 @@
         "local_tests/test_supplementary_collection.py::test_partial_observation_retries_from_fixed_inputs_and_preserves_history",
         "local_tests/test_supplementary_collection.py::test_complete_observation_can_return_explicit_followup_without_claiming_training_ready",
         "local_tests/test_mock_collection_worker.py::test_mock_worker_runs_bound_supplement_without_any_publish",
-        "local_tests/test_mock_collection_worker.py::test_native_worker_can_collect_bound_mock_script_without_python_parent_port"
+        "local_tests/test_mock_collection_worker.py::test_native_worker_can_collect_bound_mock_script_without_python_parent_port",
+        "local_tests/test_healthcheck_workflows.py::test_durable_tick_collects_gap_then_schedules_same_version_healthcheck",
+        "local_tests/test_healthcheck_workflows.py::test_complete_but_still_unknown_data_is_limited_to_three_supplementary_rounds"
       ],
       "remaining": [
-        "採用後補抓調度、role／option 粒度、hosted collector 與真實完整性"
+        "有界 tick runner／公平輪巡、role／option 粒度、hosted 與真實完整性"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 16
+      "observed_cases": 18
     },
     {
       "id": "A06",
@@ -92,13 +94,15 @@
         "local_tests/test_member_epochs.py::test_departure_recalculates_survivor_maximum_without_recollecting",
         "local_tests/test_local_union_inputs.py::test_two_real_database_connections_serialize_competing_adoptions",
         "local_tests/test_local_union_inputs.py::test_head_change_fences_old_claim_completion_and_publication",
-        "local_tests/test_local_union_inputs.py::test_inactive_head_stops_work_but_keeps_last_output_and_can_reactivate"
+        "local_tests/test_local_union_inputs.py::test_inactive_head_stops_work_but_keeps_last_output_and_can_reactivate",
+        "local_tests/test_healthcheck_workflows.py::test_roster_rejoin_starts_new_epoch_cycle_and_replaces_old_pending_work",
+        "local_tests/test_healthcheck_workflows.py::test_empty_inactive_scope_clears_pending_scheduler_pointer_without_new_jobs"
       ],
       "remaining": [
-        "名單採用後自動重算／補抓、全域 inactive 調度與舊實體人工區搬移"
+        "tick runner 接線、全域 inactive 調度與舊實體人工區搬移"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 9
+      "observed_cases": 11
     },
     {
       "id": "A07",

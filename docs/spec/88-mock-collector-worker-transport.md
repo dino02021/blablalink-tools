@@ -29,3 +29,5 @@ worker 的 collection 分支只建 MockScriptCollection，依 collection_kind �
 local_tests/test_mock_collection_worker.py 的 17 項案例驗證 worker 普通／補抓、native child 無 parent port、未綁定工作保持 queued／attempt=0、錯 scope 拒絕、110 筆未綁工作不阻擋可執行工作、壞 capability、分頁、未知／secret 欄位及無 publication。
 
 仍需名單／設定採用後的後續需求調度、hosted collector 契約、role／option 細粒度與正式來源完整性；目前沒有對正式環境接線。
+
+89 補上採用後的本地 durable tick：依目前 config／名單補抓或排重算、最多三輪、遇外部 desired owner 停在明確衝突。尚未接有界 worker tick runner／公平輪巡，沒有正式排程。
