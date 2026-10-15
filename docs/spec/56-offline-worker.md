@@ -6,6 +6,7 @@
 - 一次處理 1..100 個工作，預設 10，不自建背景輪詢。worker ID 與 code SHA 明確固定；只領 local／同 code 的 recompute_healthcheck、generate_raid_draft。
 - LocalStateStore.claim 的可選 commands 白名單在 SQL LIMIT 前套用，避免大量不支援任務使可處理工作飢餓；其他 caller 未指定時保留原行為，hosted claim 不接受此本地篩選。
 - 啟用 mock 發布時先處理同版本 computed 健檢，再領計算工作。發布採 persisted manifest 與原有全域／工作簿鎖，不從草稿或目前標準重新算。
+- mock 發布經 [workbook staging](60-local-workbook-staging.md) 驗分片、sealed 與 base commit 後啟用；未知啟用不自動續寫。
 - ResourceBusy 保留 computed 待下一次；publish_uncertain 保留鎖與狀態，不自動核對或重寫。程序中斷的既有 recover 規則維持不變。
 - 排刀輸入由 task.problem hash 讀取本地封存物件，restore_problem 還原 typed identity／history／fixed inputs／ranks，要求與原 canonical representation 一致。budget 中斷保存 checkpoint，需明確 resume 後重領；完成只建 draft，不確認排刀。
 - 已知無效輸入以 worker_input_invalid 結束，不輸出原始錯誤資料；LeaseLost 不讓舊 worker 改新 owner 狀態。未預期程式錯誤保留既有 lease 恢復機制，不假裝成功。

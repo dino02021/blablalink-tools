@@ -68,6 +68,7 @@
 - [57：本地計算資源檢查](57-local-compute-resources.md)
 - [58：本地蒐集分頁證據](58-offline-collection-evidence.md)
 - [59：本地控制請求驗證](59-local-control-request-gate.md)
+- [60：本地 workbook staging](60-local-workbook-staging.md)
 
 ## 撰寫規則
 

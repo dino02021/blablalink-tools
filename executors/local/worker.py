@@ -3,11 +3,13 @@
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.mock_sheets import MockSheets
 from adapters.process_memory import local_compute_budget
+from adapters.local_workbook_staging import LocalWorkbookStaging
 from application.publication import publish_workbooks
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
 from application.sheet_healthcheck import run_healthcheck_job
 from application.tasks import LeaseLost, ResourceBusy, StateConflict, validate_identifier
+from application.workbook_staging import StagedSheets, prepare_workbook_stage
 from executors.local.demo import workspace_status
 
 SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft")
@@ -22,6 +24,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
     workspace_status(directory)  # refuse unmarked paths before opening a writer adapter
     store = LocalRaidPlans(directory / "state.sqlite")
     sheets = MockSheets(directory / "workbooks") if is_publish_enabled else None
+    staging = LocalWorkbookStaging(directory / "staging.sqlite") if is_publish_enabled else None
     processed = []
     try:
         store.recover()
@@ -31,7 +34,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                     break
                 if (job.state == "computed" and job.spec.command == "recompute_healthcheck"
                         and job.spec.executor_type == "local" and job.spec.code_sha == code_sha):
-                    _publish(store, sheets, job, worker_id, code_sha)
+                    _publish(store, sheets, staging, job, worker_id, code_sha)
                     processed.append(_status(store.get_job(job.job_id)))
         while len(processed) < max_jobs:
             lease = store.claim(worker_id, code_sha, commands=SUPPORTED_COMMANDS)
@@ -48,7 +51,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                         raise StateConflict("restored raid problem differs")
                     computed = run_raid_job(store, lease, problem, budget_factory())
                 if sheets is not None and computed.state == "computed":
-                    _publish(store, sheets, computed, worker_id, code_sha)
+                    _publish(store, sheets, staging, computed, worker_id, code_sha)
             except LeaseLost:
                 pass  # no stale writer is allowed to change the replacement owner's state
             except (ValueError, KeyError, TypeError, StateConflict):
@@ -63,10 +66,12 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             processed.append(_status(store.get_job(job.job_id)))
         return {"is_mock": True, "processed": processed, "network_providers": []}
     finally:
+        if staging is not None:
+            staging.close()
         store.close()
 
 
-def _publish(store, sheets, job, worker_id, code_sha):
+def _publish(store, sheets, staging, job, worker_id, code_sha):
     result = store.get_result(job.result_id)
     try:
         claim = store.begin_publication(job.job_id, worker_id, code_sha, tuple(result["workbooks"]))
@@ -74,8 +79,19 @@ def _publish(store, sheets, job, worker_id, code_sha):
         return  # a later bounded invocation may retry; never release another publisher
     if claim is not None:
         try:
-            publish_workbooks(store, sheets, claim, result["workbooks"], result["layout_revisions"])
+            stages = {}
+            for resource in claim.resources:
+                stage, chunks = prepare_workbook_stage(store, sheets, claim, resource)
+                staging.begin_stage(stage)
+                for index, chunk in enumerate(chunks):
+                    staging.put_stage_chunk(stage.stage_id, index, chunk)
+                staging.seal_stage(stage.stage_id)
+                stages[resource] = stage.stage_id
+            staged_sheets = StagedSheets(store, sheets, staging, stages)
+            publish_workbooks(store, staged_sheets, claim, result["workbooks"], result["layout_revisions"])
         except (TimeoutError, OSError, StateConflict):
+            if store.get_job(job.job_id).state == "publishing":
+                store.mark_publication_uncertain(claim)
             if store.get_job(job.job_id).state != "publish_uncertain":
                 raise
 

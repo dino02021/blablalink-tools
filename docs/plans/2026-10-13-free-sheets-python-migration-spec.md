@@ -1063,3 +1063,11 @@ blablalink-tools/
 - 0006 migration 保存 nonce／request 去重，金鑰僅在可信 runtime 記憶體；replay 紀錄與 job 提交之間 crash 可用固定 request key 補完，不先回假成功。human actor 明確 unknown。
 - 新增 21 項 mock 驗收，包括 body／簽章篡改、撤銷 key、過期、nonce 重用、重複 JSON key、實際目標權限、重啟與中途 crash。
 - 尚無公開端點、正式 key registry／snapshot ingestion 授權／D1 adapter；不可把服務簽章當成編輯者身份。完整邊界見 docs/spec/59-local-control-request-gate.md。
+
+### 17.24 第二十一批：可取消與續傳的 workbook staging（2026-10-15）
+
+- 新增 WorkbookStage／LocalWorkbookStaging／StagedSheets，固定 result／resource／schema／base commit 與分片 manifest；全部 sealed 才可經既有 publisher 啟用。
+- 本地 worker mock 發布改走 stage，準備／缺片／取消不碰舊結果，schema 變更拒絕啟用，人工輸入使用啟用時的最新 mock 內容。
+- 追加：啟用前即持久保存 activation_uncertain，程序消失不能變成自動 retry；stage 回讀成功只更新 stage，不自行解除 coordinator 資源鎖。
+- 新增 6 項 mock 驗收，包含實際多片上傳重啟、before／after timeout、取消、人工區保留與 schema 變動；仍未使用正式試算表。
+- A21 新增本地流程證據，但 Google staging tab、逐格格式／保護／merge 與跨 API 啟用原子性尚未驗證；本地單次檔案替換不可代表正式能力。細節見 docs/spec/60-local-workbook-staging.md。
