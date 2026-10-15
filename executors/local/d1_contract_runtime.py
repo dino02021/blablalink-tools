@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from application.tasks import StateConflict
-from coordination.d1_cas_contract import HeadCasIntent,build_head_cas_batch,verify_head_cas_batch_result,build_head_cas_lookup,verify_head_cas_lookup_result
+from coordination.d1_cas_contract import HeadCasIntent,build_head_cas_batch,verify_head_cas_batch_result,build_head_cas_lookup,verify_head_cas_lookup_result,sum_d1_query_usage
 from executors.local.emulator_process import run_d1_emulator
 
 
@@ -38,8 +38,8 @@ def run_d1_contract_runtime():
         raise StateConflict('D1 stale CAS rollback or replay changed the latest head')
     if observed[5].get('mode')!='lookup_replay' or verify_head_cas_lookup_result(initial,observed[5].get('lookup_result'))!=initial.receipt:
         raise StateConflict('D1 positive receipt lookup did not preserve original decision')
-    usage={'new_cas':_usage(observed[0]['results']),'batch_replay':_usage(observed[3]['results']),
-        'verified_lookup':_usage([observed[5]['lookup_result']])}
+    usage={'new_cas':sum_d1_query_usage(observed[0]['results']),'batch_replay':sum_d1_query_usage(observed[3]['results']),
+        'verified_lookup':sum_d1_query_usage([observed[5]['lookup_result']])}
     if usage['batch_replay']['rows_written']<=0 or usage['verified_lookup']['rows_written']!=0:
         raise StateConflict('D1 replay write-cost evidence differs')
     return {'schema_version':1,'is_mock':True,'is_production_accepted':False,'network_providers':[],
@@ -59,16 +59,6 @@ def main():
         parser.exit(2,f'local D1 contract error: {type(error).__name__}\n')
     print(json.dumps(result,ensure_ascii=False))
     return 0
-
-
-def _usage(results):
-    counts={'rows_read':0,'rows_written':0}
-    for result in results:
-        for field in counts:
-            value=result.get('meta',{}).get(field)
-            if type(value) is not int or value<0:raise StateConflict('D1 local usage metadata is incomplete')
-            counts[field]+=value
-    return counts
 
 
 if __name__=='__main__':raise SystemExit(main())

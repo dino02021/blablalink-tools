@@ -1374,3 +1374,10 @@ blablalink-tools/
 - 新增獨立 Windows SDK profile：最多四 processes、512 MiB aggregate memory、deadline／output 有界與 start gate；一般 Python profile 仍只允許單一 child。實測 runtime ready 後 timeout 關閉 SDK child。
 - 追加實際差異：D1 exec 不能直接套 SQLite executescript 的 schema 方式；batch replay 也會寫 guards。已補 positive receipt lookup，完整相符時本地 meta 寫入為零，競爭仍走原 batch，不假稱 account 用量完整。
 - 十四項 SDK／Windows 案例、七項 pure lookup 與原十五項 process guard 回歸，另實際 CLI 保存 docs/validation/2026-10-16-local-d1-runtime.json。完整 coordinator／chunks／admission／auth／正式平台與 POSIX 仍待完成。詳見 docs/spec/102-local-miniflare-d1-runtime.md。
+
+### 17.68 第六十四批：receipt 驅動的低寫入 D1 候選（2026-10-16）
+
+- 以單一 receipt INSERT 的 before／after trigger 原子完成 CAS／head／receipt，外部 batch 簡化為 mutation＋read；小型 control tables 使用 WITHOUT ROWID。
+- 追加：節省 guard writes 不能犧牲 schema 失配拒絕。新 mutation 先核對五個完整 DDL 與 trigger inventory，失配在 trigger 執行前產生 SQL error；回讀仍核對原意圖，不以 run success 當完成。
+- 同 fixture 實際 Miniflare 比較：新 CAS 由 10讀／9寫變 16讀／2寫；直接 replay 由11讀／5寫變15讀／0寫。保留讀取代價與完整帳戶用量未知，不假稱固定容量或正式配額驗收。
+- 十六項 SQLite／十項實際 SDK／九項 usage metadata 回歸，另實際 CLI 保存 docs/validation/2026-10-16-receipt-d1-comparison.json。完整 D1 jobs／leases／publisher／objects／admission／auth／release 仍待完成。詳見 docs/spec/103-receipt-driven-d1-cas.md。

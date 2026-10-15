@@ -116,3 +116,21 @@ def verify_head_cas_batch_result(intent,results):
             or canonical_json(results[5].get('results'))!=canonical_json([intent.receipt])):
         raise StateConflict('CAS outcome unproven; reconcile the same request without changing intent')
     return intent.receipt
+
+
+def sum_d1_query_usage(results):
+    if not isinstance(results,(list,tuple)) or not 1<=len(results)<=50:
+        raise StateConflict('bounded nonempty D1 usage evidence required')
+    counts={'rows_read':0,'rows_written':0}
+    for result in results:
+        if not isinstance(result,dict) or result.get('success') is not True:
+            raise StateConflict('D1 usage query outcome is incomplete')
+        meta=result.get('meta')
+        if not isinstance(meta,dict):raise StateConflict('D1 local usage metadata is incomplete')
+        for field in counts:
+            value=meta.get(field)
+            if type(value) is not int or not 0<=value<=2**53-1:
+                raise StateConflict('D1 local usage metadata is incomplete')
+            counts[field]+=value
+            if counts[field]>2**53-1:raise StateConflict('D1 usage total exceeds exact range')
+    return counts

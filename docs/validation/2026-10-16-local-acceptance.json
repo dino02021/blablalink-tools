@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 988,
+  "observed_test_cases": 1023,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -128,13 +128,18 @@
         "local_tests/test_d1_runtime.py::test_actual_miniflare_cas_replay_barrier_network_and_children",
         "local_tests/test_d1_runtime.py::test_runtime_batch_failure_rolls_back_prior_statement_before_followup_query",
         "local_tests/test_d1_runtime.py::test_actual_d1_concurrent_batches_keep_one_head_and_one_receipt",
-        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay"
+        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay",
+        "local_tests/test_receipt_d1_runtime.py::test_real_parallel_d1_batches_keep_exactly_one_head_decision",
+        "local_tests/test_receipt_d1_runtime.py::test_stale_conflict_barrier_and_old_replay_preserve_the_new_head",
+        "local_tests/test_receipt_d1_runtime.py::test_actual_d1_missing_trigger_is_rejected_before_receipt_or_head_write",
+        "local_tests/test_receipt_d1_runtime.py::test_actual_d1_changed_table_shape_fails_closed",
+        "local_tests/test_receipt_d1_runtime.py::test_lost_readback_after_single_mutation_recovers_without_open_transaction"
       ],
       "remaining": [
-        "正式平台 dispatch callback 與 D1 條件更新"
+        "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 21
+      "observed_cases": 28
     },
     {
       "id": "A08",
@@ -309,13 +314,15 @@
         "local_tests/test_local_state.py::test_cloud_budget_reservation_is_atomic_and_blocked_work_can_reroute_local",
         "local_tests/test_local_state.py::test_pending_dispatch_expiry_is_bounded_and_never_refunds_unknown_usage",
         "local_tests/test_d1_runtime.py::test_always_running_the_batch_on_replay_has_real_guard_write_cost",
-        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay"
+        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay",
+        "local_tests/test_receipt_d1_runtime.py::test_actual_receipt_trigger_cas_writes_two_rows_and_replay_writes_zero",
+        "local_tests/test_receipt_d1_runtime.py::test_same_fixture_comparison_keeps_semantics_with_lower_write_cost"
       ],
       "remaining": [
-        "帳戶共用實際免費用量與降頻政策量測"
+        "共用帳戶實際用量／降頻、完整 D1 admission／schema／物件成本"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 4
+      "observed_cases": 6
     },
     {
       "id": "A19",

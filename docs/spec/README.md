@@ -123,6 +123,7 @@
 - [100：D1 原子 CAS 的離線契約](100-d1-atomic-cas-offline-contract.md)
 - [101：人工來源到排刀發布的整合 mock 情境](101-connected-raid-mock-scenario.md)
 - [102：本地 Miniflare D1 runtime 與有界程序樹](102-local-miniflare-d1-runtime.md)
+- [103：以 receipt 驅動的低寫入 D1 CAS 候選](103-receipt-driven-d1-cas.md)
 
 ## 撰寫規則
 

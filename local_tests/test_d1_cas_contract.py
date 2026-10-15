@@ -180,3 +180,18 @@ def test_invalid_lookup_never_becomes_a_read_only_success(change):
     elif change=='duplicate':result['results'].append(dict(operation.receipt))
     elif change=='bool_revision':result['results'][0]['revision']=True
     with pytest.raises(StateConflict):verify_head_cas_lookup_result(operation,result)
+
+
+@pytest.mark.parametrize('results',[None,[],[{'success':False}],[{'success':True,'meta':None}],
+    [{'success':True,'meta':{}}],[{'success':True,'meta':{'rows_read':1.5,'rows_written':0}}],
+    [{'success':True,'meta':{'rows_read':True,'rows_written':0}}],
+    [{'success':True,'meta':{'rows_read':2**53,'rows_written':0}}]])
+def test_missing_or_invalid_usage_is_never_assumed_to_be_zero(results):
+    from coordination.d1_cas_contract import sum_d1_query_usage
+    with pytest.raises(StateConflict):sum_d1_query_usage(results)
+
+
+def test_usage_sum_preserves_actual_read_and_write_counters():
+    from coordination.d1_cas_contract import sum_d1_query_usage
+    assert sum_d1_query_usage([{'success':True,'meta':{'rows_read':2,'rows_written':1}},
+        {'success':True,'meta':{'rows_read':3,'rows_written':0}}])=={'rows_read':5,'rows_written':1}

@@ -39,8 +39,9 @@ try{
   }
   // D1 exec() parses lines differently from SQLite executescript(). Import only
   // these trusted, semicolon-delimited fixture statements via prepare().run().
-  const schema=input.schema.replace(/^\s*--.*$/gm,"");
-  for(const sql of schema.split(";").map(statement=>statement.trim()).filter(Boolean))await db.prepare(sql).run();
+  const schemaStatements=Array.isArray(input.schema_statements)?input.schema_statements:
+    input.schema.replace(/^\s*--.*$/gm,"").split(";").map(statement=>statement.trim()).filter(Boolean);
+  for(const sql of schemaStatements)await db.prepare(sql).run();
   const operations=[];
   for(const operation of input.operations){
     try{
