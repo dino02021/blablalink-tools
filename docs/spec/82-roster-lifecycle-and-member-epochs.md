@@ -29,3 +29,5 @@ prepare_roster_change 固定原 union_inputs、觀測、code 及排序政策，�
 local_tests/test_roster_lifecycle.py 與 test_member_epochs.py 覆蓋加入、離開、改名、排序、同名、人工欄封存、重新加入隔離、壞資料與容量。端到端案例實際證明舊養成等待、帶新 epoch 的 mock collector 完成後可計算發布，以及名單縮減可直接重算。
 
 仍需獨立完成持久 head CAS／採用、inactive 工作處理、raid dependency stale 防護與實體人工欄遷移；真實 provider 的名單完整性及 epoch 採集契約不在本地證據內。
+
+持久 head／base revision CAS 與 inactive 綁定工作 fence 已由 83 補上；本節純計畫函式仍不直接寫 head。全域 inactive 調度、自動補抓／重算與舊人工格線遷移尚未完成。

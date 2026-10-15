@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 635,
+  "observed_test_cases": 653,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -84,13 +84,16 @@
         "local_tests/test_layout.py::test_mixed_human_columns_require_stable_member_rows",
         "local_tests/test_snapshots.py::test_member_key_is_region_scoped_and_delimiter_safe",
         "local_tests/test_member_epochs.py::test_rejoin_blocks_old_known_record_then_fresh_collection_unblocks_calculation",
-        "local_tests/test_member_epochs.py::test_departure_recalculates_survivor_maximum_without_recollecting"
+        "local_tests/test_member_epochs.py::test_departure_recalculates_survivor_maximum_without_recollecting",
+        "local_tests/test_local_union_inputs.py::test_two_real_database_connections_serialize_competing_adoptions",
+        "local_tests/test_local_union_inputs.py::test_head_change_fences_old_claim_completion_and_publication",
+        "local_tests/test_local_union_inputs.py::test_inactive_head_stops_work_but_keeps_last_output_and_can_reactivate"
       ],
       "remaining": [
-        "持久名單 head 採用、inactive 流程與舊實體人工區搬移對照"
+        "名單採用後自動重算／補抓、全域 inactive 調度與舊實體人工區搬移"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 4
+      "observed_cases": 9
     },
     {
       "id": "A07",

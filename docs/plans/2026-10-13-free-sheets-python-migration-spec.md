@@ -1230,3 +1230,10 @@ blablalink-tools/
 - 追加：相同 ID 重新加入仍是新的加入版本，不可沿用先前完整養成或自動恢復人工修正。raw／training／collector／reference 投影均傳遞加入版本，健檢與沿用 planner 必須核對。
 - 本地案例涵蓋重新加入舊資料等待、mock 補抓後發布、移除成員直接重算及容量防護。原輸入與目標上限 8 MiB、archive 上限 1,000，不自動丟棄歷史。
 - 純計畫確認尚非持久 head CAS；inactive 採用、raid stale 依賴、舊格線人工欄遷移仍待完成。詳見 docs/spec/82-roster-lifecycle-and-member-epochs.md。
+
+### 17.48 第四十四批：名單輸入持久 head 與採用 fence（2026-10-15）
+
+- 0012 保存 union-input head、具 base revision 的 roster candidate 及 request／adoption receipt；候選與採用均重建固定計畫，兩個程序競爭只有一個能更新。
+- 追加：純計畫確認不足以保護並行採用；head 變更必須使舊工作在 claim／完成／發布失效，且不得越過 unresolved publisher。舊 receipt 重播只回結果，不倒回 head。
+- inactive 可持久採用並阻擋綁定名單的計算；最後成功輸出保留但狀態不再標為 current。唯讀狀態表增為十六欄，保留名單 head 與工作符合性。
+- 尚未自動排重算／補抓，獨立來源收集不因未綁名單而被取消；raid confirmed eligibility 與 compiler 仍待完成。詳見 docs/spec/83-local-union-input-heads.md。

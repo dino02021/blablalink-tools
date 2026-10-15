@@ -46,6 +46,8 @@ def read_system_status(directory, scope_ids) -> dict:
 
 
 def _scope_status(connection, scope):
+    input_row = connection.execute("SELECT scope_id,input_id,revision,roster_state FROM union_input_heads WHERE scope_id=?", (scope,)).fetchone()
+    input_head = dict(input_row) if input_row else None
     jobs = _bounded(connection, "SELECT j.*,d.family AS desired_family FROM desired_targets d JOIN jobs j ON j.fingerprint=d.fingerprint WHERE d.scope_id=? ORDER BY d.family", (scope,), 50)
     desired = []
     for row in jobs:
@@ -58,7 +60,10 @@ def _scope_status(connection, scope):
         if spec.command in AUTO_COMMANDS and config_id is not None:
             head = connection.execute("SELECT h.config_id FROM config_versions v JOIN config_heads h ON h.config_type=v.config_type AND h.scope_id=v.scope_id WHERE v.config_id=?", (config_id,)).fetchone()
             config_current = head is not None and head[0] == config_id
+        input_current = input_head is None or (spec.version_map.get("union_inputs") is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft")) or (
+            spec.version_map.get("union_inputs") == input_head["input_id"] and input_head["roster_state"] == "active")
         desired.append({"family": spec.family, "job_id": row["job_id"], "command": spec.command, "state": row["state"],
+            "is_union_input_current": input_current,
             "error_code": row["error_code"], "is_config_current": config_current, "code_sha": spec.code_sha,
             "executor_type": spec.executor_type, "versions": spec.versions, "result_id": row["result_id"], "lease_expires_at": row["expires_at"]})
     counts = dict(connection.execute("SELECT state,COUNT(*) FROM jobs WHERE scope_id=? GROUP BY state", (scope,)).fetchall())
@@ -68,7 +73,7 @@ def _scope_status(connection, scope):
     if last_published:
         last_published["is_live_workbook_verified"] = False
         target = next((target for target in desired if target["family"] == last_published["family"]), None)
-        last_published["is_current_target"] = target is not None and target["job_id"] == last_published["job_id"] and target["is_config_current"]
+        last_published["is_current_target"] = target is not None and target["job_id"] == last_published["job_id"] and target["is_config_current"] and target["is_union_input_current"]
         last_published.pop("fingerprint")
     confirmed = connection.execute("SELECT h.confirmation_id,d.draft_id,d.problem_id,i.problem_id AS current_problem_id FROM raid_confirmed_heads h "
         "JOIN raid_confirmations c ON c.confirmation_id=h.confirmation_id JOIN raid_drafts d ON d.scope_id=c.scope_id AND d.draft_id=c.draft_id "
@@ -76,12 +81,12 @@ def _scope_status(connection, scope):
     confirmation = None if confirmed is None else {"confirmation_id": confirmed["confirmation_id"], "draft_plan_id": confirmed["draft_id"],
         "problem_id": confirmed["problem_id"], "is_stale": confirmed["problem_id"] != confirmed["current_problem_id"]}
     batches = dict(connection.execute("SELECT is_accepted,COUNT(*) FROM report_send_candidates WHERE scope_id=? GROUP BY is_accepted", (scope,)).fetchall())
-    return {"scope_id": scope, "is_available": True, "desired": desired, "historical_job_counts": counts,
+    return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "desired": desired, "historical_job_counts": counts,
         "last_published": last_published, "raid_confirmation": confirmation,
         "report_batch_counts": {"prepared": batches.get(0, 0), "accepted": batches.get(1, 0)},
-        "has_blocked_target": any(target["state"] in BLOCKED or not target["is_config_current"] for target in desired),
+        "has_blocked_target": any(target["state"] in BLOCKED or not target["is_config_current"] or not target["is_union_input_current"] for target in desired),
         "has_pending_target": any(target["state"] not in BLOCKED | {"succeeded", "superseded", "cancelled"} for target in desired),
-        "is_all_desired_completed": bool(desired) and all(target["state"] == "succeeded" and target["is_config_current"] for target in desired)}
+        "is_all_desired_completed": bool(desired) and all(target["state"] == "succeeded" and target["is_config_current"] and target["is_union_input_current"] for target in desired)}
 
 
 def _global_status(connection, scopes):

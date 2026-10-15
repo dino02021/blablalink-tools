@@ -683,6 +683,8 @@ class LocalStateStore:
             if replay["signature"] != signature:
                 raise StateConflict("request ID reused with different content")
             return self.get_job(replay["job_id"])
+        if not self._is_union_input_current(spec):
+            raise StateConflict("task union input head is stale, missing, or inactive")
         config_id = spec.version_map.get("healthcheck_config")
         if config_id is not None and self._connection.execute(
             "SELECT 1 FROM config_versions WHERE config_id=?", (config_id,)
@@ -761,6 +763,9 @@ class LocalStateStore:
         return row
 
     def _is_current(self, row: sqlite3.Row) -> bool:
+        spec = _job(row).spec
+        if not self._is_union_input_current(spec):
+            return False
         if row["command"] not in AUTO_COMMANDS:
             return True
         config_id = _job(row).spec.version_map.get("healthcheck_config")
@@ -775,6 +780,15 @@ class LocalStateStore:
             "SELECT fingerprint FROM desired_targets WHERE scope_id=? AND family=?", (row["scope_id"], row["family"])
         ).fetchone()
         return desired is None or desired["fingerprint"] == row["fingerprint"]
+
+    def _is_union_input_current(self, spec: TaskSpec) -> bool:
+        head = self._connection.execute("SELECT input_id,roster_state FROM union_input_heads WHERE scope_id=?", (spec.scope_id,)).fetchone()
+        if head is None:
+            return True
+        bound = spec.version_map.get("union_inputs")
+        if bound is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft"):
+            return True
+        return bound == head["input_id"] and head["roster_state"] == "active"
 
     def _require_no_publisher(self) -> None:
         if (self._connection.execute("SELECT 1 FROM resource_locks LIMIT 1").fetchone()

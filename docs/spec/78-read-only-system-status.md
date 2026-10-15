@@ -28,3 +28,5 @@ has_blocked_target／has_pending_target／is_all_desired_completed 是分開的�
 application/system_status_view.py 以 composite scope／family row ID 產生十三欄唯讀表，凍結 header 與聯盟／family。顯示最後發布、確認 stale、共用寫入占用／訊息未明與錯誤代碼；這是 typed view，不代表正式 Sheet protection 已套用。
 
 local_tests/test_system_status.py 十項案例涵蓋 DB bytes 不變、失敗隔離、舊發布保留、computed／unknown locks、損壞資料脫敏、restore fence、不 migration、hash／scope 防呆、並行 snapshot、stale 確認及真實 bounded child CLI。完整歷史分頁、遠端 scope 授權與共享狀態表 publisher 尚未接線。
+
+83 增加 union_input_head 與 is_union_input_current；舊名單的最後發布不再標為目前結果。狀態表新增名單版本／狀態／工作符合性，共 16 欄；保留唯讀與未回讀遠端 workbook 的限制。
