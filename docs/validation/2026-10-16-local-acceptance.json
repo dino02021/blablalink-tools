@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 836,
+  "observed_test_cases": 860,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -319,13 +319,20 @@
         "local_tests/test_workbook_staging.py::test_incomplete_and_cancelled_stage_preserves_result_and_human_data",
         "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation",
         "local_tests/test_grid_migration.py::test_confirmed_migration_still_requires_sealed_publication_and_reconciliation",
-        "local_tests/test_legacy_migration.py::test_migrated_draft_can_only_prepare_the_reviewed_config_candidate"
+        "local_tests/test_legacy_migration.py::test_migrated_draft_can_only_prepare_the_reviewed_config_candidate",
+        "local_tests/test_staging_retention.py::test_terminal_stage_and_chunks_deleted_with_receipt_and_history_preserved",
+        "local_tests/test_staging_retention.py::test_replay_does_not_delete_later_recreated_transport",
+        "local_tests/test_staging_retention.py::test_uncertain_activation_is_never_inferred_safe_from_success_receipt",
+        "local_tests/test_staging_retention.py::test_delete_failure_rolls_back_stages_chunks_and_receipt",
+        "local_tests/test_staging_retention.py::test_budget_failure_after_first_delete_rolls_back_everything",
+        "local_tests/test_staging_retention.py::test_backup_keeps_cleanup_receipt_and_restore_cannot_initialize_writer",
+        "local_tests/test_staging_retention.py::test_actual_cli_plan_confirm_replay_and_no_workbook_change"
       ],
       "remaining": [
         "真實 staging tab 啟用／取消與完整 merge／format／protection"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 5
+      "observed_cases": 12
     },
     {
       "id": "A22",

@@ -1316,3 +1316,10 @@ blablalink-tools/
 - 追加：狀態表 owner 必須排除自身；時鐘變化不應反覆寫表，A→B→A 卻必須建立新次序，不能沿用舊成功。內容／路由／code 綁定與 stale 檢查已補齊。
 - bounded worker 結尾至多觀測一次，後續 invocation 計算／顯式 mock 發布；unknown 全域鎖不繞過，預算不足整筆觀測回滾。native child 維持 compute-only。
 - 固定雙頁各五十 scope 加快照 metadata，保留明確 as-of；不是完整歷史分頁或遠端瞬時 readback。正式 adapter／ACL／歷史清理與其他獨立工作仍待完成。詳見 docs/spec/94-shared-status-mock-publication.md。
+
+### 17.60 第五十六批：已終止 staging 的安全清理（2026-10-16）
+
+- 新增明確 plan／confirm／replay 的有界 staging 清理，固定 workspace、cutoff、完整 inventory 與原 publication／sealed result 證據。每次最多百個 stage；只有無其他 stage 引用的 chunks 才一併移除。
+- 追加：未知 activation 即使看到成功 marker 也不能推定可刪；沒有 parent 的 stage／獨立 chunks 保留。所有 writer 明確停止與無 active／unknown coordinator 是前提，不能靠 TTL 或清理解除鎖。
+- coordinator 只持鎖不寫，刪除與 receipt 只在同一 staging transaction 原子提交；SQL／budget／CAS 失敗整批回滾。重播不重刪後來新建的相同 ID。
+- 二十四項實際 SQLite／CLI 案例驗證共享資料、terminal／unknown、取消、預算／刪除故障、backup／fence。邏輯 bytes 不冒充物理檔縮小；獨立 chunks／archive／history／receipt 清理仍待完成。詳見 docs/spec/95-terminal-staging-retention.md。
