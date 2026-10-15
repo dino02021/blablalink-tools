@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from application.control_http import handle_control_request
-from application.control_requests import RequestDenied
+from application.control_requests import RequestCapacity, RequestDenied
 from application.tasks import StateConflict
 
 
@@ -47,6 +47,12 @@ def test_success_is_accepted_only_after_gate_returns_durable_job():
     response = handle_control_request("POST", "/v1/requests", {"content-type": "application/json", "x-control-envelope": "{}"}, b"{}", gate, True)
     assert response.status == 202 and response.body == {"state": "accepted", "job_id": "job_mock", "job_state": "queued"}
     assert dict(response.headers)["Cache-Control"] == "no-store"
+
+
+def test_control_capacity_has_retry_after_without_internal_details():
+    response = handle_control_request("POST", "/v1/requests", {"content-type": "application/json", "x-control-envelope": "{}"},
+        b"{}", RecordingGate(RequestCapacity(20)), True)
+    assert response.status == 429 and dict(response.headers)["Retry-After"] == "20"
 
 
 class RecordingGate:

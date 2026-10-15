@@ -1,10 +1,12 @@
 from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 import pytest
 
 from adapters.local_request_gate import LocalRequestGate
 from adapters.local_state import LocalStateStore
-from application.control_requests import RequestDenied, RequestPrincipal, encode_request_task, sign_request
+from application.control_requests import RequestCapacity, RequestDenied, RequestPrincipal, encode_request_task, sign_request
 from application.tasks import TaskSpec
 from domain.healthcheck import ELEMENTS
 from domain.raid import RaidMember
@@ -40,6 +42,49 @@ def test_exact_retry_new_nonce_and_restart_reuse_job(control):
         assert reopened.submit_signed(envelope, body).job_id == first.job_id
     finally:
         reopened.close()
+
+
+def test_capacity_is_durable_and_exact_replay_does_not_spend_again(control):
+    gate, _, body, envelope, directory, policy = control
+    gate.principal_limit = 1
+    first = gate.submit_signed(envelope, body)
+    assert gate.submit_signed(envelope, body).job_id == first.job_id
+    reopened = LocalRequestGate(directory / "state.sqlite", (policy,), clock=fixed_now, principal_limit=1)
+    try:
+        with pytest.raises(RequestCapacity):
+            reopened.submit_signed(sign(body, nonce="new"), body)
+        assert reopened._connection.execute("SELECT COUNT(*) FROM control_nonces").fetchone()[0] == 1
+    finally:
+        reopened.close()
+
+
+def test_global_capacity_failure_rolls_back_minute_reservation(control):
+    gate, _, body, envelope, _, _ = control
+    gate.global_limit = 1
+    gate.submit_signed(envelope, body)
+    with pytest.raises(RequestCapacity):
+        gate.submit_signed(sign(body, nonce="new"), body)
+    assert gate._connection.execute("SELECT used FROM control_request_usage WHERE bucket_type='principal_minute'").fetchone()[0] == 1
+
+
+def test_two_connections_share_one_admission_limit(control):
+    _, _, body, _, directory, policy = control
+    barrier = Barrier(2)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(competing_submission, [(directory, policy, body, index, barrier) for index in range(2)]))
+    assert sorted(results) == ["accepted", "capacity_blocked"]
+
+
+def test_expired_nonce_cleanup_requires_monotonic_server_watermark(control):
+    gate, _, body, envelope, _, _ = control
+    gate.submit_signed(envelope, body)
+    gate._clock = later_now
+    fresh = sign_request(body, "principal_mock", "key_mock", KEY, 1401, "fresh", "request_mock")
+    gate.submit_signed(fresh, body)
+    assert gate._connection.execute("SELECT nonce FROM control_nonces").fetchone()[0] == "fresh"
+    gate._clock = fixed_now
+    with pytest.raises(OSError):
+        gate.submit_signed(envelope, body)
 
 
 @pytest.mark.parametrize("field,value", [("timestamp", 699), ("timestamp", 1301), ("timestamp", True),
@@ -150,3 +195,21 @@ def sign(body, nonce="nonce_mock", request_id="request_mock"):
 
 def fixed_now():
     return 1000
+
+
+def later_now():
+    return 1401
+
+
+def competing_submission(arguments):
+    directory, policy, body, index, barrier = arguments
+    gate = LocalRequestGate(directory / "state.sqlite", (policy,), clock=fixed_now, principal_limit=1)
+    try:
+        barrier.wait(timeout=5)
+        try:
+            gate.submit_signed(sign(body, nonce=f"nonce_{index}"), body)
+            return "accepted"
+        except RequestCapacity:
+            return "capacity_blocked"
+    finally:
+        gate.close()

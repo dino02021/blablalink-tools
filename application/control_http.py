@@ -4,15 +4,16 @@ from dataclasses import dataclass
 import json
 import sqlite3
 
-from application.control_requests import RequestDenied
+from application.control_requests import RequestCapacity, RequestDenied
 from application.tasks import StateConflict
 
+RESPONSE_HEADERS = (("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store"))
 
 @dataclass(frozen=True)
 class ControlResponse:
     status: int
     body: dict
-    headers: tuple[tuple[str, str], ...] = (("Content-Type", "application/json; charset=utf-8"), ("Cache-Control", "no-store"))
+    headers: tuple[tuple[str, str], ...] = RESPONSE_HEADERS
 
 
 def handle_control_request(method, path, headers, body, gate, is_enabled=False) -> ControlResponse:
@@ -45,6 +46,8 @@ def handle_control_request(method, path, headers, body, gate, is_enabled=False) 
         job = gate.submit_signed(envelope, body)
     except RequestDenied:
         return ControlResponse(403, {"error": "request_denied"})
+    except RequestCapacity as error:
+        return ControlResponse(429, {"error": "control_capacity_blocked"}, RESPONSE_HEADERS + (("Retry-After", str(error.retry_after)),))
     except StateConflict:
         return ControlResponse(409, {"error": "request_conflict"})
     except (ValueError, KeyError, TypeError, RecursionError):

@@ -1117,3 +1117,9 @@ blablalink-tools/
 - 新增預設停用的 transport-neutral handler，限制 route／method／body／header／envelope 大小與重複 key；只有持久受理 job 才回 202 accepted。
 - 薄 GS 測試改走 HTTP handler→簽章 gate→本地 worker→固定候選，不啟動 socket 或使用真實 URL。
 - 新增 11 項 mock 驗收，確保停用不接觸 gate、錯誤脫敏、受理與完成不混淆；Worker／D1／TLS／限流與平台 runtime binding 尚未實作。詳見 docs/spec/66-offline-control-http.md。
+
+### 17.32 第二十八批：控制請求容量與時間 watermark（2026-10-15）
+
+- 0008 migration 加入每 principal 分鐘／全域日的新 envelope 持久預算；alias 新 nonce 也計數，精確重播不重扣，超限回 429 與 Retry-After，交易全部回滾。
+- 追加：清理 nonce 前必須保存 server time watermark，時間倒退停止受理；只有已超簽章時間窗的 nonce 可刪，歷史 request 去重不能一併忘記。
+- 新增 5 項 mock 流程／兩連線驗收；未讀取正式用量或連線平台。這是本地保守入庫上限，不替代 provider CPU／D1 行數／帳戶共享預算。詳見 docs/spec/67-local-control-capacity.md。

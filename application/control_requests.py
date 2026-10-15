@@ -18,6 +18,12 @@ class RequestDenied(ValueError):
     """Safe public error; do not expose signature, key, body or registry contents."""
 
 
+class RequestCapacity(RuntimeError):
+    def __init__(self, retry_after: int):
+        super().__init__("control_capacity_blocked")
+        self.retry_after = retry_after
+
+
 @dataclass(frozen=True)
 class RequestPrincipal:
     principal_id: str

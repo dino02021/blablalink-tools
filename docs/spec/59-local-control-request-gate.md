@@ -11,9 +11,10 @@ application/control_requests.py 與 adapters/local_request_gate.py 提供無 lis
 - 健檢從封存 union_inputs→healthcheck_route 解析真實 workbook，再比對白名單；training／config／inputs 的 kind、scope、reference 必須相符。排刀需該 scope 的 input_head 指向指定 problem，code 也須相符。不能靠 caller 另傳 workbooks 自稱有權限。
 - nonce 依 principal／key 隔離，僅允許相同完整 envelope 重播；同 nonce 換 request 或簽章 metadata 拒絕。同 principal／request_id 只接受同 body hash，新 nonce 可重送相同 body。
 - 每次重播仍驗時間、目前 key／policy／封存輸入授權，不能藉曾經受理繞過撤銷。不同 principal request ID 不互相碰撞。
+- 新 envelope 入庫另受[持久容量與時間 watermark](67-local-control-capacity.md)限制；安全時間窗外 nonce 可清理，request 去重保留。
 - replay 表先交易保存，submit_job 後才回覆 job；中間程序消失可重送，使用 principal／request_id 派生固定 coordinator request key，補完同一提交。gate receipt 本身不代表 job 已受理成功。
 - principal 只是受驗證的服務身份；human actor 一律保存 unknown，沒有把簽章服務假裝成試算表編輯者。
 
 local_tests/test_control_requests.py 的 21 項 mock 測試涵蓋完整重播／重啟、新 nonce 去重、過期／未來時間、method／path／schema、Unicode 無效簽章、未知／撤銷 key、nonce／request 衝突、body 篡改、重複 key／額外宣告／大小上限、實際 workbook 權限與 replay 保存後 crash 恢復。
 
-尚未實作 hosted key registry／輪替、端點節流、nonce retention、actor／確認權限、snapshot ingestion 授權、D1 交易 adapter 或 HTTP request parsing。這是有界離線契約，不是可直接公開的正式服務；正式接線仍須驗證來源物件入庫權限及該平台重放／撤銷行為。
+尚未實作 hosted key registry／輪替、邊緣流量限制、歷史 request 歸檔、actor／確認權限、snapshot ingestion 授權或 D1 交易 adapter。HTTP parsing 與本地受理容量已有離線契約；正式接線仍須驗證來源物件入庫權限及該平台重放／撤銷行為。
