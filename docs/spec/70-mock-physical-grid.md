@@ -13,7 +13,7 @@ adapters/mock_grid.py 將封存的 WorkbookView 確定性轉成 generated_grid�
 
 set_manual_tab／edit_cell 是 mock 協作者編輯入口，僅可修改人工 tab；產生 tab 的 edit_cell 與同 key／同 title（忽略大小寫）的人工 tab 建立會被拒絕。人工 inputs 與 manual_tabs 於回寫時保留。低階檔案修改仍可用於故障測試，不是防惡意本地使用者的安全邊界。
 
-初次建立的產生 tab 不得覆蓋同 key／title 的人工 tab。已有產生格線後，tab 集合或 layout_revision 不同，或試圖改成無 view 的 payload，一律要求明確 migration；目前這個入口尚未提供 migration 確認，不能藉一般回寫自動採用新結構。值、列數與名稱等非結構變更可正常替換。
+初次建立的產生 tab 不得覆蓋同 key／title 的人工 tab。已有產生格線後，tab 集合或 layout_revision 不同須經 [71 的 migration 確認](71-mock-grid-migration.md)，不能藉一般回寫自動採用新結構；試圖改成無 view 的 payload 仍拒絕。值、列數與名稱等非結構變更可正常替換。
 
 ## 回讀與故障
 
@@ -21,4 +21,4 @@ observe 與相同 commit 重播均重建預期格線並比對完整內容。僅 
 
 local_tests/test_mock_grid.py 覆蓋 literal／格式／尺寸、縮短清尾、人工保留與保護、六類格線破壞、人工 tab 衝突、結構拒絕、來源與合併 note、完整 demo 八 tab。
 
-後續仍需：有界 migration preview／確認與 archive、十一欄遷移、舊 GS header 相容、真正 Sheets updateCells／尺寸／保護 adapter；全部先用 mock 驗證。
+後續進度：typed grid 的有界 migration preview／確認與 archive 已於 [71](71-mock-grid-migration.md) 補齊。十一欄遷移、舊 GS header 相容、真正 Sheets updateCells／尺寸／保護 adapter 仍未完成；全部先用 mock 驗證。

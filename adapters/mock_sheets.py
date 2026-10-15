@@ -9,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from application.tasks import StateConflict
-from adapters.mock_grid import is_same_grid_layout, materialize_generated_grid
+from adapters.mock_grid import GridMigrationPlan, is_same_grid_layout, materialize_generated_grid, prepare_grid_migration
 from domain.snapshots import canonical_json
 from domain.layout import Column, Layout, LayoutPlan, confirm_layout, encode_cell_value
 
@@ -63,6 +63,21 @@ class MockSheets:
         tab["cells"][row][column] = {"value": encode_cell_value(value)}
         self._save(resource, book)
 
+    def plan_grid_migration(self, resource: str, generated: dict) -> GridMigrationPlan:
+        return prepare_grid_migration(resource, self.read(resource), generated)
+
+    def approve_grid_migration(self, plan: GridMigrationPlan, generated: dict, confirmed_plan_id: str,
+                               config_id: str, code_sha: str) -> None:
+        book = self.read(plan.resource)
+        current = prepare_grid_migration(plan.resource, book, generated)
+        if (current != plan or plan.plan_id != confirmed_plan_id
+                or config_id != plan.config_id or code_sha != plan.code_sha):
+            raise StateConflict("grid migration confirmation or dependencies differ")
+        if len(book.get("grid_archives", [])) >= 20:
+            raise StateConflict("grid migration archive capacity reached")
+        book["grid_migration_approval"] = {"plan_id": plan.plan_id, "plan": asdict(plan)}
+        self._save(plan.resource, book)
+
     def initialize_layout(self, layout: Layout) -> None:
         book = self.read(layout.resource)
         if "layout" in book:
@@ -102,7 +117,15 @@ class MockSheets:
             return
         previous = book.get("generated_grid")
         if previous is not None and (grid is None or not is_same_grid_layout(previous, grid)):
-            raise StateConflict("generated grid layout migration required")
+            approval = book.get("grid_migration_approval")
+            if grid is None or approval is None:
+                raise StateConflict("generated grid layout migration required")
+            plan = prepare_grid_migration(resource, book, generated)
+            if (approval.get("plan_id") != plan.plan_id or canonical_json(approval.get("plan")) != canonical_json(asdict(plan))
+                    or len(book.get("grid_archives", [])) >= 20):
+                raise StateConflict("generated grid migration approval is stale")
+            book.setdefault("grid_archives", []).append({"plan_id": plan.plan_id, "commit_id": book["commit_id"],
+                "payload_hash": book["payload_hash"], "generated": book["generated"], "generated_grid": previous})
         if grid is not None:
             manual = book.get("manual_tabs", {})
             if (set(manual) & set(grid["tabs"]) or {tab["title"].casefold() for tab in manual.values()}
@@ -113,6 +136,7 @@ class MockSheets:
         book.update(generated=copy.deepcopy(generated), commit_id=commit_id, payload_hash=payload_hash)
         if grid is not None:
             book["generated_grid"] = grid
+        book.pop("grid_migration_approval", None)
         self._save(resource, book)
         self.write_count += 1
         if fault == "after":

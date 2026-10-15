@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 423,
+  "observed_test_cases": 453,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -23,13 +23,15 @@
         "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training",
         "local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows",
         "local_tests/test_workbook_views.py::test_mock_publication_includes_reconstructable_same_version_view",
-        "local_tests/test_workbook_views.py::test_view_applies_same_override_without_rewriting_training"
+        "local_tests/test_workbook_views.py::test_view_applies_same_override_without_rewriting_training",
+        "local_tests/test_mock_grid.py::test_demo_publishes_eight_physical_generated_tabs",
+        "local_tests/test_mock_grid.py::test_replacement_clears_tail_and_preserves_editable_manual_tabs"
       ],
       "remaining": [
-        "實際 grid materialization／逐格保護與舊版 header 對照"
+        "舊版 header 對照與遠端 grid／protection adapter"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 4
+      "observed_cases": 6
     },
     {
       "id": "A03",
@@ -247,13 +249,14 @@
       "id": "A21",
       "tests": [
         "local_tests/test_workbook_staging.py::test_incomplete_and_cancelled_stage_preserves_result_and_human_data",
-        "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation"
+        "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation",
+        "local_tests/test_grid_migration.py::test_confirmed_migration_still_requires_sealed_publication_and_reconciliation"
       ],
       "remaining": [
         "真實 staging tab 啟用／取消與完整 merge／format／protection"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 4
     },
     {
       "id": "A22",

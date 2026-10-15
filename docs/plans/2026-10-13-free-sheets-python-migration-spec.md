@@ -856,7 +856,7 @@ blablalink-tools/
 1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
 3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
-4. mock publisher、欄位 planner、基本格子請求、十二欄 decoder 與分片 staging 完成；十一欄遷移、完整格式／維度與完整表格對照仍待完成。
+4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive 完成；十一欄首次遷移、遠端格式／維度 adapter 與完整舊表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint 與本機 RSS reader 完成；仍需工作簿呈現、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
 6. mock outbox、固定報告／路由編譯、本地計算 worker 及 mock collector 契約已完成；仍需路由授權 head／registry、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
@@ -1145,3 +1145,10 @@ blablalink-tools/
 - 人工 tab 與 inputs 保留；產生 tab 禁止透過 mock 協作者入口編輯，初次 materialization 有 key／title 衝突即拒絕。
 - 追加：回讀不能只驗 payload hash，必須核對實際格線與格式；merge 非錨點的 note 也不得隱藏。結構不同或移除 view 必須走明確 migration，不可一般回寫暗中採用。
 - 此批仍是本地 JSON workbook 的 enforcement，沒有宣稱遠端 Google protection／交易已完成。後續補 migration preview／確認與 archive。詳見 docs/spec/70-mock-physical-grid.md。
+
+### 17.36 第三十二批：版面遷移預覽、確認與 archive（2026-10-15）
+
+- typed grid 結構變更須預覽固定 source／target payload、grid、commit、config、code；確認後仍須通過原 publisher claim 才回寫。
+- 原子封存完整舊產生區並消耗核准；核准本身不改結果，基底或目標任何變更即失效，人工 tab 保留並重新檢查衝突。
+- 追加：每本 20 份 archive 上限，達限停止而非暗中刪歷史；before／after fault 不可產生半套 archive 或重複封存。
+- 新增 17 項 mock 驗收含 sealed publication／unknown recovery；十一欄首次遷移與遠端多請求原子性仍未完成。詳見 docs/spec/71-mock-grid-migration.md。

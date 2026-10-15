@@ -1,11 +1,11 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，423 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，453 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
 | A01 | 候選後編輯仍固定原版本 | GS 事件／編輯範圍 |
-| A02 | 同源設定重算、不重抓、八個 typed workbook 視圖 | mock 格線實體化／保護與舊 header 相容 |
+| A02 | 同源設定重算、不重抓、八個 typed workbook 格線、清尾與人工 tab 保護 | 遠端 grid／protection 與舊 header 相容 |
 | A03 | 全員分數／總分／排名與 GS 50 組對照 | header／nickname／cache |
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
 | A05 | 缺 detail 不當零、function ID 投影 | reference 發布與補抓規劃 |
@@ -24,7 +24,7 @@
 | A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |
 | A20 | budget 中斷與 checkpoint／恢復 | hosted profile／硬性隔離 |
-| A21 | 缺片／取消不改結果、schema CAS | 真實 staging／merge／protection |
+| A21 | 缺片／取消不改結果、schema CAS、mock 格線遷移確認與 archive | 真實 staging／merge／protection |
 | A22 | 備份還原 fence、回滾另取 publisher | binary／降版與跨 runtime ownership |
 
 ## 報告生成
