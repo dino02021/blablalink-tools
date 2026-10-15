@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Mapping
 
 from application.tasks import (
-    AUTO_COMMANDS, BudgetExceeded, BudgetNeed, ComputeLease, ConfigPublication, Dispatch, Job,
+    AUTO_COMMANDS, COMMANDS, BudgetExceeded, BudgetNeed, ComputeLease, ConfigPublication, Dispatch, Job,
     LeaseLost, PublicationClaim, ResourceBusy, StateConflict, TaskSpec, validate_identifier,
 )
 from domain.snapshots import Document, canonical_json, read_config, restore_document
@@ -159,12 +159,20 @@ class LocalStateStore:
     def claim(self, worker_id: str, code_sha: str, executor_type: str = "local",
               lease_seconds: float = 60,
               budget: BudgetNeed | tuple[BudgetNeed, ...] | None = None,
-              dispatch_id: str | None = None, executor_run_id: str | None = None) -> ComputeLease | None:
+              dispatch_id: str | None = None, executor_run_id: str | None = None,
+              commands: tuple[str, ...] | None = None) -> ComputeLease | None:
         validate_identifier(worker_id)
         validate_identifier(code_sha)
         _validate_duration(lease_seconds)
+        if commands is not None:
+            if (isinstance(commands, str) or not commands or len(set(commands)) != len(commands)
+                    or any(command not in COMMANDS for command in commands)):
+                raise ValueError("nonempty unique supported commands required")
+            commands = tuple(commands)
         needs = _budget_needs(executor_type, budget) if executor_type == "local" else ()
         if executor_type != "local":
+            if commands is not None:
+                raise ValueError("command filters apply only to local queue claims")
             if executor_type not in ("vercel", "actions") or not dispatch_id or not executor_run_id or budget is not None:
                 raise ValueError("cloud claims require a pre-budgeted dispatch and executor run ID")
             with _transaction(self._connection):
@@ -173,12 +181,13 @@ class LocalStateStore:
             raise ValueError("local claims do not use hosted dispatch callbacks")
         with _transaction(self._connection):
             self._recover()
+            command_filter = " AND command IN (" + ",".join("?" for _ in commands) + ")" if commands else ""
             rows = self._connection.execute(
                 "SELECT * FROM jobs j WHERE state IN ('queued','retry_wait') AND next_attempt_at<=? "
                 "AND attempt<max_attempts AND code_sha=? AND executor_type=? AND NOT EXISTS("
                 "SELECT 1 FROM job_dependencies d JOIN jobs p ON p.job_id=d.parent_id "
-                "WHERE d.job_id=j.job_id AND p.state!='succeeded') ORDER BY priority DESC,created_at,job_id LIMIT 100",
-                (self._now(), code_sha, executor_type),
+                "WHERE d.job_id=j.job_id AND p.state!='succeeded')" + command_filter + " ORDER BY priority DESC,created_at,job_id LIMIT 100",
+                (self._now(), code_sha, executor_type, *(commands or ())),
             ).fetchall()
             for row in rows:
                 if not self._is_current(row):

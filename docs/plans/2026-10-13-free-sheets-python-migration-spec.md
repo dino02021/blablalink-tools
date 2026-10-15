@@ -858,7 +858,7 @@ blablalink-tools/
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、基本格子請求與舊 GS 六列／十二欄標準 decoder 已完成；十一欄遷移、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
-6. mock Discord outbox 與離線整合 demo CLI 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定與通用本地 worker CLI。
+6. mock Discord outbox、固定報告／路由快照編譯及健檢／排刀本地 worker CLI 已完成；仍需正式路由授權與 head、collector 介面、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
 
@@ -1031,3 +1031,11 @@ blablalink-tools/
 - 0005 migration 持久保存候選與批次 request。確認時驗來源並將所有成員原子入列；後一筆衝突會全批回滾。已確認重播保留既有內容與送出狀態，不因新 head 再次建立發送。
 - 全套 304 項本地 mock 測試通過，包含真實本地 SQLite 交易、mock 發送與重啟；未連接正式試算表、Discord 或任何部署平台。
 - 路由由可信本地 caller 提供；真實 actor／thread 授權、route head 與雲端傳輸仍待開發。此批完成 §17.4 報告編譯／固定路由資料契約的本地部分，不視為正式權限驗收。細節見 docs/spec/55-report-delivery-compilation.md。
+
+### 17.20 第十七批：通用本地計算 worker（2026-10-15）
+
+- 新增 work CLI，僅在已標記 mock 目錄領取同 code／local 的健檢與排刀，每次最多 100 工作；預設只計算，mock 發布需明確開關。
+- 追加：command 白名單必須在 SQL LIMIT 前套用，避免不支援工作塞滿前 100 筆使可執行任務飢餓。未指定篩選的舊 caller 行為保留。
+- 健檢 computed 可重啟後從同 sealed manifest 發布；未知發布隔離且不自行解鎖／重寫。排刀從封存 hash 還原 typed problem，budget 中斷與 checkpoint 可明確恢復，完成不自動確認。
+- local_tests/test_local_worker.py 新增 8 項流程驗收；含實際 scrubbed-env CLI、105 筆佇列前置、重啟、未知發布與排刀 resume。只用合成資料與本地檔案。
+- RSS／健檢迴圈 deadline、collector、其他命令與遠端 runtime 尚待實作；工作數上限不可當成硬性執行時間限制。細節見 docs/spec/56-offline-worker.md。

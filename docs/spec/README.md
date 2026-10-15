@@ -64,6 +64,7 @@
 - 程式碼風格與命名規則
 
 - [55：已發布報告的本地發送候選](55-report-delivery-compilation.md)
+- [56：有界本地 worker](56-offline-worker.md)
 
 ## 撰寫規則
 
