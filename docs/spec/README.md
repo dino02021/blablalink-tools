@@ -45,6 +45,8 @@
     改派、指定保留、元素交換、最終補刀與 GS 全流程對照。
 17. [51-local-raid-confirmation-and-view.md](./51-local-raid-confirmation-and-view.md)
     不可變排刀草稿、輸入與確認 CAS、過期提示及成員 ID 檢視。
+18. [52-local-compute-budget-and-resume.md](./52-local-compute-budget-and-resume.md)
+    合作式執行預算、heartbeat、排刀階段 checkpoint 與本地續跑。
 
 ## 涵蓋範圍
 

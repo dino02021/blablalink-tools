@@ -857,7 +857,7 @@ blablalink-tools/
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
-5. 排刀核心、60 組 GS 對照、本地草稿確認與成員 ID 結構化輸出完成；仍需工作簿呈現、deadline／checkpoint、擴充邊界與完整效能驗收。
+5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
 6. mock Discord outbox 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
@@ -993,3 +993,13 @@ blablalink-tools/
 - 追加：歷史與新刀混格保留逐行來源，全歷史才整格灰色；多刀 IV 共用單一階段顯示。億顯示採精確正數 half-up，原始真實傷害仍保存字串。
 - 全套 251 項本地 mock 測試通過，含兩連線同 base 確認、重啟、過期、同名成員與警告確認；Python 語法檢查通過。
 - 尚無遠端 actor 授權、工作簿確認 UI、固定路由、精確座標／rich text publisher 串接與 deadline／checkpoint；不以本地確認代表正式生效。
+
+### 17.16 第十三批：執行預算與階段續跑（2026-10-15）
+
+- 新增 domain execution hook、ComputeBudget 與 run_raid_job，固定問題／程式版本後執行選刀、最終整理、檢視與本地草稿。
+- 以 start／selected／finalized 階段保存不可變 checkpoint；程序重啟可跳過已完成階段。schema、演算法及 selection／final 綁定不符拒絕續跑。
+- 追加：時間、操作次數、記憶體 reader 未知／上限等限制中止時回 capacity_blocked，不完成結果、不自動確認或發布。單階段太長時需轉較長 executor，不能無限重試同一短預算。
+- 追加：每 15 秒刷新執行租約；合作式 hook 在例外後 reset。預留收尾時間不代表能攔截 OOM 或任何外部 blocking 呼叫，仍須限定物件大小並驗證實際 runtime。
+- Vercel 類型本地契約要求時間 <=240 秒與明確 memory reader／<=1500000000 byte 上限；沒有建立或呼叫任何 Vercel 服務。
+- 全套 264 項本地 mock 測試及 Python 語法檢查通過，涵蓋假時鐘中途停止、記憶體未知、容量中止、heartbeat 間隔及重啟跳過選刀。
+- 實際 RSS／平台剩餘期限 adapter、遠端 checkpoint transport、CLI／雲端入口及最差情境 SLA 仍待完成。

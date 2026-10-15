@@ -9,6 +9,7 @@ import hashlib
 from domain.healthcheck import ELEMENTS
 from domain.raid import FixedInputs, RaidKnife, RaidMember, RaidSimulation, estimate_damage_yi, prepare_fixed, simulate_stages
 from domain.snapshots import MemberKey, canonical_json
+from domain.execution import check_execution
 
 FIRE_IRON = frozenset({"燃燒", "鐵甲"})
 
@@ -111,6 +112,7 @@ def build_source_pool(problem: RaidProblem) -> tuple[SourceToken, ...]:
     preparations = _preparations(problem)
     tokens = []
     for member in sorted(problem.members, key=lambda m: (-m.sync, m.display_name, m.member.key)):
+        check_execution()
         fixed = preparations[member.member]
         groups = element_groups(problem, member.member)
         for knife in fixed.knives:

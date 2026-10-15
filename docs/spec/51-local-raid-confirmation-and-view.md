@@ -29,3 +29,5 @@ domain/raid_view.py 建立結構化只讀結果；adapters/local_raid_plans.py �
 local_tests/test_raid_confirmation.py 驗證同名成員、歷史／新刀排序、多行 IV、保留原始指定、完整性、警告確認、過期、重播、重啟及兩個連線競爭。
 
 actor 目前由可信本地呼叫者提供，尚無身分驗證或權限登記。確認不隱含建立雲端工作、修改工作簿或發送 Discord。仍需固定路由、正式工作表座標／rich text 呈現與中央 publisher 串接；本層不是正式 Sheets 確認 UI。
+
+本地預算與可續跑排刀入口見 [52-local-compute-budget-and-resume.md](./52-local-compute-budget-and-resume.md)。

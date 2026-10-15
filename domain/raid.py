@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation, localcontext
 
 from domain.snapshots import MemberKey
+from domain.execution import check_execution
 
 YI = Decimal(100000000)
 
@@ -128,6 +129,7 @@ def parse_history(member: MemberKey, boss: int, damage_cell, stage_cell) -> tupl
 
 def prepare_fixed(member: RaidMember, inputs: FixedInputs, history: tuple[RaidKnife, ...],
                   base_sync: int, base_damage_yi: tuple) -> FixedPreparation:
+    check_execution()
     if len(base_damage_yi) != 5 or any(k.member != member.member or k.kind != "history" for k in history):
         raise ValueError("history and boss damage scope differs")
     seen, blocked, knives, warnings = {}, [], [], []
@@ -174,6 +176,7 @@ def prepare_fixed(member: RaidMember, inputs: FixedInputs, history: tuple[RaidKn
 
 def simulate_stages(members: tuple[RaidMember, ...], hp: tuple[tuple, ...],
                     history: tuple[RaidKnife, ...], planned: tuple[RaidKnife, ...]) -> RaidSimulation:
+    check_execution()
     with localcontext() as context:
         context.prec = 50
         return _simulate_stages(members, hp, history, planned)
@@ -190,6 +193,7 @@ def _simulate_stages(members, hp, history, planned):
     if any(k.member not in member_map for k in all_knives) or any(k.kind != "history" for k in history) or any(k.kind == "history" for k in planned):
         raise ValueError("knife outside source scope")
     for member in members:
+        check_execution()
         previous = sum(k.member == member.member for k in history)
         new = sum(k.member == member.member for k in planned)
         if new > max(0, 3 - previous):
@@ -215,6 +219,7 @@ def _simulate_stages(members, hp, history, planned):
         else:
             effective[knife.knife_id] = damage
     for boss in range(1, 6):
+        check_execution()
         ordered = sorted((k for k in planned if k.boss == boss), key=lambda k: (
             not k.is_locked, k.source_locked_stage if k.is_locked else 0, member_map[k.member].sync,
             member_map[k.member].display_name, k.round, k.sequence, k.member.key, k.knife_id))
