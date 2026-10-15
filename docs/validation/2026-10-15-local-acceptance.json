@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 453,
+  "observed_test_cases": 479,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -250,13 +250,14 @@
       "tests": [
         "local_tests/test_workbook_staging.py::test_incomplete_and_cancelled_stage_preserves_result_and_human_data",
         "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation",
-        "local_tests/test_grid_migration.py::test_confirmed_migration_still_requires_sealed_publication_and_reconciliation"
+        "local_tests/test_grid_migration.py::test_confirmed_migration_still_requires_sealed_publication_and_reconciliation",
+        "local_tests/test_legacy_migration.py::test_migrated_draft_can_only_prepare_the_reviewed_config_candidate"
       ],
       "remaining": [
         "真實 staging tab 啟用／取消與完整 merge／format／protection"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 4
+      "observed_cases": 5
     },
     {
       "id": "A22",

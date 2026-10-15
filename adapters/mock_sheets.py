@@ -10,6 +10,7 @@ from pathlib import Path
 
 from application.tasks import StateConflict
 from adapters.mock_grid import GridMigrationPlan, is_same_grid_layout, materialize_generated_grid, prepare_grid_migration
+from adapters.legacy_migration import SOURCE_KEYS, LegacyMigrationPlan, confirm_legacy_migration
 from domain.snapshots import canonical_json
 from domain.layout import Column, Layout, LayoutPlan, confirm_layout, encode_cell_value
 
@@ -77,6 +78,29 @@ class MockSheets:
             raise StateConflict("grid migration archive capacity reached")
         book["grid_migration_approval"] = {"plan_id": plan.plan_id, "plan": asdict(plan)}
         self._save(plan.resource, book)
+
+    def apply_legacy_migration(self, plan: LegacyMigrationPlan, catalog, confirmed_plan_id: str,
+                                config_id: str, code_sha: str) -> str:
+        book = self.read(plan.resource)
+        if (plan.plan_id != confirmed_plan_id or config_id != plan.config_id or code_sha != plan.code_sha
+                or _hash(asdict(catalog)) != plan.catalog_hash):
+            raise StateConflict("legacy migration confirmation differs")
+        archives = book.get("legacy_standard_archives", [])
+        if any(archive["plan_id"] == plan.plan_id for archive in archives):
+            current = {key: book["inputs"][key] for key in SOURCE_KEYS if key in book["inputs"]}
+            if canonical_json(current) != plan.target_inputs_json or book["layout_revision"] != plan.target_layout_revision:
+                raise StateConflict("legacy migration replay source changed")
+            return book["layout_revision"]
+        if "layout" in book or len(archives) >= 20:
+            raise StateConflict("legacy migration layout ownership or archive capacity differs")
+        updated = confirm_legacy_migration(plan, book, catalog, confirmed_plan_id, config_id, code_sha)
+        archived = {key: copy.deepcopy(book["inputs"][key]) for key in SOURCE_KEYS if key in book["inputs"]}
+        book.setdefault("legacy_standard_archives", []).append({"plan_id": plan.plan_id,
+            "layout_revision": book["layout_revision"], "inputs": archived})
+        book["inputs"].update(updated)
+        book["layout_revision"] = plan.target_layout_revision
+        self._save(plan.resource, book)
+        return book["layout_revision"]
 
     def initialize_layout(self, layout: Layout) -> None:
         book = self.read(layout.resource)

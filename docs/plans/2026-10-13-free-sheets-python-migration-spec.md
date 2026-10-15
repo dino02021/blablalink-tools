@@ -856,7 +856,7 @@ blablalink-tools/
 1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
 3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
-4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive 完成；十一欄首次遷移、遠端格式／維度 adapter 與完整舊表格對照仍待完成。
+4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive、已知十一欄草稿遷移完成；遠端格式／維度／metadata adapter 與完整舊表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint 與本機 RSS reader 完成；仍需工作簿呈現、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
 6. mock outbox、固定報告／路由編譯、本地計算 worker 及 mock collector 契約已完成；仍需路由授權 head／registry、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
@@ -1152,3 +1152,10 @@ blablalink-tools/
 - 原子封存完整舊產生區並消耗核准；核准本身不改結果，基底或目標任何變更即失效，人工 tab 保留並重新檢查衝突。
 - 追加：每本 20 份 archive 上限，達限停止而非暗中刪歷史；before／after fault 不可產生半套 archive 或重複封存。
 - 新增 17 項 mock 驗收含 sealed publication／unknown recovery；十一欄首次遷移與遠端多請求原子性仍未完成。詳見 docs/spec/71-mock-grid-migration.md。
+
+### 17.37 第三十三批：舊十一欄標準草稿的明確遷移（2026-10-15）
+
+- 從明確物理寬度、角色 ID、merge／note inventory 預覽十一→十二欄逐格映射，保留技能／裝備／收藏品／詞條，新增突破保持空白。
+- 先用既有 decoder 驗證目標 config，確認綁定 source／catalog／config／code；本地原子封存舊來源並更新草稿與 layout_revision，不發布正式標準、不排計算。
+- 追加：不可把缺 metadata 或隱藏資料的破損模板當正常舊版遷移；同計畫重播不得覆蓋後續草稿。26 項本地 mock 測試涵蓋依賴變更、資料保存、候選邊界與 archive 上限。
+- 仍未取得遠端 grid／格式／寬度／保護 metadata，不能以這個已知合成模板宣稱所有舊工作簿相容。詳見 docs/spec/72-legacy-standard-migration.md。

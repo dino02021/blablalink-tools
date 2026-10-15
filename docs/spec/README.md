@@ -80,6 +80,7 @@
 - [69：同源健檢工作簿視圖](69-generated-workbook-views.md)
 - [70：Mock 實體格線與保護](70-mock-physical-grid.md)
 - [71：Mock 格線遷移與封存](71-mock-grid-migration.md)
+- [72：十一欄標準草稿遷移](72-legacy-standard-migration.md)
 
 ## 撰寫規則
 
