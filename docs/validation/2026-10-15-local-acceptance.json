@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 692,
+  "observed_test_cases": 708,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -218,13 +218,17 @@
         "local_tests/test_raid_inputs.py::test_compiled_raid_job_loses_eligibility_when_healthcheck_desired_changes",
         "local_tests/test_raid_publication.py::test_confirmed_publication_is_explicit_and_compute_only_preserves_workbook",
         "local_tests/test_raid_publication.py::test_changed_healthcheck_blocks_confirmed_publication_at_every_phase",
-        "local_tests/test_raid_publication.py::test_lost_publication_response_keeps_fence_until_positive_recovery"
+        "local_tests/test_raid_publication.py::test_lost_publication_response_keeps_fence_until_positive_recovery",
+        "local_tests/test_raid_sources.py::test_settings_or_fixed_inputs_adoption_stales_old_confirmed_plan_immediately",
+        "local_tests/test_raid_sources.py::test_route_only_adoption_keeps_plan_current_but_rejects_old_publication",
+        "local_tests/test_raid_sources.py::test_candidates_from_same_base_cannot_both_be_adopted",
+        "local_tests/test_raid_sources.py::test_adopted_settings_change_fences_existing_draft_jobs"
       ],
       "remaining": [
-        "真實 Sheets adapter／公開發布路由、raid 設定／人工輸入／route 採用 head"
+        "真實 Sheets adapter／公開發布路由、GS 人工來源擷取與 adopted 來源後調度"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 15
+      "observed_cases": 22
     },
     {
       "id": "A17",

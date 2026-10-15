@@ -29,3 +29,5 @@ observe 新 problem 與採用新 confirmation 也須等待 unresolved publisher 
 local_tests/test_raid_publication.py 的 19 項案例涵蓋固定確認／route、偽造來源、compute-only／native child、實際 stage 寫五 tab、人工區保留、精確重播、queued／running／computed stale、兩種回應遺失、publisher fence、恢復只寫一次、換確認、typed grid 綁定、預算與分工作類型狀態。
 
 尚未接真實 Sheets、公開發布 endpoint／principal、raid route 採用 head、來源人工範圍與實際免費用量。本地 publish 旗標只操作標記 mock workspace；備份還原 fence 仍拒絕 worker 寫入。
+
+86 補上 raid settings／member inputs／route 的原子 adopted source bundle。route-only 採用保留計算，舊路由發布失效；目前 publisher eligibility 同時核對這個 head。

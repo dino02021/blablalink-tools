@@ -40,15 +40,11 @@ def compile_raid_publication(store, confirmation_id, route_id, code_sha):
     versions = dict(problem.input_versions)
     if versions.get('raid_compiler') != COMPILER or problem.code_sha != code_sha:
         raise StateConflict('raid publication requires same-code compiled sources')
-    route = store.get_document(route_id)
-    payload = route.payload
     source = store.get_document(versions['union_inputs'])
-    if (route.envelope['kind'] != 'union_inputs' or route.envelope['scope_id'] != record['scope_id']
-            or route.envelope['reference_version'] != source.envelope['reference_version']
-            or set(payload) != {'input_kind', 'resource', 'layout_revision'} or payload['input_kind'] != 'raid_publication_route'):
-        raise StateConflict('fixed scoped raid publication route required')
-    for value in (payload['resource'], payload['layout_revision']):
-        validate_identifier(value)
+    payload = read_raid_publication_route(store, record['scope_id'], source.envelope['reference_version'], route_id)
+    head = store.raid_source_version(record['scope_id'])
+    if head is not None and head['route_id'] != route_id:
+        raise StateConflict('raid publication route is no longer adopted')
     workbook = store.confirmation_workbook(confirmation_id)
     generated = {'schema_version': 1, 'publication_kind': 'confirmed_raid', 'confirmation_id': confirmation_id,
         'problem_id': problem.problem_id, 'draft_plan_id': record['draft_id'], 'code_sha': code_sha,
@@ -57,6 +53,18 @@ def compile_raid_publication(store, confirmation_id, route_id, code_sha):
     manifest = {'workbooks': {payload['resource']: generated}, 'layout_revisions': {payload['resource']: payload['layout_revision']}}
     return RaidPublicationCandidate(record['scope_id'], confirmation_id, route_id, problem.problem_id, code_sha,
         tuple(sorted({**versions, 'problem': problem.problem_id, 'raid_confirmation': confirmation_id, 'raid_route': route_id}.items())), canonical_json(manifest))
+
+
+def read_raid_publication_route(store, scope_id, reference_version, route_id):
+    route = store.get_document(route_id)
+    payload = route.payload
+    if (route.envelope['kind'] != 'union_inputs' or route.envelope['scope_id'] != scope_id
+            or route.envelope['reference_version'] != reference_version
+            or set(payload) != {'input_kind', 'resource', 'layout_revision'} or payload['input_kind'] != 'raid_publication_route'):
+        raise StateConflict('fixed scoped raid publication route required')
+    for value in (payload['resource'], payload['layout_revision']):
+        validate_identifier(value)
+    return payload
 
 
 def raid_publication_task(candidate, intent_id):

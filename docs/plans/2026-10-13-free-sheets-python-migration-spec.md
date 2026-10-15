@@ -1251,3 +1251,10 @@ blablalink-tools/
 - worker compute-only／native child 只產生 computed，顯式 mock publisher 才透過 staging／回讀寫入五個 protected tabs；人工欄與 tab 保留。
 - 追加：新確認／problem 採用也須避開 unresolved publisher；回應遺失保留鎖，正面回讀恢復避免重寫。狀態必須分工作類型保存最近發布，排刀成功不能遮住健檢紀錄。
 - 十九項 mock 驗證含各階段 stale、native／budget、五 tab、兩種 response loss、恢復與狀態。正式 provider／公開發布路由／免費用量仍未接線。詳見 docs/spec/85-confirmed-raid-publication.md。
+
+### 17.51 第四十七批：排刀來源 bundle 原子採用（2026-10-15）
+
+- 0013 以單一 bundle 固定 raid 設定、人工指定刀／history、路由與來源健檢／名單，候選與 adopted head 分開；base revision CAS、receipt 與 request 同交易保存。
+- 追加：設定或指定刀採用後立即使舊 problem／確認／工作失效，不能只等待 observe 新 problem。route-only 改版保留原計算，只阻擋舊路由發布。
+- 十六項 mock 案例驗證競爭、回滾、重播不倒回、unknown publisher、舊 legacy bypass、重啟／retention、分階段工作 fence 與唯讀狀態。
+- 不自動 observe／計算／確認／發布；GS 人工來源擷取、跨 runtime 採用及正式 principal 仍待完成。詳見 docs/spec/86-local-raid-source-adoption.md。

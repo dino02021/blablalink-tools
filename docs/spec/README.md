@@ -99,6 +99,8 @@
 
 - [85：已確認排刀的本地發布](85-confirmed-raid-publication.md)
 
+- [86：排刀來源原子採用](86-local-raid-source-adoption.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

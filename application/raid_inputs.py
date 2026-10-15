@@ -96,9 +96,14 @@ def is_raid_dependency_current(store, scope_id, problem):
     managed = store.union_input_version(scope_id)
     if managed is not None and (versions.get('union_inputs') != managed['input_id'] or managed['roster_state'] != 'active' or versions.get('raid_compiler') != COMPILER):
         return False
+    source_head = store.raid_source_version(scope_id)
     if 'raid_compiler' not in versions:
-        return True
+        return source_head is None
     if versions['raid_compiler'] != COMPILER:
+        return False
+    if source_head is not None and (versions.get('raid_settings') != source_head['settings_id']
+            or versions.get('raid_member_inputs') != source_head['member_inputs_id']
+            or versions.get('union_inputs') != source_head['union_inputs'] or problem.code_sha != source_head['code_sha']):
         return False
     job = store.get_job(versions['healthcheck_job'])
     return (job.spec.command == 'recompute_healthcheck' and job.spec.scope_id == scope_id and job.spec.code_sha == problem.code_sha and job.result_id == versions['healthcheck_result']

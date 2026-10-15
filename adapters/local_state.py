@@ -76,6 +76,17 @@ class LocalStateStore:
         row = self._connection.execute("SELECT * FROM union_input_heads WHERE scope_id=?", (scope_id,)).fetchone()
         return dict(row) if row else None
 
+    def raid_source_version(self, scope_id: str) -> dict | None:
+        validate_identifier(scope_id)
+        row = self._connection.execute("SELECT * FROM raid_source_heads WHERE scope_id=?", (scope_id,)).fetchone()
+        if row is None:
+            return None
+        document = self.get_document(row["bundle_id"])
+        if (document.envelope["kind"] != "union_inputs" or document.envelope["scope_id"] != scope_id
+                or document.payload.get("input_kind") != "raid_source_bundle"):
+            raise StateConflict("raid source head differs from immutable bundle")
+        return {**document.payload, **dict(row)}
+
     def list_jobs(self) -> tuple[Job, ...]:
         return tuple(_job(row) for row in self._connection.execute("SELECT * FROM jobs ORDER BY created_at, job_id"))
 
@@ -805,7 +816,8 @@ class LocalStateStore:
         if spec.command not in ("generate_raid_draft", "publish_raid_plan"):
             return True
         versions = spec.version_map
-        if spec.command == "generate_raid_draft" and self.union_input_version(spec.scope_id) is None and "raid_compiler" not in versions:
+        if (spec.command == "generate_raid_draft" and self.union_input_version(spec.scope_id) is None
+                and self.raid_source_version(spec.scope_id) is None and "raid_compiler" not in versions):
             return True
         from application.raid_codec import restore_problem
         from application.raid_inputs import COMPILER, is_raid_dependency_current
@@ -817,6 +829,9 @@ class LocalStateStore:
             return False
         if spec.command == "generate_raid_draft":
             return True
+        source_head = self.raid_source_version(spec.scope_id)
+        if source_head is not None and versions.get("raid_route") != source_head["route_id"]:
+            return False
         confirmation_id = versions.get("raid_confirmation")
         row = self._connection.execute("SELECT c.signature,d.problem_id,i.problem_id AS current_problem FROM raid_confirmed_heads h "
             "JOIN raid_confirmations c ON c.confirmation_id=h.confirmation_id JOIN raid_drafts d ON d.scope_id=c.scope_id AND d.draft_id=c.draft_id "

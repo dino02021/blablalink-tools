@@ -51,6 +51,7 @@ def read_system_status(directory, scope_ids) -> dict:
 def _scope_status(connection, scope):
     input_row = connection.execute("SELECT scope_id,input_id,revision,roster_state FROM union_input_heads WHERE scope_id=?", (scope,)).fetchone()
     input_head = dict(input_row) if input_row else None
+    raid_source_head = _ReadOnlyStatusState(connection).raid_source_version(scope)
     jobs = _bounded(connection, "SELECT j.*,d.family AS desired_family FROM desired_targets d JOIN jobs j ON j.fingerprint=d.fingerprint WHERE d.scope_id=? ORDER BY d.family", (scope,), 50)
     desired = []
     for row in jobs:
@@ -99,7 +100,7 @@ def _scope_status(connection, scope):
             raise ValueError("status raid problem exceeds byte bound")
         confirmation["is_stale"] = not is_raid_dependency_current(reader, scope, restore_problem(data))
     batches = dict(connection.execute("SELECT is_accepted,COUNT(*) FROM report_send_candidates WHERE scope_id=? GROUP BY is_accepted", (scope,)).fetchall())
-    return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "desired": desired, "historical_job_counts": counts,
+    return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "raid_source_head": raid_source_head, "desired": desired, "historical_job_counts": counts,
         "last_published": last_published, "published_by_family": published_by_family, "raid_confirmation": confirmation,
         "report_batch_counts": {"prepared": batches.get(0, 0), "accepted": batches.get(1, 0)},
         "has_blocked_target": any(target["state"] in BLOCKED or not target["is_job_current"] for target in desired),
