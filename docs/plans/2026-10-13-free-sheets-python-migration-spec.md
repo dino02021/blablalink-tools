@@ -1104,3 +1104,10 @@ blablalink-tools/
 
 - 稽核發現 signed task 原可自選 family，可能使舊版本輸入避開 healthcheck／raid desired target 的比較；限制 signed command 使用固定 family，可信本地 API 的一般能力保留。
 - 新增入口測試驗證有效簽章也不能繞過 family policy，且拒絕時不寫入 replay receipt。這是本地授權契約修正，無正式環境變更。
+
+### 17.30 第二十六批：薄 GS 提示到 Python 候選（2026-10-15）
+
+- 新增未部署、預設停用的薄 GS onEdit／timer 橋接，只過濾事件與送簽章 reconcile 提示，不讀資料格、做業務計算或直接發布結果。
+- Python gate 固定 reconcile family／sealed route／principal 權限，本地 worker 讀 mock source 產生固定候選；明確確認 config 仍是另一步，不因 onEdit 自動發布。
+- 新增 9 項離線測試，Node 執行真實橋接 HMAC，再由 Python gate 驗證、worker 產生相同候選；驗證 HTTP accepted 不等於計算成功、timeout 不盲重試與停用不讀 key。
+- A11 補上跨語言端到端本地證據；無正式 trigger／Properties／URL／部署，HTTP runtime、coalescing 與 durable hint queue 仍待完成。詳見 docs/spec/65-thin-gs-reconcile-bridge.md。

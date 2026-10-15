@@ -73,6 +73,7 @@
 - [62：本地備份與還原](62-local-backup-restore.md)
 - [63：本地物件保留與清理](63-local-object-retention.md)
 - [64：A01–A22 本地證據與缺口](64-local-acceptance-evidence.md)
+- [65：薄 GS reconcile 橋接](65-thin-gs-reconcile-bridge.md)
 
 ## 撰寫規則
 

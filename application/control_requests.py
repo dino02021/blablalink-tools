@@ -11,7 +11,7 @@ from application.raid_codec import restore_problem
 from application.tasks import StateConflict, TaskSpec, validate_identifier
 from domain.snapshots import canonical_json
 
-COMPUTE_COMMANDS = frozenset({"recompute_healthcheck", "generate_raid_draft"})
+COMPUTE_COMMANDS = frozenset({"recompute_healthcheck", "generate_raid_draft", "reconcile"})
 
 
 class RequestDenied(ValueError):
@@ -81,7 +81,7 @@ def verify_request(envelope: dict, body: bytes, principal: RequestPrincipal, now
     if (task.command not in COMPUTE_COMMANDS or task.command not in principal.commands
             or task.scope_id not in principal.scopes):
         raise RequestDenied("scope_denied")
-    expected_family = "healthcheck" if task.command == "recompute_healthcheck" else "raid"
+    expected_family = {"recompute_healthcheck": "healthcheck", "generate_raid_draft": "raid", "reconcile": "config_reconcile"}[task.command]
     if task.family != expected_family:
         raise RequestDenied("task_family_denied")
     return task
@@ -89,6 +89,14 @@ def verify_request(envelope: dict, body: bytes, principal: RequestPrincipal, now
 
 def resolve_request_workbooks(store, task: TaskSpec) -> frozenset[str]:
     """Never trust a separately declared list of authorized target resources."""
+    if task.command == "reconcile":
+        route = store.get_document(task.version_map["reconcile_route"])
+        if (route.envelope["kind"] != "union_inputs" or route.envelope["scope_id"] != task.scope_id
+                or route.payload.get("reconcile_kind") != "structured_healthcheck_standard"):
+            raise RequestDenied("input_scope_denied")
+        resource = route.payload["resource"]
+        validate_identifier(resource)
+        return frozenset({resource})
     if task.command == "recompute_healthcheck":
         versions = task.version_map
         inputs = store.get_document(versions["union_inputs"])

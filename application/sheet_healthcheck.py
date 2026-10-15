@@ -32,6 +32,26 @@ def run_healthcheck_job(store, lease, budget=None):
         return store.defer(lease, "capacity_blocked", error.code)
 
 
+def run_standard_reconcile_job(store, sheets, lease, captured_at, budget):
+    try:
+        with execution_checks(ComputeExecutionCheck(store, lease, budget)):
+            check_execution()
+            job = store.get_job(lease.job_id)
+            if job.spec.command != "reconcile" or job.spec.family != "config_reconcile":
+                raise StateConflict("not a standard reconciliation job")
+            route = store.get_document(job.spec.version_map["reconcile_route"])
+            if (route.envelope["kind"] != "union_inputs" or route.envelope["scope_id"] != job.spec.scope_id
+                    or route.payload.get("reconcile_kind") != "structured_healthcheck_standard"):
+                raise StateConflict("reconciliation route differs")
+            payload = route.payload
+            reference = StandardReference(route.envelope["reference_version"], tuple(payload["role_ids"]), tuple(payload["function_ids"]))
+            candidate_id = reconcile_standard(store, sheets, payload["resource"], job.spec.scope_id, captured_at, reference)
+            check_execution()
+            return store.complete_compute(lease, {"candidate_id": candidate_id, "route_snapshot_id": route.snapshot_id}, is_publication_required=False)
+    except ComputeLimit as error:
+        return store.defer(lease, "capacity_blocked", error.code)
+
+
 def _run_healthcheck_job(store, lease):
     job = store.get_job(lease.job_id)
     if job.spec.command != "recompute_healthcheck":

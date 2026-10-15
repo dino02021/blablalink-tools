@@ -1,6 +1,7 @@
 """Bounded offline worker. All effects target an explicitly marked mock workspace."""
 
 from pathlib import Path
+from datetime import datetime, timezone
 
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.mock_sheets import MockSheets
@@ -9,12 +10,12 @@ from adapters.local_workbook_staging import LocalWorkbookStaging
 from application.publication import publish_workbooks
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
-from application.sheet_healthcheck import run_healthcheck_job
+from application.sheet_healthcheck import run_healthcheck_job, run_standard_reconcile_job
 from application.tasks import LeaseLost, ResourceBusy, StateConflict, validate_identifier
 from application.workbook_staging import StagedSheets, prepare_workbook_stage
 from executors.local.demo import workspace_status
 
-SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft")
+SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "reconcile")
 
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
@@ -49,6 +50,9 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             try:
                 if job.spec.command == "recompute_healthcheck":
                     computed = run_healthcheck_job(store, lease, budget_factory())
+                elif job.spec.command == "reconcile":
+                    computed = run_standard_reconcile_job(store, MockSheets(directory / "workbooks"), lease,
+                        datetime.now(timezone.utc).isoformat(), budget_factory())
                 else:
                     problem_id = job.spec.version_map["problem"]
                     problem = restore_problem(store.get_result(problem_id))

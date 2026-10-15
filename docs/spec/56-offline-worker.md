@@ -3,7 +3,7 @@
 入口：`python -m executors.local work --workspace <mock directory> --code-sha <pinned release>`。
 
 - 僅接受已初始化的 mock marker 與既存 DB；不載入正式設定、憑證、provider 或 URL。預設只計算，`--publish-mock` 才啟用 MockSheets。
-- 一次處理 1..100 個工作，預設 10，不自建背景輪詢。worker ID 與 code SHA 明確固定；只領 local／同 code 的 recompute_healthcheck、generate_raid_draft。
+- 一次處理 1..100 個工作，預設 10，不自建背景輪詢。worker ID 與 code SHA 明確固定；只領 local／同 code 的 recompute_healthcheck、generate_raid_draft、reconcile。
 - [還原副本](62-local-backup-restore.md) 若存在 restore-lock.json，一律拒絕領取或發布，避免自行成為第二 writer。
 - LocalStateStore.claim 的可選 commands 白名單在 SQL LIMIT 前套用，避免大量不支援任務使可處理工作飢餓；其他 caller 未指定時保留原行為，hosted claim 不接受此本地篩選。
 - 啟用 mock 發布時先處理同版本 computed 健檢，再領計算工作。發布採 persisted manifest 與原有全域／工作簿鎖，不從草稿或目前標準重新算。
@@ -14,4 +14,4 @@
 
 local_tests/test_local_worker.py 包含 compute-only→重啟發布、跳過雲端／異版本／未知命令、105 筆不支援工作前置不飢餓、無效輸入、不明發布隔離、排刀 checkpoint resume、實際 scrubbed-env CLI 與未標記目錄拒絕。
 
-目前支援上述兩個計算命令，不能執行 collector、遠端 dispatch、候選確認或發送。已接上[本地 RSS 與合作式迴圈檢查](57-local-compute-resources.md)，尚未提供 D1、外部 runtime adapter 或子程序硬性時間／記憶體隔離。
+目前支援上述三種命令，reconcile 只準備標準候選，不執行候選確認。不能執行 collector、遠端 dispatch 或發送。已接上[本地 RSS 與合作式迴圈檢查](57-local-compute-resources.md)，尚未提供 D1、外部 runtime adapter 或子程序硬性時間／記憶體隔離。

@@ -2,7 +2,8 @@
   "schema_version": 1,
   "scope": "local_mock_only",
   "is_production_accepted": false,
-  "observed_test_cases": 383,
+  "suite_status": "passed",
+  "observed_test_cases": 396,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -126,13 +127,14 @@
       "id": "A11",
       "tests": [
         "local_tests/test_sheet_workflow.py::test_candidate_is_frozen_while_new_sheet_edit_remains_unpublished",
-        "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training"
+        "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training",
+        "local_tests/test_gs_bridge.py::test_gs_signed_hint_reaches_python_and_only_prepares_candidate"
       ],
       "remaining": [
-        "薄 GS onEdit／排程 reconcile 離線入口與遠端授權"
+        "HTTP runtime 接線、正式 GS trigger／排程與事件 coalescing"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 3
     },
     {
       "id": "A12",
@@ -262,6 +264,5 @@
       "evidence_status": "local_evidence_passed",
       "observed_cases": 2
     }
-  ],
-  "suite_status": "passed"
+  ]
 }
