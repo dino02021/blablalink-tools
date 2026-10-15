@@ -1,0 +1,458 @@
+{
+  "schema_version": 1,
+  "is_mock": true,
+  "is_production_accepted": false,
+  "network_providers": [],
+  "is_local_d1_contract_passed": true,
+  "supervision": {
+    "is_mock": true,
+    "outcome": "completed",
+    "exit_code": 0,
+    "is_child_stopped": true,
+    "max_processes": 4,
+    "job_memory_limit_bytes": 536870912,
+    "seconds": 1.1434895999846049,
+    "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "is_stderr_truncated": false
+  },
+  "emulator_query_usage": {
+    "new_cas": {
+      "rows_read": 10,
+      "rows_written": 9
+    },
+    "batch_replay": {
+      "rows_read": 11,
+      "rows_written": 5
+    },
+    "verified_lookup": {
+      "rows_read": 1,
+      "rows_written": 0
+    }
+  },
+  "is_complete_account_usage": false,
+  "miniflare_version": "4.20260730.0",
+  "workerd_version": "1.20260730.1",
+  "compatibility_date": "2026-07-30",
+  "operations": [
+    {
+      "outcome": "completed",
+      "results": [
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 1,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 0,
+            "last_row_id": 1,
+            "changed_db": false,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 0
+          },
+          "results": [
+            {
+              "request_id": "initial",
+              "signature": "ca38d844110615aafef724435901bb3054d60cc18b47ed76f9791ecc4bbad365",
+              "scope_id": "mock_union",
+              "family": "healthcheck",
+              "base_revision": 0,
+              "version_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "code_sha": "mock-release",
+              "actor_id": "mock_actor",
+              "revision": 1
+            }
+          ]
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 1
+          },
+          "results": []
+        }
+      ]
+    },
+    {
+      "outcome": "rejected",
+      "error_name": "Error",
+      "error_message": "D1_ERROR: CHECK constraint failed: is_allowed = 1: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK)"
+    },
+    {
+      "outcome": "completed",
+      "results": [
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 3,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 0,
+            "last_row_id": 2,
+            "changed_db": false,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 0
+          },
+          "results": [
+            {
+              "request_id": "changed",
+              "signature": "36d5b7c52f6f088f8d0892f257df12328a5e1355f4b9c98b12df2759804d4abf",
+              "scope_id": "mock_union",
+              "family": "healthcheck",
+              "base_revision": 1,
+              "version_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "code_sha": "mock-release",
+              "actor_id": "mock_actor",
+              "revision": 2
+            }
+          ]
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 1
+          },
+          "results": []
+        }
+      ]
+    },
+    {
+      "outcome": "completed",
+      "results": [
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 2
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 0,
+            "last_row_id": 1,
+            "changed_db": false,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 0
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 0,
+            "last_row_id": 1,
+            "changed_db": false,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 0
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 2,
+            "rows_written": 1
+          },
+          "results": []
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 0,
+            "last_row_id": 1,
+            "changed_db": false,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 0
+          },
+          "results": [
+            {
+              "request_id": "initial",
+              "signature": "ca38d844110615aafef724435901bb3054d60cc18b47ed76f9791ecc4bbad365",
+              "scope_id": "mock_union",
+              "family": "healthcheck",
+              "base_revision": 0,
+              "version_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "code_sha": "mock-release",
+              "actor_id": "mock_actor",
+              "revision": 1
+            }
+          ]
+        },
+        {
+          "success": true,
+          "meta": {
+            "served_by": "miniflare.db",
+            "duration": 0,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 40960,
+            "rows_read": 1,
+            "rows_written": 1
+          },
+          "results": []
+        }
+      ]
+    },
+    {
+      "outcome": "completed",
+      "result": {
+        "success": true,
+        "meta": {
+          "served_by": "miniflare.db",
+          "duration": 0,
+          "changes": 0,
+          "last_row_id": 1,
+          "changed_db": false,
+          "size_after": 40960,
+          "rows_read": 3,
+          "rows_written": 0
+        },
+        "results": [
+          {
+            "version_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "revision": 2,
+            "receipt_count": 2,
+            "guard_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "outcome": "completed",
+      "mode": "lookup_replay",
+      "lookup_result": {
+        "success": true,
+        "meta": {
+          "served_by": "miniflare.db",
+          "duration": 0,
+          "changes": 0,
+          "last_row_id": 1,
+          "changed_db": false,
+          "size_after": 40960,
+          "rows_read": 1,
+          "rows_written": 0
+        },
+        "results": [
+          {
+            "request_id": "initial",
+            "signature": "ca38d844110615aafef724435901bb3054d60cc18b47ed76f9791ecc4bbad365",
+            "scope_id": "mock_union",
+            "family": "healthcheck",
+            "base_revision": 0,
+            "version_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "code_sha": "mock-release",
+            "actor_id": "mock_actor",
+            "revision": 1
+          }
+        ]
+      },
+      "receipt": {
+        "request_id": "initial",
+        "signature": "ca38d844110615aafef724435901bb3054d60cc18b47ed76f9791ecc4bbad365",
+        "scope_id": "mock_union",
+        "family": "healthcheck",
+        "base_revision": 0,
+        "version_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "code_sha": "mock-release",
+        "actor_id": "mock_actor",
+        "revision": 1
+      }
+    }
+  ],
+  "blocked_outbound_attempts": 1,
+  "is_network_blocked": true,
+  "is_environment_sanitized": true,
+  "sdk_child_count": 1,
+  "are_sdk_children_closed": true
+}

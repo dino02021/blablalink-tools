@@ -1367,3 +1367,10 @@ blablalink-tools/
 - 實際二個 bounded child、五張排刀與三張狀態 tab，保留三種工作簿人工資料與既有成功。另次獨立執行保存 actual receipts 至 docs/validation/2026-10-16-connected-raid-scenario.json。
 - 追加：已採用工作完成不等於所有人工草稿已同步。證據明列 has_unadopted_human_edit，pending grid 與原 raw ID 分開，後續編輯不被偷偷採用或覆蓋。
 - 五項整合案例含實際 CLI、拒絕既有 workspace 與兩階段 child failure；不偽造完成、不抹除前次發布。正式與 hosted／D1 接線、rebase policy 等缺口保留。詳見 docs/spec/101-connected-raid-mock-scenario.md。
+
+### 17.67 第六十三批：實際本地 D1 binding 與有界 SDK 程序樹（2026-10-16）
+
+- 固定 Miniflare／workerd dev dependencies，真實 getD1Database 執行同一 CAS batch，驗證並行／stale／錯誤回滾／舊 request。無帳戶、remote binding、credential 或部署。
+- 新增獨立 Windows SDK profile：最多四 processes、512 MiB aggregate memory、deadline／output 有界與 start gate；一般 Python profile 仍只允許單一 child。實測 runtime ready 後 timeout 關閉 SDK child。
+- 追加實際差異：D1 exec 不能直接套 SQLite executescript 的 schema 方式；batch replay 也會寫 guards。已補 positive receipt lookup，完整相符時本地 meta 寫入為零，競爭仍走原 batch，不假稱 account 用量完整。
+- 十四項 SDK／Windows 案例、七項 pure lookup 與原十五項 process guard 回歸，另實際 CLI 保存 docs/validation/2026-10-16-local-d1-runtime.json。完整 coordinator／chunks／admission／auth／正式平台與 POSIX 仍待完成。詳見 docs/spec/102-local-miniflare-d1-runtime.md。

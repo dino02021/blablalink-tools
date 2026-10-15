@@ -1,11 +1,14 @@
-"""A private Windows Job Object for one owned child, with no breakaway permission."""
+"""A private Windows Job Object; one child by default, bounded trusted trees optional."""
 
 from functools import lru_cache
 
 
 class WindowsChildJob:
-    def __init__(self, memory_limit_bytes):
+    def __init__(self, memory_limit_bytes, max_processes=1):
         import ctypes
+        if (type(memory_limit_bytes) is not int or not 32*1024*1024<=memory_limit_bytes<=2*1024**3
+                or type(max_processes) is not int or not 1<=max_processes<=4):
+            raise ValueError('bounded owned Windows process profile required')
         self.kernel, limit_type = _api()
         self.handle = self.kernel.CreateJobObjectW(None, None)
         if not self.handle:
@@ -13,8 +16,11 @@ class WindowsChildJob:
         try:
             limits = limit_type()
             limits.BasicLimitInformation.LimitFlags = 0x100 | 0x2000 | 0x8
-            limits.BasicLimitInformation.ActiveProcessLimit = 1
+            limits.BasicLimitInformation.ActiveProcessLimit = max_processes
             limits.ProcessMemoryLimit = memory_limit_bytes
+            if max_processes>1:
+                limits.BasicLimitInformation.LimitFlags |= 0x200
+                limits.JobMemoryLimit = memory_limit_bytes
             if not self.kernel.SetInformationJobObject(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
                 raise OSError(ctypes.get_last_error(), "cannot set child job limits")
         except BaseException:

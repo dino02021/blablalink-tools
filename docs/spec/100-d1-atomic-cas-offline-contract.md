@@ -18,7 +18,7 @@ HeadCasIntent 固定 request、scope、family、expected revision、64-hex versi
 
 ## 七步原子決定
 
-1. 先插 cas guard：相同 request 已有正確 signature 則允許只讀重播；新 request 必須 barrier 未擋且目前 revision 等於 expected。條件不符以 CHECK 失敗中止整批，而非零列更新後繼續。
+1. 先插 cas guard：相同 request 已有正確 signature 則允許回原決定；新 request 必須 barrier 未擋且目前 revision 等於 expected。條件不符以 CHECK 失敗中止整批，而非零列更新後繼續。
 2. 新 request 才有條件 insert／update head，revision 增一；重播不動 head。
 3. SQL guard 核對 head 寫入後完整 revision／version／code，防止寫入被忽略仍繼續。
 4. 保存不可變 request receipt；衝突不覆寫原紀錄。
@@ -27,6 +27,8 @@ HeadCasIntent 固定 request、scope、family、expected revision、64-hex versi
 7. 移除同次暫存 guard。任何一步失敗，head／receipt／guard 一起回滾。
 
 精確舊 request 在新 head 或 barrier 出現後仍只回原 receipt，不 rewind、改 actor 或重新 CAS。變更相同 request 的任何意圖欄位須失敗。沒有 receipt 的舊 revision 不能藉 retry 成為成功。
+
+102 的實際 Miniflare 證據補正：這個 batch 的重播仍會 insert／update／delete 暫存 guard，不能稱為整個 DB 的只讀或零寫入。已另提供 positive receipt lookup 契約，只有完整匹配的既存 receipt 才能只讀返回；查無資料仍走原 batch，競爭時 batch 重播成本不會消失。
 
 verify_head_cas_batch_result 只接受七項 success=true 與精確 receipt；canonical JSON 比對區分 boolean 與 numeric revision。response loss、缺項或錯內容都視為 outcome unproven，必須以原 request／原 signature 恢復確認，不能改 ID 重送或當作 rejection。未提供自動 HTTP retry。
 

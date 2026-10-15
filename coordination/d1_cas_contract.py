@@ -91,6 +91,23 @@ def build_head_cas_batch(intent):
     return statements
 
 
+def build_head_cas_lookup(intent):
+    if not isinstance(intent,HeadCasIntent):raise ValueError('typed immutable CAS intent required')
+    return BoundStatement('SELECT request_id,signature,scope_id,family,base_revision,version_id,code_sha,actor_id,revision '
+        'FROM contract_receipts WHERE request_id=?',(intent.request_id,))
+
+
+def verify_head_cas_lookup_result(intent,result):
+    if not isinstance(intent,HeadCasIntent):raise ValueError('typed immutable CAS intent required')
+    if (not isinstance(result,dict) or result.get('success') is not True or not isinstance(result.get('results'),list)
+            or len(result['results'])>1):
+        raise StateConflict('CAS receipt lookup outcome unproven')
+    if not result['results']:return None
+    if canonical_json(result['results'][0])!=canonical_json(intent.receipt):
+        raise StateConflict('request already binds another or corrupted immutable receipt')
+    return intent.receipt
+
+
 def verify_head_cas_batch_result(intent,results):
     # A transport timeout must not be interpreted as a rejected or completed CAS.
     # Only a complete batch response with the exact immutable receipt is accepted.

@@ -8,7 +8,7 @@ import sqlite3
 import pytest
 
 from application.tasks import StateConflict
-from coordination.d1_cas_contract import BoundStatement,HeadCasIntent,build_head_cas_batch,verify_head_cas_batch_result
+from coordination.d1_cas_contract import BoundStatement,HeadCasIntent,build_head_cas_batch,verify_head_cas_batch_result,build_head_cas_lookup,verify_head_cas_lookup_result
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -91,7 +91,7 @@ def test_silent_noop_write_is_caught_by_sql_guard_before_commit(database,table):
 
 
 @pytest.mark.parametrize('scope',['global','mock_union'])
-def test_barrier_blocks_new_operations_but_exact_receipt_replay_is_read_only(database,scope):
+def test_barrier_blocks_new_operations_but_exact_receipt_replay_keeps_heads_unchanged(database,scope):
     operation=intent()
     execute_batch(database,operation)
     with sqlite3.connect(database) as connection:connection.execute('INSERT INTO contract_barriers VALUES(?,1)',(scope,))
@@ -155,3 +155,28 @@ def test_corrupt_existing_receipt_cannot_bypass_postcondition_checks(database):
     with sqlite3.connect(database) as connection:
         assert connection.execute('SELECT COUNT(*) FROM contract_cas_guards').fetchone()[0]==0
         assert connection.execute('SELECT revision FROM contract_heads').fetchone()[0]==1
+
+
+def test_receipt_lookup_has_exact_intent_validation_and_explicit_absence(database):
+    operation=intent()
+    statement=build_head_cas_lookup(operation)
+    assert statement.parameters==(operation.request_id,)
+    assert verify_head_cas_lookup_result(operation,{'success':True,'results':[]}) is None
+    execute_batch(database,operation)
+    with sqlite3.connect(database) as connection:
+        connection.row_factory=sqlite3.Row
+        rows=[dict(row) for row in connection.execute(statement.sql,statement.parameters)]
+    assert verify_head_cas_lookup_result(operation,{'success':True,'results':rows})==operation.receipt
+
+
+@pytest.mark.parametrize('change',['false_success','missing_results','wrong_actor','wrong_signature','duplicate','bool_revision'])
+def test_invalid_lookup_never_becomes_a_read_only_success(change):
+    operation=intent()
+    result={'success':True,'results':[dict(operation.receipt)]}
+    if change=='false_success':result['success']=1
+    elif change=='missing_results':del result['results']
+    elif change=='wrong_actor':result['results'][0]['actor_id']='another'
+    elif change=='wrong_signature':result['results'][0]['signature']='0'*64
+    elif change=='duplicate':result['results'].append(dict(operation.receipt))
+    elif change=='bool_revision':result['results'][0]['revision']=True
+    with pytest.raises(StateConflict):verify_head_cas_lookup_result(operation,result)

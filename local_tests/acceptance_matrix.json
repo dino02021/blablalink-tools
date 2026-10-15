@@ -107,7 +107,11 @@
         "local_tests/test_d1_cas_contract.py::test_failure_at_any_statement_rolls_back_head_receipt_and_guard",
         "local_tests/test_d1_cas_contract.py::test_silent_noop_write_is_caught_by_sql_guard_before_commit",
         "local_tests/test_d1_cas_contract.py::test_two_real_connections_racing_same_base_have_exactly_one_winner",
-        "local_tests/test_d1_cas_contract.py::test_two_connections_replaying_same_request_both_observe_one_decision"
+        "local_tests/test_d1_cas_contract.py::test_two_connections_replaying_same_request_both_observe_one_decision",
+        "local_tests/test_d1_runtime.py::test_actual_miniflare_cas_replay_barrier_network_and_children",
+        "local_tests/test_d1_runtime.py::test_runtime_batch_failure_rolls_back_prior_statement_before_followup_query",
+        "local_tests/test_d1_runtime.py::test_actual_d1_concurrent_batches_keep_one_head_and_one_receipt",
+        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay"
       ],
       "remaining": [
         "正式平台 dispatch callback 與 D1 條件更新"
@@ -264,7 +268,9 @@
       "id": "A18",
       "tests": [
         "local_tests/test_local_state.py::test_cloud_budget_reservation_is_atomic_and_blocked_work_can_reroute_local",
-        "local_tests/test_local_state.py::test_pending_dispatch_expiry_is_bounded_and_never_refunds_unknown_usage"
+        "local_tests/test_local_state.py::test_pending_dispatch_expiry_is_bounded_and_never_refunds_unknown_usage",
+        "local_tests/test_d1_runtime.py::test_always_running_the_batch_on_replay_has_real_guard_write_cost",
+        "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay"
       ],
       "remaining": [
         "帳戶共用實際免費用量與降頻政策量測"
@@ -292,7 +298,10 @@
         "local_tests/test_process_guard.py::test_native_memory_limit_stops_single_large_allocation_without_checkpoints",
         "local_tests/test_process_guard.py::test_killed_compute_does_not_mark_job_successful_or_force_release_its_lease",
         "local_tests/test_collection_checkpoint.py::test_interruption_keeps_last_valid_page_and_resume_reacquires_opaque_cursor",
-        "local_tests/test_collection_checkpoint.py::test_cancelled_collector_cannot_advance_page_checkpoint_or_finish"
+        "local_tests/test_collection_checkpoint.py::test_cancelled_collector_cannot_advance_page_checkpoint_or_finish",
+        "local_tests/test_d1_runtime.py::test_deadline_closes_the_actual_sdk_child_tree_after_runtime_ready",
+        "local_tests/test_d1_runtime.py::test_single_python_profile_still_cannot_spawn_a_second_process",
+        "local_tests/test_d1_runtime.py::test_windows_kernel_reports_requested_active_and_aggregate_memory_limits"
       ],
       "remaining": [
         "hosted deadline／memory profile、Linux native 實測與 dispatcher 採用"

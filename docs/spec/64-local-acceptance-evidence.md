@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，967 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md) 與 [101](101-connected-raid-mock-scenario.md)，後者區分已採用工作完成與未採用人工草稿。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，988 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md) 與 [101](101-connected-raid-mock-scenario.md)，後者區分已採用工作完成與未採用人工草稿。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
 | A05 | 缺 detail 不當零、function ID 投影、coverage／成員補抓 executor、reference CAS 與相容衍生投影 | hosted／細粒度／真實完整性 |
 | A06 | composite identity、名單轉換／封存、epoch、head CAS／舊工作 fence 與補抓後計算 | 全域 inactive 與舊人工區搬移 |
-| A07 | request／dispatch 持久去重、D1 七步 batch 的本地 SQL CAS／receipt／零列 guard 契約 | D1 binding／emulator 與完整任務 adapter／平台 callback |
+| A07 | request／dispatch 持久去重、D1 七步 batch 的本地 SQL 與實際 Miniflare binding CAS／receipt／零列 guard／positive lookup | 完整 D1 任務 adapter／遠端主體與平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |
 | A09 | shared resource 鎖、route head／sender CAS 與 claim 競爭互斥 | 真實路由／principal／遠端 CAS |
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |
@@ -21,9 +21,9 @@
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
 | A16 | 排序 view／五 tab 視圖不改指定刀、sealed 來源編譯／依賴即時 stale、確認保留原內容、confirmed mock publisher／五 tab 寫入、原子來源採用與 batch-bound 草稿排程、穩定 ID 人工格線擷取／raw lineage、已知舊格線的明確 row mapping mock 遷移 | 真實 adapter／公開路由／正式舊身分對照與 Google 擷取、健檢更新後重編譯調度 |
 | A17 | unknown 不盲重發、逐段路由／grant／一次性 start permit、跨 intent 防重 | 真實 principal／Discord adapter／遠端確認與正式採用 |
-| A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
+| A18 | 預算原子保留、unknown 不退款、D1 guard replay write-cost 與零寫入 positive receipt lookup 的本地 meta | 共用帳戶實際用量／降頻、D1 admission／完整成本 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |
-| A20 | budget／checkpoint／恢復，Windows child native memory／wall time 與 kill 狀態邊界 | hosted profile、Linux 實測與 dispatcher 採用 |
+| A20 | budget／checkpoint／恢復，Windows child native memory／wall time 與 kill 狀態邊界、獨立 SDK Job 的 aggregate memory／process tree deadline | hosted profile、Linux 實測與 dispatcher 採用 |
 | A21 | 缺片／取消不改結果、schema CAS、mock 格線遷移／archive、十一欄草稿遷移、已終止 staging／共享 chunks 安全清理與 receipt | 真實 staging／merge／protection、獨立 chunks／archive／history 清理 |
 | A22 | 備份還原 fence、回滾另取 publisher | binary／降版與跨 runtime ownership |
 
