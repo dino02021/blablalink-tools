@@ -1294,3 +1294,11 @@ blablalink-tools/
 - 追加：入口驗證不該遍歷全部歷史工作；computed manifest／typed grid 應在 publisher 前驗證並隔離無效結果，不能堵住其他 scope。已取得 publisher 的錯誤仍保留 unknown／鎖，不得透過 quarantine 解鎖。
 - 十八項整合案例涵蓋公平／競爭／預算／code／fence、單次補抓→重算→mock 發布、native 一 job 後續排隊及無效結果隔離。
 - 發現待補：永久無法重試 publication 的安全取消必須具完整未改動／已還原證據；目前不能只靠 commit 不存在或 TTL 釋放。其他 hosted／D1／正式來源與歷史清理仍待完成。詳見 docs/spec/91-bounded-workflow-tick-runner.md。
+
+### 17.57 第五十三批：具明確證據的發布安全取消（2026-10-16）
+
+- 0016 固定新 publication 的 write-ahead send phase 與第一個寫入前的全資源生成區基準。可用「從未開始生成區寫入」或「停止全部 writer 後完整核對原基準」兩種證據明確取消。
+- 追加：commit 不存在不等於沒寫入；partial／內容未復原／缺基準／舊 phase／錯 generation 或鎖皆拒絕。基準不能在開始送出後補造或 overwrite。
+- 取消決定以 immutable plan／receipt／request 與 effective-state view 保存，不冒充成功；原子 fence 舊 generation、job 記失敗、釋放自己的鎖。重播不碰新 publisher，已套用回應遺失仍走成功恢復。
+- 十八項 mock 案例含實際八 tab 格線、人工編輯、rollback／鎖／phase／generation、partial、重啟／retention／備份還原。正式 provider 停止證據與自動 rollback 仍未接線。
+- 發現待補：MockSheets 的整份 JSON read／modify／save 缺跨程序人工／生成區互斥，須另以並行測試補齊。詳見 docs/spec/92-publication-no-write-abort.md。

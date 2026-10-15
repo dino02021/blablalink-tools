@@ -120,6 +120,8 @@ def restore_backup(archive: Path, directory: Path, expected_backup_id: str, code
 
 
 def _require_quiescent(connection):
+    if connection.execute("SELECT 1 FROM publication_effective_states WHERE effective_state IN ('publishing','publish_uncertain') LIMIT 1").fetchone():
+        raise StateConflict("publisher outcome is unresolved")
     if connection.execute("SELECT 1 FROM resource_locks LIMIT 1").fetchone():
         raise StateConflict("publisher resources are still held")
     if connection.execute("SELECT 1 FROM jobs WHERE state IN ('running','dispatched','publishing','publish_uncertain') LIMIT 1").fetchone():

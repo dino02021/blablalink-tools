@@ -111,6 +111,8 @@
 
 - [91：有界公平 workflow runner](91-bounded-workflow-tick-runner.md)
 
+- [92：發布安全取消與原始基準](92-publication-no-write-abort.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

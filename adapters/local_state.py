@@ -113,7 +113,7 @@ class LocalStateStore:
                 raise StateConflict("computed result release differs")
             if row["state"] != "computed":
                 return self.get_job(job_id)  # another publisher may already have claimed it
-            if self._connection.execute("SELECT 1 FROM publications WHERE job_id=? AND state!='succeeded'", (job_id,)).fetchone():
+            if self._connection.execute("SELECT 1 FROM publication_effective_states WHERE job_id=? AND effective_state IN ('publishing','publish_uncertain')", (job_id,)).fetchone():
                 raise StateConflict("computed result has unresolved publication evidence")
             self._transition(job_id, "failed", "worker_result_invalid", is_clear_lease=True)
             return self.get_job(job_id)
@@ -572,6 +572,7 @@ class LocalStateStore:
                 "INSERT INTO publications VALUES(?,?,?,1,?,'publishing',?,?,?)",
                 (publication_id, job_id, publisher_id, commit_id, canonical_json(resources), self._now(), self._now()),
             )
+            self._connection.execute("INSERT INTO publication_safety_phases VALUES(?,0)", (publication_id,))
             self._connection.executemany(
                 "INSERT INTO resource_locks VALUES(?,?)",
                 ((resource, publication_id) for resource in ("global:publisher", *("sheet:" + item for item in resources))),
@@ -626,6 +627,47 @@ class LocalStateStore:
             "WHERE publication_id=? ORDER BY resource_id", (publication_id,)
         ))
 
+    def validate_publication_claim(self, claim: PublicationClaim, is_finished_allowed: bool = False) -> None:
+        self._require_publication(claim, is_finished_allowed)
+
+    def publication_safety_metadata(self, publication_id: str) -> dict:
+        row = self._connection.execute("SELECT p.*,j.code_sha,j.result_id,j.scope_id,j.state AS job_state,s.is_send_started "
+            "FROM publication_effective_states p JOIN jobs j ON j.job_id=p.job_id LEFT JOIN publication_safety_phases s ON s.publication_id=p.publication_id "
+            "WHERE p.publication_id=?", (publication_id,)).fetchone()
+        if row is None:
+            raise StateConflict("unknown publication safety scope")
+        return {**dict(row),"resources":tuple(json.loads(row["resources_json"])),"has_safety_phase":row["is_send_started"] is not None}
+
+    def publication_base(self, publication_id: str, resource: str) -> Document | None:
+        row = self._connection.execute("SELECT document_id FROM publication_bases WHERE publication_id=? AND resource_id=?", (publication_id,resource)).fetchone()
+        return self.get_document(row[0]) if row else None
+
+    def record_publication_base(self, claim: PublicationClaim, resource: str, document: Document) -> str:
+        from application.publication_safety import read_publication_state
+        data = read_publication_state(document)
+        with _transaction(self._connection):
+            self._require_publication(claim)
+            job = self.get_job(claim.job_id)
+            if (resource not in claim.resources or data["resource"]!=resource or data["publication_id"]!=claim.publication_id
+                    or data["commit_id"]!=claim.commit_id or data["result_id"]!=job.result_id or data["code_sha"]!=claim.code_sha):
+                raise StateConflict("publication baseline source differs")
+            existing = self.publication_base(claim.publication_id,resource)
+            if existing is not None:
+                if existing!=document:
+                    raise StateConflict("publication baseline cannot be overwritten")
+                return existing.snapshot_id
+            phase = self._connection.execute("SELECT is_send_started FROM publication_safety_phases WHERE publication_id=?", (claim.publication_id,)).fetchone()
+            if phase is None or phase[0]!=0:
+                raise StateConflict("original baseline must precede every send")
+            self._put_object(document.serialized)
+            self._connection.execute("INSERT INTO publication_bases VALUES(?,?,?)", (claim.publication_id,resource,document.snapshot_id))
+            return document.snapshot_id
+
+    def mark_publication_send_started(self, claim: PublicationClaim) -> None:
+        with _transaction(self._connection):
+            self._require_publication(claim)
+            self._connection.execute("UPDATE publication_safety_phases SET is_send_started=1 WHERE publication_id=?", (claim.publication_id,))
+
     def recover_publication(self, publication_id: str, new_publisher_id: str, observations: Mapping[str, str | None],
                             is_writer_stopped: bool) -> PublicationClaim | None:
         """Only a trusted reconciler may supply writer termination/read-back evidence."""
@@ -636,7 +678,8 @@ class LocalStateStore:
             row = self._connection.execute(
                 "SELECT * FROM publications WHERE publication_id=?", (publication_id,)
             ).fetchone()
-            if row is None or row["state"] != "publish_uncertain":
+            if (row is None or row["state"] != "publish_uncertain" or self._connection.execute(
+                    "SELECT 1 FROM publication_abort_receipts WHERE publication_id=?", (publication_id,)).fetchone()):
                 raise StateConflict("publication is not awaiting reconciliation")
             resources = tuple(json.loads(row["resources_json"]))
             _validate_observations(resources, observations)
@@ -882,7 +925,7 @@ class LocalStateStore:
 
     def _require_no_publisher(self) -> None:
         if (self._connection.execute("SELECT 1 FROM resource_locks LIMIT 1").fetchone()
-                or self._connection.execute("SELECT 1 FROM publications WHERE state!='succeeded' LIMIT 1").fetchone()):
+                or self._connection.execute("SELECT 1 FROM publication_effective_states WHERE effective_state IN ('publishing','publish_uncertain') LIMIT 1").fetchone()):
             raise ResourceBusy("a publication must be resolved before promoting desired versions")
 
     def _require_publication(self, claim: PublicationClaim, is_finished_allowed: bool = False) -> sqlite3.Row:

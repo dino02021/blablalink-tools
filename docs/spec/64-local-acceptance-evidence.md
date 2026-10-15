@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，786 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，804 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -15,7 +15,7 @@
 | A09 | shared resource 鎖、route head／sender CAS 與 claim 競爭互斥 | 真實路由／principal／遠端 CAS |
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |
 | A11 | 薄 GS 簽章提示到 Python 候選、內容去重 | HTTP 接線與正式 trigger／排程 |
-| A12 | timeout 隔離、回讀與重啟 | 真實 Sheets HTTP 核對 |
+| A12 | timeout 隔離、回讀／重啟及 phase／全基準安全取消 | 真實 Sheets HTTP 核對 |
 | A13 | 單一 fanout／壞資料隔離、唯讀跨聯盟一致 snapshot 與 typed 狀態表 | 共享狀態表 publisher／歷史分頁／遠端 scope 授權 |
 | A14 | auth 停止且不 fallback cache、durable pages／觀測、穩定 revision 的 fresh head 契約 | 真實 Session／provider 完整性／revision 對應 |
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
@@ -35,6 +35,6 @@ application/acceptance.py 會將參數化案例映射回明確 pytest node ID，
 
 ## 後續順序與外部依賴
 
-仍可獨立開發：完整舊 header 對照、全域 inactive／舊人工資料遷移、raid 採用後調度／GS 人工來源契約、安全取消永久不可重試 publication、補抓 hosted 契約、薄 GS 與 hosted entry 的平台離線契約、D1 adapter 契約、staging／chunk／archive／history 清理、更完整效能矩陣及共享狀態表 publisher。不能因已有 22 項本地證據就 block 或標完成。
+仍可獨立開發：完整舊 header 對照、全域 inactive／舊人工資料遷移、raid 採用後調度／GS 人工來源契約、MockSheets 跨程序人工／生成區互斥、自動 rollback、補抓 hosted 契約、薄 GS 與 hosted entry 的平台離線契約、D1 adapter 契約、staging／chunk／archive／history 清理、更完整效能矩陣及共享狀態表 publisher。不能因已有 22 項本地證據就 block 或標完成。
 
 真正需要後續外部決策或驗證：正式工作簿與可編輯範圍盤點、正式服務 principal／key、實際 provider 的完整性欄位、帳戶共享免費用量、GS tie／安全 guard 差異採用、原 writer 停用證據、正式切換與 rollback ownership。這些不在目前授權的本地 mock 執行範圍內。

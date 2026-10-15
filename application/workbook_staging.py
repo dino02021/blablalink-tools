@@ -59,6 +59,9 @@ class StagedSheets:
     def observe(self, resource, generated, commit_id):
         return self.sheets.observe(resource, generated, commit_id)
 
+    def capture_publication_state(self, resource, publication_id, commit_id, result_id, code_sha):
+        return self.sheets.capture_publication_state(resource,publication_id,commit_id,result_id,code_sha)
+
     def apply(self, resource, revision, generated, commit_id, fault=None):
         stage = self.staging.stage(self.stages[resource])
         job = self.store.get_job(stage.job_id)

@@ -116,7 +116,7 @@ def _global_status(connection, scopes):
     references = _bounded(connection, f"SELECT scope_id,reference_id,revision FROM reference_heads WHERE scope_id IN ({placeholders}) ORDER BY scope_id", ("common", *scopes), 101)
     routes = _bounded(connection, f"SELECT scope_id,route_snapshot_id,revision FROM route_registry_heads WHERE scope_id IN ({placeholders}) ORDER BY scope_id", ("common", *scopes), 101)
     route_holds = _bounded(connection, "SELECT outbox_id,ordinal,generation,scope_id,principal_id,route_snapshot_id,is_started,start_deadline,started_at FROM authorized_route_leases ORDER BY scope_id,outbox_id,ordinal", (), 1000)
-    holds = _bounded(connection, "SELECT p.publication_id,p.job_id,j.scope_id,p.state,p.commit_id FROM publications p JOIN jobs j ON j.job_id=p.job_id WHERE p.state!='succeeded' ORDER BY p.publication_id", (), 1000)
+    holds = _bounded(connection, "SELECT p.publication_id,p.job_id,j.scope_id,p.state,p.commit_id FROM publication_effective_states p JOIN jobs j ON j.job_id=p.job_id WHERE p.effective_state IN ('publishing','publish_uncertain') ORDER BY p.publication_id", (), 1000)
     locks = _bounded(connection, "SELECT resource_id,publication_id FROM resource_locks ORDER BY resource_id", (), 1000)
     budgets = _bounded(connection, "SELECT platform,period,limit_units,used_units,reserved_units FROM usage_budget ORDER BY platform,period", (), 1000)
     delivery = dict(connection.execute("SELECT state,COUNT(*) FROM report_parts GROUP BY state").fetchall())

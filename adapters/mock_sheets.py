@@ -9,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from application.tasks import StateConflict
+from application.publication_safety import capture_publication_state
 from adapters.mock_grid import GridMigrationPlan, is_same_grid_layout, materialize_generated_grid, prepare_grid_migration
 from adapters.legacy_migration import SOURCE_KEYS, LegacyMigrationPlan, confirm_legacy_migration
 from domain.snapshots import canonical_json
@@ -32,6 +33,22 @@ class MockSheets:
 
     def read(self, resource: str) -> dict:
         return json.loads(self._path(resource).read_text(encoding="utf-8"))
+
+    def capture_publication_state(self, resource, publication_id, commit_id, result_id, code_sha):
+        try:
+            book = self.read(resource)
+        except FileNotFoundError:
+            owned = {"is_missing": True}
+        else:
+            generated, grid = book["generated"], book.get("generated_grid")
+            if ((book["commit_id"] is None and (generated != {} or book["payload_hash"] is not None or grid is not None))
+                    or book["commit_id"] is not None and (book["payload_hash"] != _hash(generated)
+                        or canonical_json(grid) != canonical_json(materialize_generated_grid(generated)))):
+                raise StateConflict("workbook baseline content is inconsistent")
+            owned = {"is_missing":False,"layout_revision":book["layout_revision"],"commit_id":book["commit_id"],
+                "payload_hash":book["payload_hash"],"generated_hash":_hash(generated),"grid_hash":_hash(grid),
+                "layout_hash":_hash(book.get("layout"))}
+        return capture_publication_state(resource,publication_id,commit_id,result_id,code_sha,owned)
 
     def edit_inputs(self, resource: str, inputs: dict) -> None:
         book = self.read(resource)

@@ -35,3 +35,5 @@ manifest shape 與 typed grid 在取得 publisher 前驗證。已 computed、尚
 local_tests/test_workflow_tick_runner.py 的 18 項案例涵蓋自動補抓→計算／顯式 mock 發布、獨立工作／scope 上限、跨重啟公平輪巡、雙連線 cursor、壞 scope 隔離、budget 中斷後重訪、code affinity、restore fence、實際有界 CLI、native 一個 job／後續排隊、錯 bounds、不合法 computed／typed grid 隔離及既有 publisher 不被撤銷。
 
 89 的直接 API 測試明確設 max_workflow_checks=0，與本批 hook 整合測試分開驗證。尚需安全取消不可重試 publication、raid 後續調度、hosted／D1、正式 trigger／來源完整性、history／cursor 清理與共享狀態 publisher。沒有接正式試算表或憑證。
+
+92 已補具明確停止／未開始或全原始基準證據的本地取消。原 publication 歷史 state 不改成成功，終止帳本由 effective-state view 呈現；自動 rollback／正式停止證據仍未實作。
