@@ -1265,3 +1265,10 @@ blablalink-tools/
 - 追加：新組合快照不可把舊成員的時間冒充成這次刷新，也不能 fallback 掩蓋 auth／partial／not_owned。新 raw 保存逐成員來源鏈，原 raw 不改。
 - 完成觀測與需求 ready 分開，尚有缺口回完整 followup plan，不擴大原固定工作或自動發布。過期名單可在 fetch 前原子 supersede lease。
 - 十六項 mock 案例驗證補抓、重試、來源／加入版本／時間、篡改前拒絕、not_owned、followup、預算／retention 與 stale fence。worker transport／採用後調度及真實 provider 尚未接線。詳見 docs/spec/87-member-scoped-supplementary-collection.md。
+
+### 17.53 第四十九批：worker 固定 mock 收集 transport（2026-10-15）
+
+- immutable mock script 固定 scope／reference、白名單資料列與有界頁面，runtime 才導出 cursor／revision；worker 不載入真實 URL／Session 或 provider。
+- 追加：executor 能力篩選必須發生在候選 LIMIT 前。未綁 script 的 collection 保持 queued／attempt=0，不能塞滿前 100 筆而阻擋可執行工作。
+- 普通與 supplementary collection 均可由標記 workspace worker／native child 執行，結果仍只有觀測，不自動排健檢或發布。
+- 十七項 mock 案例通過；採用後調度、hosted／細粒度／真實 provider 契約仍待完成。詳見 docs/spec/88-mock-collector-worker-transport.md。

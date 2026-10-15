@@ -37,13 +37,14 @@ def prepare_supplementary_inputs(config, raw, reference, union_inputs, code_sha,
             'function_prefixes': prefixes, 'member_epochs': {member.key: epochs[member.key] for member in members if member.key in epochs}})
 
 
-def supplementary_task_spec(inputs, intent_id):
+def supplementary_task_spec(inputs, intent_id, mock_script_id=None):
     data = inputs.payload
     if data.get('collection_kind') != 'supplementary_training_inputs':
         raise ValueError('supplementary inputs required')
     return TaskSpec('refresh_roster_and_training', inputs.envelope['scope_id'], data['code_sha'],
         {'collection_inputs': inputs.snapshot_id, 'union_inputs': data['union_inputs_id'],
-            'healthcheck_config': data['config_id'], 'base_raw': data['base_raw_id'], 'reference': data['reference_id']},
+            'healthcheck_config': data['config_id'], 'base_raw': data['base_raw_id'], 'reference': data['reference_id'],
+            **({'mock_collection_script': mock_script_id} if mock_script_id is not None else {})},
         family='collection', intent_id=intent_id)
 
 
@@ -109,7 +110,7 @@ def _run_supplementary_collection_job(store, lease, port, captured_at):
     data = inputs.payload
     config, base, reference, union_inputs = (store.get_document(data[key]) for key in ('config_id','base_raw_id','reference_id','union_inputs_id'))
     rebuilt = prepare_supplementary_inputs(config, base, reference, union_inputs, job.spec.code_sha, inputs.envelope['captured_at'])
-    if rebuilt != inputs or supplementary_task_spec(inputs, job.spec.intent_id) != job.spec:
+    if rebuilt != inputs or supplementary_task_spec(inputs, job.spec.intent_id, job.spec.version_map.get('mock_collection_script')) != job.spec:
         raise StateConflict('supplementary task differs from fixed inputs')
     members = tuple(MemberKey(**row) for row in data['members'])
     checkpoint = CollectionCheckpoint(store, lease, inputs, job.spec.code_sha)

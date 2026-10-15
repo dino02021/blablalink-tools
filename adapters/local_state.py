@@ -190,7 +190,8 @@ class LocalStateStore:
               lease_seconds: float = 60,
               budget: BudgetNeed | tuple[BudgetNeed, ...] | None = None,
               dispatch_id: str | None = None, executor_run_id: str | None = None,
-              commands: tuple[str, ...] | None = None) -> ComputeLease | None:
+              commands: tuple[str, ...] | None = None,
+              required_versions: Mapping[str, tuple[str, ...]] | None = None) -> ComputeLease | None:
         validate_identifier(worker_id)
         validate_identifier(code_sha)
         _validate_duration(lease_seconds)
@@ -199,9 +200,22 @@ class LocalStateStore:
                     or any(command not in COMMANDS for command in commands)):
                 raise ValueError("nonempty unique supported commands required")
             commands = tuple(commands)
+        if required_versions is not None and (not isinstance(required_versions, dict) or len(required_versions) > len(COMMANDS)):
+            raise ValueError("bounded command version requirements required")
+        if any(not isinstance(command, str) or command not in COMMANDS for command in (required_versions or {})):
+            raise ValueError("supported capability command required")
+        capability_filter, capability_args = "", []
+        for command, keys in sorted((required_versions or {}).items()):
+            if (command not in COMMANDS or commands is not None and command not in commands
+                    or not isinstance(keys, (tuple, list)) or not 1 <= len(keys) <= 16
+                    or any(not isinstance(key, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,63}", key) is None for key in keys) or len(set(keys)) != len(keys)):
+                raise ValueError("supported commands and unique bounded version keys required")
+            capability_filter += " AND (command!=? OR (" + " AND ".join(
+                "EXISTS(SELECT 1 FROM json_each(j.spec_json,'$.versions') v WHERE json_extract(v.value,'$[0]')=?)" for key in keys) + "))"
+            capability_args.extend((command, *keys))
         needs = _budget_needs(executor_type, budget) if executor_type == "local" else ()
         if executor_type != "local":
-            if commands is not None:
+            if commands is not None or required_versions is not None:
                 raise ValueError("command filters apply only to local queue claims")
             if executor_type not in ("vercel", "actions") or not dispatch_id or not executor_run_id or budget is not None:
                 raise ValueError("cloud claims require a pre-budgeted dispatch and executor run ID")
@@ -216,8 +230,8 @@ class LocalStateStore:
                 "SELECT * FROM jobs j WHERE state IN ('queued','retry_wait') AND next_attempt_at<=? "
                 "AND attempt<max_attempts AND code_sha=? AND executor_type=? AND NOT EXISTS("
                 "SELECT 1 FROM job_dependencies d JOIN jobs p ON p.job_id=d.parent_id "
-                "WHERE d.job_id=j.job_id AND p.state!='succeeded')" + command_filter + " ORDER BY priority DESC,created_at,job_id LIMIT 100",
-                (self._now(), code_sha, executor_type, *(commands or ())),
+                "WHERE d.job_id=j.job_id AND p.state!='succeeded')" + command_filter + capability_filter + " ORDER BY priority DESC,created_at,job_id LIMIT 100",
+                (self._now(), code_sha, executor_type, *(commands or ()), *capability_args),
             ).fetchall()
             for row in rows:
                 if not self._is_current(row):

@@ -5,9 +5,12 @@ from datetime import datetime, timezone
 
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.mock_sheets import MockSheets
+from adapters.mock_collection_script import MockScriptCollection
 from adapters.process_memory import local_compute_budget
 from adapters.local_workbook_staging import LocalWorkbookStaging
 from application.publication import publish_workbooks
+from application.collection import run_collection_job
+from application.supplementary_collection import run_supplementary_collection_job
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
 from application.raid_publication import run_raid_publication_job
@@ -16,7 +19,7 @@ from application.tasks import LeaseLost, ResourceBusy, StateConflict, validate_i
 from application.workbook_staging import StagedSheets, prepare_workbook_stage
 from executors.local.demo import workspace_status
 
-SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan", "reconcile")
+SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan", "refresh_roster_and_training", "reconcile")
 
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
@@ -44,7 +47,8 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                     _publish(store, sheets, staging, job, worker_id, code_sha)
                     processed.append(_status(store.get_job(job.job_id)))
         while len(processed) < max_jobs:
-            lease = store.claim(worker_id, code_sha, commands=SUPPORTED_COMMANDS)
+            lease = store.claim(worker_id, code_sha, commands=SUPPORTED_COMMANDS,
+                required_versions={"refresh_roster_and_training": ("mock_collection_script",)})
             if lease is None:
                 break
             job = store.get_job(lease.job_id)
@@ -53,6 +57,12 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                     computed = run_healthcheck_job(store, lease, budget_factory())
                 elif job.spec.command == "publish_raid_plan":
                     computed = run_raid_publication_job(store, lease, budget_factory())
+                elif job.spec.command == "refresh_roster_and_training":
+                    inputs = store.get_document(job.spec.version_map["collection_inputs"])
+                    script = store.get_document(job.spec.version_map["mock_collection_script"])
+                    port = MockScriptCollection(script, inputs)
+                    runner = run_supplementary_collection_job if inputs.payload.get("collection_kind") == "supplementary_training_inputs" else run_collection_job
+                    computed = runner(store, lease, port, datetime.now(timezone.utc).isoformat(), budget_factory())
                 elif job.spec.command == "reconcile":
                     computed = run_standard_reconcile_job(store, MockSheets(directory / "workbooks"), lease,
                         datetime.now(timezone.utc).isoformat(), budget_factory())

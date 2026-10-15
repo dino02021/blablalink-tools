@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 724,
+  "observed_test_cases": 741,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -73,13 +73,15 @@
         "local_tests/test_reference_projection.py::test_added_roles_or_changed_function_semantics_cannot_reuse_absence",
         "local_tests/test_supplementary_collection.py::test_only_gap_member_is_collected_and_known_member_keeps_original_source",
         "local_tests/test_supplementary_collection.py::test_partial_observation_retries_from_fixed_inputs_and_preserves_history",
-        "local_tests/test_supplementary_collection.py::test_complete_observation_can_return_explicit_followup_without_claiming_training_ready"
+        "local_tests/test_supplementary_collection.py::test_complete_observation_can_return_explicit_followup_without_claiming_training_ready",
+        "local_tests/test_mock_collection_worker.py::test_mock_worker_runs_bound_supplement_without_any_publish",
+        "local_tests/test_mock_collection_worker.py::test_native_worker_can_collect_bound_mock_script_without_python_parent_port"
       ],
       "remaining": [
-        "worker collector transport／採用後補抓調度、role／option 粒度與真實完整性對應"
+        "採用後補抓調度、role／option 粒度、hosted collector 與真實完整性"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 14
+      "observed_cases": 16
     },
     {
       "id": "A06",
@@ -264,13 +266,15 @@
       "id": "A19",
       "tests": [
         "local_tests/test_local_worker.py::test_worker_skips_unsupported_wrong_code_and_hosted_jobs",
-        "local_tests/test_local_state.py::test_wrong_executor_code_and_cancellation_cannot_complete_work"
+        "local_tests/test_local_state.py::test_wrong_executor_code_and_cancellation_cannot_complete_work",
+        "local_tests/test_mock_collection_worker.py::test_unbound_collection_is_not_claimed_or_failed_by_mock_worker",
+        "local_tests/test_mock_collection_worker.py::test_capability_filter_runs_before_queue_limit_and_keeps_unbound_attempts_zero"
       ],
       "remaining": [
         "同遠端協定備援與 immutable release distribution"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 4
     },
     {
       "id": "A20",

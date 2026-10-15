@@ -37,3 +37,5 @@ merged raw 是新 immutable 物件，最多 16 MiB，不修改原 raw、不重�
 local_tests/test_supplementary_collection.py 的 16 項案例驗證只抓一人三個 source、舊來源時間保留、完整 not_owned 取代舊持有、auth／partial／retry 與歷史、改 plan／subset／epoch／code 前拒絕、實際離開／重新加入後的新 epoch、followup 未 ready、預算、retention、raw scope／reference／身分拒絕及 stale 名單 fetch 前終止。
 
 尚需本地 worker 的 mock collector transport、名單／設定採用後補抓調度、role／option 粒度協作、hosted 契約及真實 provider 完整性。正式試算表與憑證均未使用。
+
+88 已將固定 mock script transport 接到標記 workspace 的 worker 與 native compute-only child；未綁 script 的 collection 不領取。直接 CollectionPort API 與本節固定需求／followup 契約維持不變，正式 provider 仍未接線。
