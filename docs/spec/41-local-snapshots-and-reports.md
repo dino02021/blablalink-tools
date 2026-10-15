@@ -42,4 +42,4 @@
 - python -m pytest local_tests -q -p no:cacheprovider。
 - GS 凍結數值來源與 hash 位於 local_tests/fixtures/gs_reference_provenance.json。
 - Node VM gate 只證明列出的數值 helper；不宣稱完整 GS 試算表流程已驗收。
-- 目前沒有 raw API normalizer、遠端 collector 或持久任務資料庫。
+- 目前沒有 raw API normalizer 或遠端 collector；本地持久任務資料庫見 [42-local-state-coordination.md](./42-local-state-coordination.md)。

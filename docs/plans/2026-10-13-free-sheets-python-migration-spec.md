@@ -855,7 +855,7 @@ blablalink-tools/
 
 1. 快照模型已完成；仍需原始 API mock normalizer、物件持久化與完整來源 coverage 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
-3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖。
+3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock Sheets publisher、layout planner、未知發布與舊任務覆蓋測試。
 5. Python 排刀移轉、歷史／指定刀與固定案例／效能測試。
 6. mock Discord outbox、collector 介面、executor 協定及本地 CLI。
@@ -884,3 +884,23 @@ blablalink-tools/
 10. 報告顯示文字會移除控制換行並處理引號、反引號及 @，防止顯示名稱破壞程式碼區塊或插入額外 mention。
 11. JSON envelope 不接受重複 key；內容變更必須符合 expected SHA-256。秘密欄位防呆不是完整 collector 欄位白名單的替代品，收集器仍待實作。
 12. Node 子程序只執行固定原始碼 fixture 與合成 JSON，清除 provider 秘密及 NODE_OPTIONS；其 VM 不提供 require／fetch。Python socket guard 不應被描述成能攔截任意子程序網路。
+
+### 17.6 第三批完成與新增契約（2026-10-15）
+
+- application/tasks.py 定義不可變 TaskSpec schema_version=1、業務指紋、執行租約、發布權限及預算需求。
+- adapters/local_state.py 與 coordination/local_migrations/0001_state.sql 提供明確路徑的本地 SQLite 狀態庫，不匯入正式設定或憑證。
+- 候選設定 CAS、設定 head 與重算 fanout 在同一交易提交；單聯盟失敗不取消其他聯盟，設定發布不會發送 Discord。
+- 已完成持久 checkpoint、依賴、有限重試、取消、程式版本限制、過期執行者隔離、派送票證、逐工作簿發布進度與未明發布恢復。
+- 全部 124 項本地測試通過，含雙連線競爭、重啟恢復、交易回滾、預算及舊派送回呼案例。這是 SQLite 證據，不代表 Cloudflare D1 相容驗收。
+
+追加的規格細節：
+
+1. 收集新觀測值與人工發送必須帶明確 intent_id；不能因相同設定而永久命中舊工作。排程另外以 UTC 時槽去重。
+2. 執行租約可過期重領；發布結果不明則持續持有全域與實際工作簿鎖，時間經過本身不構成解鎖理由。未完成發布時阻擋設定 head 或 desired target 切換。
+3. 回滾到已存在的設定可重用不可變計算結果，但必須重新發布，不能因舊任務 succeeded 而略過工作簿更新。
+4. hosted 執行只能領取已保留預算的派送票證；保留發生在外部啟動之前。Vercel CPU 與記憶體預算必須一起成功，不能部分保留。
+5. 派送是否啟動不明時保留預算，不自動退回；實際超出預估仍記帳並阻擋後續超額工作。回呼綁定派送時保存的 generation、run ID 與 worker，避免重用 worker 名稱接管新工作。
+6. waiting_for_data 不能靠 resume 改變舊工作的不可變輸入；資料補齊需建立帶新版本的工作。auth／capacity 等等待則可恢復。
+7. 發布恢復沿用相同 commit_id，檢查所有資源的讀回證據；部分成功時保留全部鎖與逐資源進度。SQLite migration 保存 checksum，已套用檔案變更即拒絕啟動。
+8. 目前「舊 writer 已停止」、實際用量與工作簿 commit 讀回仍由可信本地呼叫者提供。未來 provider adapter 必須取得可驗證證據，不能讓外部請求自行宣稱成功或 writer 已停止。
+9. 此批尚未實作 mock 工作簿格子寫入、正式 Sheets publisher、HTTP 身分驗證、D1 adapter 或雲端啟動。下一批須用可注入失敗的 mock Sheets 驗證實際發布流程，不能以狀態庫單元測試取代。

@@ -25,6 +25,8 @@
    新架構的本地計算核心，尚未接入正式流程。
 7. [41-local-snapshots-and-reports.md](./41-local-snapshots-and-reports.md)
    不可變快照、人工修正、報告及本地完整性閘門。
+8. [42-local-state-coordination.md](./42-local-state-coordination.md)
+   本地持久任務、設定發布、執行與發布權限、預算及競爭測試。
 
 ## 涵蓋範圍
 
