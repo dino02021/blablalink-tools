@@ -1159,3 +1159,10 @@ blablalink-tools/
 - 先用既有 decoder 驗證目標 config，確認綁定 source／catalog／config／code；本地原子封存舊來源並更新草稿與 layout_revision，不發布正式標準、不排計算。
 - 追加：不可把缺 metadata 或隱藏資料的破損模板當正常舊版遷移；同計畫重播不得覆蓋後續草稿。26 項本地 mock 測試涵蓋依賴變更、資料保存、候選邊界與 archive 上限。
 - 仍未取得遠端 grid／格式／寬度／保護 metadata，不能以這個已知合成模板宣稱所有舊工作簿相容。詳見 docs/spec/72-legacy-standard-migration.md。
+
+### 17.38 第三十四批：排刀五 tab 唯讀視圖（2026-10-15）
+
+- 從固定 problem／final 產生總覽、逐刀明細、原指定刀鏡像、警示與 BOSS 狀態，和 job 結果封存；不自動確認或發布。
+- 追加：混合歷史與新刀不得用單一格色掩蓋來源，總覽保留註記且逐刀明細分色；大額真實傷害保持 decimal 字串。
+- 確認結果 renderer 重讀確認當時的 problem／final，核對原 view hash；新輸入只使狀態 stale，不換掉確認內容。六項新案例及既有 job 驗證涵蓋來源、格式與確認邊界。
+- 尚未串接正式排刀工作簿路由／publisher eligibility，不能以模型 protection 宣稱遠端保護生效。詳見 docs/spec/73-raid-workbook-view.md。

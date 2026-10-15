@@ -154,10 +154,12 @@
     {
       "id": "A16",
       "tests": [
-        "local_tests/test_raid_confirmation.py::test_sorted_generated_view_keeps_identity_original_inputs_and_multiline_tail"
+        "local_tests/test_raid_confirmation.py::test_sorted_generated_view_keeps_identity_original_inputs_and_multiline_tail",
+        "local_tests/test_raid_workbook.py::test_sorted_overview_does_not_reorder_or_rewrite_fixed_inputs",
+        "local_tests/test_raid_workbook.py::test_stale_confirmation_keeps_its_original_workbook"
       ],
       "remaining": [
-        "實際出刀工作簿格式與保護區 renderer"
+        "排刀工作簿實體 adapter、路由與 confirmed publisher eligibility"
       ]
     },
     {

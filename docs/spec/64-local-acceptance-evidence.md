@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，479 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，485 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@
 | A13 | 單一 fanout 失敗不波及其他聯盟 | 全聯盟彙總檢視 |
 | A14 | auth 停止來源請求且保持 unknown | 真實 Session／provider 對應 |
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
-| A16 | 排序 view 不改指定刀輸入 | 出刀 workbook renderer |
+| A16 | 排序 view／五 tab 排刀視圖不改指定刀，stale 確認保留原內容 | 實體 adapter／路由與 confirmed publisher eligibility |
 | A17 | unknown delivery 不盲重發 | Discord adapter／路由授權 |
 | A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |
@@ -35,6 +35,6 @@ application/acceptance.py 會將參數化案例映射回明確 pytest node ID，
 
 ## 後續順序與外部依賴
 
-仍可獨立開發：完整 grid renderer／保護與十一欄遷移、reference／補抓 planner、collector 分頁 checkpoint、路由 head／權限 registry、薄 GS 與 hosted entry 的離線契約、D1 adapter 契約、staging／chunk 清理、效能 profile 與全聯盟狀態檢視。不能因已有 22 項本地證據就 block 或標完成。
+仍可獨立開發：完整舊 header 對照與 raid publisher eligibility、reference／補抓 planner、collector 分頁 checkpoint、路由 head／權限 registry、薄 GS 與 hosted entry 的平台離線契約、D1 adapter 契約、staging／chunk／archive 清理、更完整效能矩陣與全聯盟狀態檢視。不能因已有 22 項本地證據就 block 或標完成。
 
 真正需要後續外部決策或驗證：正式工作簿與可編輯範圍盤點、正式服務 principal／key、實際 provider 的完整性欄位、帳戶共享免費用量、GS tie／安全 guard 差異採用、原 writer 停用證據、正式切換與 rollback ownership。這些不在目前授權的本地 mock 執行範圍內。

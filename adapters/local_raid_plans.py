@@ -6,6 +6,9 @@ import json
 
 from adapters.local_state import LocalStateStore, _transaction
 from application.tasks import StateConflict, validate_identifier
+from application.raid_codec import restore_problem
+from application.raid_execution import restore_final
+from application.raid_workbook import render_raid_workbook
 from domain.raid_finalize import FinalRaidPlan
 from domain.raid_planner import RaidProblem
 from domain.raid_view import build_raid_view
@@ -115,3 +118,12 @@ class LocalRaidPlans(LocalStateStore):
         current = self.input_head(record["scope_id"])
         return {"confirmation_id": confirmation_id, "is_stale": current is None or current["problem_id"] != draft["problem_id"],
                 "is_current_confirmation": self.confirmed_head(record["scope_id"]) == confirmation_id}
+
+    def confirmation_workbook(self, confirmation_id: str) -> dict:
+        record = self.confirmation(confirmation_id)
+        draft = self.draft(record["scope_id"], record["draft_id"])
+        workbook = render_raid_workbook(restore_problem(self.get_result(draft["problem_id"])),
+                                        restore_final(self.get_result(draft["final_id"])))
+        if workbook.raid_view_id != hashlib.sha256(canonical_json(record["view"]).encode()).hexdigest():
+            raise StateConflict("confirmed workbook view source differs")
+        return {**self.confirmation_status(confirmation_id), "workbook_view": asdict(workbook), "workbook_view_id": workbook.view_id}

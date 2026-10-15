@@ -6,7 +6,7 @@ import hashlib
 from domain.layout import encode_cell_value
 from domain.snapshots import canonical_json
 
-STYLES = frozenset({"header", "identity", "standard", "coefficient", "weight", "data", "passed", "failed", "unknown", "not_owned"})
+STYLES = frozenset({"header", "identity", "standard", "coefficient", "weight", "data", "passed", "failed", "unknown", "not_owned", "history"})
 
 
 @dataclass(frozen=True)
@@ -75,7 +75,7 @@ class ViewTab:
     def typed_rows(self):
         return tuple(tuple({"value": encode_cell_value(cell.value), "style": cell.style,
             "note": cell.note, "format_kind": cell.format_kind, "foreground_hex": {
-                "header": "#FFFFFF", "failed": "#D93025", "unknown": "#9C6500", "not_owned": "#808080"
+                "header": "#FFFFFF", "failed": "#D93025", "unknown": "#9C6500", "not_owned": "#808080", "history": "#808080"
             }.get(cell.style, "#000000"), "background_hex": {
                 "header": "#243B53", "standard": "#E8F0FE", "coefficient": "#FFF2CC", "weight": "#D9EAD3"
             }.get(cell.style, "#FFFFFF")} for cell in row) for row in self.rows)

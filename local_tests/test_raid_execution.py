@@ -5,6 +5,7 @@ import pytest
 from adapters.local_raid_plans import LocalRaidPlans
 from application.compute_budget import ComputeBudget, ComputeLimit
 from application.raid_execution import RaidExecutionCheck, restore_selection, run_raid_job
+from application.raid_workbook import restore_raid_workbook
 from application.tasks import StateConflict, TaskSpec
 from domain.execution import check_execution, execution_checks
 from domain.healthcheck import ELEMENTS
@@ -31,6 +32,9 @@ def test_pipeline_creates_draft_but_never_confirms_or_publishes(execution):
     assert result.state == "succeeded"
     payload = store.get_result(result.result_id)
     assert payload["problem_id"] == problem.problem_id
+    workbook = restore_raid_workbook(payload["workbook_view"])
+    assert workbook.view_id == payload["workbook_view_id"]
+    assert workbook.problem_id == payload["problem_id"] and workbook.draft_plan_id == payload["draft_plan_id"]
     assert store.draft("union_demo", payload["draft_plan_id"])
     assert store.confirmed_head("union_demo") is None
     assert store.load_checkpoint(job.job_id)["stage"] == "finalized"

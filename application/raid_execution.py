@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 from application.compute_budget import ComputeBudget, ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
+from application.raid_workbook import render_raid_workbook
 from domain.execution import execution_checks
 from domain.raid import RaidKnife, RaidSimulation
 from domain.raid_finalize import FinalRaidPlan, finalize_rounds
@@ -52,11 +53,13 @@ def run_raid_job(store, lease, problem: RaidProblem, budget: ComputeBudget):
                 raise StateConflict("final checkpoint does not match its selection")
             check()
             view = build_raid_view(problem, final)
+            workbook_view = render_raid_workbook(problem, final)
             check()
             store.save_draft(job.spec.scope_id, problem, final)
             check()
             return store.complete_compute(lease, {"problem_id": problem.problem_id, "draft_plan_id": final.draft_plan_id,
-                "final": asdict(final), "view": asdict(view)}, is_publication_required=False)
+                "final": asdict(final), "view": asdict(view), "workbook_view": asdict(workbook_view),
+                "workbook_view_id": workbook_view.view_id}, is_publication_required=False)
     except ComputeLimit as error:
         # Last completed stage was persisted before starting the interrupted stage.
         return store.defer(lease, "capacity_blocked", error.code)
