@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 928,
+  "observed_test_cases": 962,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -117,13 +117,20 @@
       "id": "A07",
       "tests": [
         "local_tests/test_local_state.py::test_durable_request_and_immutable_object_roundtrip",
-        "local_tests/test_local_state.py::test_hosted_claim_requires_reserved_dispatch_and_replay_is_run_scoped"
+        "local_tests/test_local_state.py::test_hosted_claim_requires_reserved_dispatch_and_replay_is_run_scoped",
+        "local_tests/test_d1_cas_contract.py::test_first_cas_and_exact_replay_have_one_immutable_receipt",
+        "local_tests/test_d1_cas_contract.py::test_zero_row_cas_and_wrong_request_signature_roll_back",
+        "local_tests/test_d1_cas_contract.py::test_lost_response_retry_after_new_head_never_rewinds_that_head",
+        "local_tests/test_d1_cas_contract.py::test_failure_at_any_statement_rolls_back_head_receipt_and_guard",
+        "local_tests/test_d1_cas_contract.py::test_silent_noop_write_is_caught_by_sql_guard_before_commit",
+        "local_tests/test_d1_cas_contract.py::test_two_real_connections_racing_same_base_have_exactly_one_winner",
+        "local_tests/test_d1_cas_contract.py::test_two_connections_replaying_same_request_both_observe_one_decision"
       ],
       "remaining": [
         "正式平台 dispatch callback 與 D1 條件更新"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 16
     },
     {
       "id": "A08",

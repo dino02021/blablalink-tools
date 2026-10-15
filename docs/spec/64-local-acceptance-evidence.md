@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，928 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，962 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
 | A05 | 缺 detail 不當零、function ID 投影、coverage／成員補抓 executor、reference CAS 與相容衍生投影 | hosted／細粒度／真實完整性 |
 | A06 | composite identity、名單轉換／封存、epoch、head CAS／舊工作 fence 與補抓後計算 | 全域 inactive 與舊人工區搬移 |
-| A07 | request／dispatch 持久去重 | D1／平台 callback |
+| A07 | request／dispatch 持久去重、D1 七步 batch 的本地 SQL CAS／receipt／零列 guard 契約 | D1 binding／emulator 與完整任務 adapter／平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |
 | A09 | shared resource 鎖、route head／sender CAS 與 claim 競爭互斥 | 真實路由／principal／遠端 CAS |
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |
@@ -32,6 +32,8 @@
 先以 `python -m pytest local_tests --junitxml <temporary.xml>` 產生真實本地測試紀錄，再以 `python -m executors.local.acceptance --junit <temporary.xml> --output <new-report.json>` 生成報告。輸出只可新檔；不啟動測試、不連外、不操作試算表。
 
 application/acceptance.py 會將參數化案例映射回明確 pytest node ID，缺案例／skip 不視為通過，任何參數失敗都使對應需求失敗，suite_status 也保留未映射測試的失敗。每項必須保留 remaining，避免測試數量被誤用成正式驗收。
+
+證據 node 可包含 lower-case 數字的 module／function 名稱，仍只接受完整 local_tests/test_*.py::test_* base node；參數案例 suffix 不直接寫進 matrix，而以既有聚合保留全部結果。路徑越界或部分匹配不放寬。
 
 ## 後續順序與外部依賴
 

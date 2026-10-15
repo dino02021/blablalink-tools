@@ -1351,3 +1351,12 @@ blablalink-tools/
 - 固定來源 hash、union snapshot、layout、code、mapping links 與完整 target，確認時重建 CAS。只新增新 input，舊資料／生成區／人工備註與 commit 都保留。
 - 追加：預覽後人工變動、重播覆蓋新區、錯誤 archive receipt 與無限歷史都須阻擋。workbook process lock 包住完整流程，最多二十 receipt／整本十六 MiB。
 - 二十四項 mock 案例涵蓋逐格保留、同名重排、來源／意圖／身分失配、偽造 target、實際 thread 競爭與 archive integrity／capacity。正式身分對照、其他舊模板、未知離隊列及遠端物理遷移仍未完成。詳見 docs/spec/99-explicit-legacy-raid-grid-migration.md。
+
+### 17.65 第六十一批：D1 原子 CAS 離線契約（2026-10-16）
+
+- 核對官方 batch／limits：分開讀改寫不是交易；本地大 snapshot 不能直接放進 D1 單列，後續須 chunk port 與 query budget。引用與界限詳見 spec100。
+- 新增獨立七步 prepared batch 契約，request signature、revision CAS、寫後 head／receipt guard、精確 replay 與 outcome unproven 驗證，沒有 Worker／D1 client／遠端接線。
+- 追加：CAS 或 receipt 零列不一定是 SQL error，不能在外層看 batch success 就放行；用 SQL CHECK 強制整批拒絕。response loss retry 仍固定原 request，不能倒退新 head。
+- 二十九項實際 SQLite batch／競爭測試，僅作 SQL 契約證據；D1 binding／emulator／完整任務、chunks／publisher／quota／auth 仍未完成。本機未取得 Linux runtime，POSIX 仍未實測。詳見 docs/spec/100-d1-atomic-cas-offline-contract.md。
+
+- 同批追加驗收工具遺漏：證據 regex 不接受 d1 檔名，完整回歸因此誠實失敗；已支援數字 node 並新增五項正反測試，失敗 suite 不生成通過證據。

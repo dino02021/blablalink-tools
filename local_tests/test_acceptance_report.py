@@ -30,3 +30,22 @@ def test_parameterized_outcomes_remain_visible(outcome, expected):
     assert all(entry["evidence_status"] == expected for entry in report["requirements"])
     assert report["suite_status"] == {"local_evidence_passed": "passed", "failed": "failed", "incomplete": "incomplete"}[expected]
     assert report["is_production_accepted"] is False
+
+
+@pytest.mark.parametrize('node',['local_tests/test_d1_cas.py::test_case','local_tests/test_case.py::test_round_2'])
+def test_numeric_module_and_function_names_are_valid_exact_evidence(node):
+    matrix=json.loads(MATRIX.read_text(encoding='utf-8'))
+    for entry in matrix['requirements']:entry['tests']=[node]
+    module,function=node.split('::')
+    classname=module.removesuffix('.py').replace('/','.')
+    xml=f'<testsuite><testcase classname="{classname}" name="{function}"/></testsuite>'.encode()
+    report=build_acceptance_report(xml,matrix)
+    assert report['local_evidence_passed']==22 and report['suite_status']=='passed'
+    assert report['is_production_accepted'] is False
+
+
+@pytest.mark.parametrize('node',['local_tests/../test_x.py::test_case','local_tests/test_case.py::test_case[param]','local_tests/test_case.py::test_case;extra'])
+def test_numeric_name_support_does_not_allow_paths_parameters_or_partial_matches(node):
+    matrix=json.loads(MATRIX.read_text(encoding='utf-8'))
+    matrix['requirements'][0]['tests']=[node]
+    with pytest.raises(ValueError,match='test references'):build_acceptance_report(b'<testsuite/>',matrix)

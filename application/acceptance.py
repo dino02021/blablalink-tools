@@ -20,7 +20,7 @@ def build_acceptance_report(junit_xml: bytes, matrix: dict) -> dict:
     requirements = []
     for entry in entries:
         tests = entry["tests"]
-        if (not tests or not entry["remaining"] or any(re.fullmatch(r"local_tests/test_[a-z_]+\.py::test_[a-z_]+", node) is None for node in tests)):
+        if (not tests or not entry["remaining"] or any(re.fullmatch(r"local_tests/test_[a-z0-9_]+\.py::test_[a-z0-9_]+", node) is None for node in tests)):
             raise ValueError("bounded test references and explicit remaining scope required")
         statuses = [status for node in tests for status in observed.get(node, ["not_run"])]
         status = "failed" if "failed" in statuses else "incomplete" if any(s != "passed" for s in statuses) else "local_evidence_passed"
