@@ -1194,3 +1194,10 @@ blablalink-tools/
 - Windows 私有 Job Object 設 committed memory／active-process=1／kill-on-close，父程序另管整批 wall time 與輸出；不把 cooperative RSS 當 native memory 的同一量測。
 - 追加：hard kill 不等於 job 失敗或成功，更不能逕自解鎖。父程序只證明 owned child 停止，保留 coordinator 的真實 lease／checkpoint 狀態；stderr 不回原文。
 - 15 項本地案例實測無限迴圈、大額單次 allocation、native fence 失敗、環境／receipt／輸出與不發布；Linux rlimit 分支未於 Windows 實測，hosted 與整合採用仍待完成。詳見 docs/spec/77-local-process-isolation.md。
+
+### 17.43 第三十九批：全聯盟唯讀一致狀態（2026-10-15）
+
+- 新 mock-only read-only SQLite snapshot 與十三欄 typed view／CLI，分開 desired、config current、最後發布、排刀確認與共用鎖／delivery／configured budget。
+- 追加：computed 不能當已發布，最新失敗不能抹掉最後成功 receipt；讀狀態不能順便 migration／recover／改 lease。status_hash 綁定完整快照。
+- 十項 mock 驗收含 WAL 真實並行 writer 的一致讀取、一個聯盟壞資料不波及其他聯盟、DB bytes 不變、restore fence、原確認 stale 與 bounded child CLI。
+- 最近發布只是 coordinator receipt，不宣稱實際 workbook 回讀完成；完整歷史分頁、遠端 scope 授權與共享表 publisher 仍待完成。詳見 docs/spec/78-read-only-system-status.md。

@@ -86,6 +86,7 @@
 - [75：本地 reference 候選與發布](75-local-reference-registry.md)
 - [76：Reference 衍生養成投影](76-reference-projection.md)
 - [77：本地計算子程序限制](77-local-process-isolation.md)
+- [78：全聯盟唯讀狀態](78-read-only-system-status.md)
 
 ## 撰寫規則
 

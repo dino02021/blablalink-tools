@@ -133,10 +133,13 @@
     {
       "id": "A13",
       "tests": [
-        "local_tests/test_local_state.py::test_one_union_failure_does_not_fail_other_fanout_targets"
+        "local_tests/test_local_state.py::test_one_union_failure_does_not_fail_other_fanout_targets",
+        "local_tests/test_system_status.py::test_one_failed_union_does_not_hide_success_or_previous_output",
+        "local_tests/test_system_status.py::test_read_transaction_keeps_one_snapshot_during_concurrent_writer",
+        "local_tests/test_system_status.py::test_corrupt_job_spec_is_isolated_to_its_scope_and_no_body_is_returned"
       ],
       "remaining": [
-        "全聯盟彙總檢視與正式路由整合"
+        "共享狀態表 publisher、完整歷史分頁與遠端 scope 授權"
       ]
     },
     {

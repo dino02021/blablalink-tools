@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，535 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，545 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -16,7 +16,7 @@
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |
 | A11 | 薄 GS 簽章提示到 Python 候選、內容去重 | HTTP 接線與正式 trigger／排程 |
 | A12 | timeout 隔離、回讀與重啟 | 真實 Sheets HTTP 核對 |
-| A13 | 單一 fanout 失敗不波及其他聯盟 | 全聯盟彙總檢視 |
+| A13 | 單一 fanout／壞資料隔離、唯讀跨聯盟一致 snapshot 與 typed 狀態表 | 共享狀態表 publisher／歷史分頁／遠端 scope 授權 |
 | A14 | auth 停止來源請求且保持 unknown | 真實 Session／provider 對應 |
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
 | A16 | 排序 view／五 tab 排刀視圖不改指定刀，stale 確認保留原內容 | 實體 adapter／路由與 confirmed publisher eligibility |
