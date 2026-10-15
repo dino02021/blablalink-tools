@@ -63,6 +63,8 @@
 - GitHub Actions workflow 對 job layer 的包裝方式
 - 程式碼風格與命名規則
 
+- [55：已發布報告的本地發送候選](55-report-delivery-compilation.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

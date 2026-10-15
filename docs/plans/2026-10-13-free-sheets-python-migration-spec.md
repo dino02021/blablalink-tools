@@ -1022,3 +1022,12 @@ blablalink-tools/
 - 同角色多類型的共用設定／詞條／顯示必須一致，追蹤可分開；v1 保持可讀，新型別擴充不能假冒 v1。正式採用需搭配理解 v2 的 release，舊正式入口未更動。
 - 全套 293 項本地 mock 測試及 Python 語法檢查通過；橫向標準已串接固定候選、計算與 mock 回寫，候選後再編輯不改既有確認。
 - 真實 grid／merge fetch、十一欄遷移、完整格式保護與字典擷取仍未接上；不以本地模板 decoder 宣稱所有正式表格相容。
+
+### 17.19 第十六批：已發布報告與整批發送候選（2026-10-15）
+
+- 新增 ReportSendCandidate／compile_report_candidate，從成功發布且仍為目前 desired target 的健檢結果編譯 DeliverySpec；固定 job／result／config／training／code 與獨立路由快照，空報告不發送，缺路由或不完整報告拒絕。
+- 追加遺漏契約：發送確認不能只驗候選 hash，必須重新從 sealed 結果與固定路由編譯整份內容，拒絕文字與 target 篡改；scope／intent 固定候選，不允許背景重讀後替換。
+- 格式分段每段保留完整 cs fence，以 UTF-16 units 限制，換行優先且不切斷 emoji；mention 只在首段明確授權。
+- 0005 migration 持久保存候選與批次 request。確認時驗來源並將所有成員原子入列；後一筆衝突會全批回滾。已確認重播保留既有內容與送出狀態，不因新 head 再次建立發送。
+- 全套 304 項本地 mock 測試通過，包含真實本地 SQLite 交易、mock 發送與重啟；未連接正式試算表、Discord 或任何部署平台。
+- 路由由可信本地 caller 提供；真實 actor／thread 授權、route head 與雲端傳輸仍待開發。此批完成 §17.4 報告編譯／固定路由資料契約的本地部分，不視為正式權限驗收。細節見 docs/spec/55-report-delivery-compilation.md。

@@ -10,6 +10,7 @@ from pathlib import Path
 from adapters.local_state import LocalStateStore
 from application.delivery import DeliveryClaim, DeliverySpec
 from application.tasks import StateConflict, validate_identifier
+from application.report_delivery import ReportSendCandidate, restore_report_candidate
 from domain.snapshots import canonical_json
 
 
@@ -30,16 +31,46 @@ class LocalOutbox:
         if spec.outbox_id != confirmed_outbox_id:
             raise StateConflict("delivery intent is not confirmed")
         with _transaction(self.connection):
-            existing = self.connection.execute("SELECT outbox_id FROM outbox_requests WHERE request_id=?", (request_id,)).fetchone()
-            if existing and existing["outbox_id"] != spec.outbox_id:
-                raise StateConflict("request cannot replace confirmed delivery")
-            self.connection.execute("INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?)",
-                (spec.outbox_id, request_id, spec.serialized, spec.outbox_id))
-            self.spec(spec.outbox_id)
-            self.connection.execute("INSERT OR IGNORE INTO outbox_requests VALUES(?,?)", (request_id, spec.outbox_id))
-            self.connection.executemany("INSERT OR IGNORE INTO report_parts(outbox_id,ordinal,state) VALUES(?,?,'queued')",
-                ((spec.outbox_id, index) for index in range(len(spec.parts))))
+            self._enqueue(request_id, spec)
         return spec.outbox_id
+
+    def prepare_batch(self, candidate: ReportSendCandidate) -> str:
+        with _transaction(self.connection):
+            existing = self.connection.execute("SELECT candidate_id FROM report_send_candidates WHERE scope_id=? AND intent_id=?",
+                                               (candidate.scope_id, candidate.intent_id)).fetchone()
+            if existing and existing[0] != candidate.candidate_id:
+                raise StateConflict("send intent already captured another immutable candidate")
+            self.connection.execute("INSERT OR IGNORE INTO report_send_candidates(candidate_id,scope_id,intent_id,serialized) VALUES(?,?,?,?)",
+                (candidate.candidate_id, candidate.scope_id, candidate.intent_id, candidate.serialized))
+            self.batch(candidate.candidate_id)
+        return candidate.candidate_id
+
+    def batch(self, candidate_id: str) -> ReportSendCandidate:
+        row = self.connection.execute("SELECT * FROM report_send_candidates WHERE candidate_id=?", (candidate_id,)).fetchone()
+        if row is None:
+            raise StateConflict("unknown report send candidate")
+        candidate = restore_report_candidate(json.loads(row["serialized"]))
+        if candidate.candidate_id != candidate_id or candidate.scope_id != row["scope_id"] or candidate.intent_id != row["intent_id"]:
+            raise StateConflict("report send candidate content corrupted")
+        return candidate
+
+    def confirm_batch(self, request_id: str, candidate_id: str, confirmed_candidate_id: str, validator) -> tuple[str, ...]:
+        validate_identifier(request_id)
+        if candidate_id != confirmed_candidate_id:
+            raise StateConflict("send candidate confirmation differs")
+        with _transaction(self.connection):
+            candidate = self.batch(candidate_id)
+            request = self.connection.execute("SELECT candidate_id FROM report_batch_requests WHERE request_id=?", (request_id,)).fetchone()
+            if request and request[0] != candidate_id:
+                raise StateConflict("batch request cannot change its candidate")
+            accepted = self.connection.execute("SELECT is_accepted FROM report_send_candidates WHERE candidate_id=?", (candidate_id,)).fetchone()[0]
+            if not accepted:
+                validator(candidate)  # trusted in-process validator, never supplied by remote requests
+                for index, spec in enumerate(candidate.deliveries):
+                    self._enqueue(f"batch:{candidate_id}:{index}", spec)
+                self.connection.execute("UPDATE report_send_candidates SET is_accepted=1 WHERE candidate_id=?", (candidate_id,))
+            self.connection.execute("INSERT OR IGNORE INTO report_batch_requests VALUES(?,?)", (request_id, candidate_id))
+            return tuple(spec.outbox_id for spec in candidate.deliveries)
 
     def spec(self, outbox_id: str) -> DeliverySpec:
         row = self.connection.execute("SELECT * FROM report_outbox WHERE outbox_id=?", (outbox_id,)).fetchone()
@@ -111,6 +142,17 @@ class LocalOutbox:
                     ("failed" if row["attempt"] >= 3 else "queued", claim.outbox_id, claim.ordinal))
             else:
                 raise StateConflict("unknown outcome cannot be retried without evidence")
+
+    def _enqueue(self, request_id: str, spec: DeliverySpec):
+        existing = self.connection.execute("SELECT outbox_id FROM outbox_requests WHERE request_id=?", (request_id,)).fetchone()
+        if existing and existing["outbox_id"] != spec.outbox_id:
+            raise StateConflict("request cannot replace confirmed delivery")
+        self.connection.execute("INSERT OR IGNORE INTO report_outbox VALUES(?,?,?,?)",
+            (spec.outbox_id, request_id, spec.serialized, spec.outbox_id))
+        self.spec(spec.outbox_id)
+        self.connection.execute("INSERT OR IGNORE INTO outbox_requests VALUES(?,?)", (request_id, spec.outbox_id))
+        self.connection.executemany("INSERT OR IGNORE INTO report_parts(outbox_id,ordinal,state) VALUES(?,?,'queued')",
+            ((spec.outbox_id, index) for index in range(len(spec.parts))))
 
     def _require(self, claim, state):
         row = self.connection.execute("SELECT * FROM report_parts WHERE outbox_id=? AND ordinal=?", (claim.outbox_id, claim.ordinal)).fetchone()

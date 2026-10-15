@@ -62,6 +62,9 @@ class LocalStateStore:
     def get_job(self, job_id: str) -> Job:
         return _job(self._job_row(job_id))
 
+    def is_job_current(self, job_id: str) -> bool:
+        return self._is_current(self._job_row(job_id))
+
     def list_jobs(self) -> tuple[Job, ...]:
         return tuple(_job(row) for row in self._connection.execute("SELECT * FROM jobs ORDER BY created_at, job_id"))
 
