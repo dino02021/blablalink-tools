@@ -29,9 +29,9 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
     validate_identifier(worker_id)
     if type(max_jobs) is not int or not 1 <= max_jobs <= 100 or type(is_publish_enabled) is not bool:
         raise ValueError("bounded worker invocation required")
-    workspace_status(directory)  # refuse unmarked paths before opening a writer adapter
     if (directory / "restore-lock.json").exists():
         raise ValueError("restored workspace is fenced read-only")
+    workspace_status(directory)  # read-only validation before opening a writer adapter
     store = LocalRaidPlans(directory / "state.sqlite")
     sheets = MockSheets(directory / "workbooks") if is_publish_enabled else None
     staging = LocalWorkbookStaging(directory / "staging.sqlite") if is_publish_enabled else None

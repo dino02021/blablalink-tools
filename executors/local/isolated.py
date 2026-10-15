@@ -16,9 +16,9 @@ def run_isolated_worker(directory, code_sha, worker_id="isolated-worker", max_jo
     validate_identifier(worker_id)
     if type(max_jobs) is not int or not 1 <= max_jobs <= 100:
         raise ValueError("bounded isolated worker job count required")
-    workspace_status(directory)
     if (directory / "restore-lock.json").exists():
         raise ValueError("restored workspace is fenced read-only")
+    workspace_status(directory)
     receipt = run_python_module("executors.local", ("work", "--workspace", str(directory), "--code-sha", code_sha,
         "--worker-id", worker_id, "--max-jobs", str(max_jobs)), seconds, memory_limit_bytes)
     raw = receipt.pop("stdout")

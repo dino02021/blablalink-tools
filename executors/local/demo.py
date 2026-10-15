@@ -3,6 +3,7 @@
 from dataclasses import asdict
 import json
 from pathlib import Path
+import sqlite3
 
 from adapters.local_state import LocalStateStore
 from adapters.mock_sheets import MockSheets
@@ -58,14 +59,17 @@ def run_demo(directory: Path) -> dict:
 def workspace_status(directory: Path) -> dict:
     directory = Path(directory).resolve()
     marker = directory / "mock-workspace.json"
-    if (not marker.is_file() or canonical_json(json.loads(marker.read_text(encoding="utf-8"))) != canonical_json(MARKER)
+    if (not marker.is_file() or marker.stat().st_size > 4096 or canonical_json(json.loads(marker.read_text(encoding="utf-8"))) != canonical_json(MARKER)
             or not (directory / "state.sqlite").is_file()):
         raise ValueError("not an initialized mock workspace")
-    store = LocalStateStore(directory / "state.sqlite")
+    connection = sqlite3.connect((directory / "state.sqlite").as_uri()+"?mode=ro", uri=True, isolation_level=None, timeout=2)
+    connection.row_factory = sqlite3.Row
     try:
-        return {"is_mock": True, "jobs": [{"job_id": job.job_id, "state": job.state, "error_code": job.error_code} for job in store.list_jobs()]}
+        connection.execute("PRAGMA query_only=ON")
+        return {"is_mock": True, "jobs": [dict(row) for row in connection.execute(
+            "SELECT job_id,state,error_code FROM jobs ORDER BY created_at,job_id")]}
     finally:
-        store.close()
+        connection.close()
 
 
 def standard_rows(threshold: int) -> list[dict]:

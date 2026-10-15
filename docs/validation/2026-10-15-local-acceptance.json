@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 761,
+  "observed_test_cases": 768,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -317,13 +317,15 @@
       "tests": [
         "local_tests/test_local_backup.py::test_quiescent_backup_restores_exact_data_with_worker_fence",
         "local_tests/test_local_state.py::test_rollback_reuses_result_but_requires_a_new_publication",
-        "local_tests/test_integrated_scenario.py::test_whole_scenario_preserves_sources_human_edits_and_fenced_recovery"
+        "local_tests/test_integrated_scenario.py::test_whole_scenario_preserves_sources_human_edits_and_fenced_recovery",
+        "local_tests/test_restore_fence_order.py::test_restore_fence_prevents_pending_migration_before_any_writer_or_child",
+        "local_tests/test_restore_fence_order.py::test_actual_status_cli_on_fenced_pending_schema_is_read_only"
       ],
       "remaining": [
         "正式 release binary／降版 migration／跨 runtime 單一 ownership"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 3
+      "observed_cases": 7
     }
   ]
 }

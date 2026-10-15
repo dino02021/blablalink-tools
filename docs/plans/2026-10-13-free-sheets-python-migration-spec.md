@@ -1279,3 +1279,10 @@ blablalink-tools/
 - 追加：cycle 必須包含 head revision，避免回到相同內容時錯誤重播 desired；完整觀測仍缺欄時每 cycle 最多三輪，重啟不能重設。外部 desired owner 變更須回衝突，不能互相搶 head。
 - 二十項 mock 案例驗證實際補抓→重算→工作簿發布、門檻改版不重抓、競爭／回滾、auth／inactive／missing fixture、有限輪次、ABA、來源 proof 與唯讀狀態。狀態表增加調度欄，共十八欄。
 - 本批為明確本地 tick API，尚未接背景排程或 worker 自動 hook；公平輪巡／hosted／D1／正式 provider 仍待完成。詳見 docs/spec/89-local-healthcheck-followup.md。
+
+### 17.55 第五十一批：還原 fence 先於初始化（2026-10-15）
+
+- 發現遺漏：worker 在 fence 前呼叫的舊 workspace_status 可能初始化 coordinator 並 migration，不能以「尚未領工作」推定還原副本未變。
+- 基本 status 改 URI read-only／query_only，只有 jobs 最小 metadata；worker／isolated 先檢查 restore-lock，才驗證／初始化或啟動 child。
+- 七項真實 mock SQLite 案例移除 migration receipt／tables，核對 bytes 不變及無 writer／child，含實際 status CLI；既有相關三十五項驗證亦通過。
+- 不解除 restore fence、不提升副本；有界 workflow runner 將採用同一順序。詳見 docs/spec/90-restore-fence-before-initialization.md。

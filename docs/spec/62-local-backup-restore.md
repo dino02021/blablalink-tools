@@ -14,3 +14,5 @@ adapters/local_backup.py 與本地 CLI 的 backup／restore 只處理明確 mock
 local_tests/test_local_backup.py 的 8 項流程涵蓋完整資料／訊息保存、worker fence、active compute／unknown delivery 阻擋、錯誤 release／manifest／內容／path、不能覆寫，以及實際 scrubbed-env backup→restore→work 拒絕 CLI。
 
 目前 release 是明確標籤與 migration 相容性證據，未封裝或驗證程式 binary；也沒有正式跨 release 自動降版 migration。來源 workbook 的人工輸入為逐檔一致擷取，不宣稱所有人同時編輯時的跨 workbook 原子快照。fence 由本地 worker 遵守，不能阻止可信程式直接呼叫低階 adapter，亦非遠端 executor fencing。正式提升還原副本前仍需證明原 writer 全部停止、release 相容與控制平面唯一 ownership；本階段不執行提升。
+
+90 修正入口順序：restore fence 在任何 writer／child 前拒絕；基本 workspace_status 已改真正唯讀，不會在檢查 fence 時偷偷 migration。
