@@ -1,0 +1,267 @@
+{
+  "schema_version": 1,
+  "scope": "local_mock_only",
+  "is_production_accepted": false,
+  "observed_test_cases": 383,
+  "local_evidence_passed": 22,
+  "requirements": [
+    {
+      "id": "A01",
+      "tests": [
+        "local_tests/test_sheet_workflow.py::test_candidate_is_frozen_while_new_sheet_edit_remains_unpublished"
+      ],
+      "remaining": [
+        "正式輸入範圍與多人編輯觸發器尚未接線"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A02",
+      "tests": [
+        "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training",
+        "local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows"
+      ],
+      "remaining": [
+        "完整標準／練度工作簿 renderer 與逐格格式對照"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A03",
+      "tests": [
+        "local_tests/test_healthcheck.py::test_highest_member_changes_everyone_and_ignores_outside_roster",
+        "local_tests/test_gs_scoring.py::test_full_cohort_role_weighted_total_and_rank_match_frozen_gs"
+      ],
+      "remaining": [
+        "正式 header／nickname／cache 映射驗證"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A04",
+      "tests": [
+        "local_tests/test_gs_reference.py::test_comparison_rank_and_float_round_boundaries_match_gs",
+        "local_tests/test_healthcheck.py::test_threshold_boundaries"
+      ],
+      "remaining": [
+        "正式資料型別與自訂格式契約對應"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 11
+    },
+    {
+      "id": "A05",
+      "tests": [
+        "local_tests/test_normalization.py::test_missing_owned_detail_requests_refetch_without_erasing_ownership",
+        "local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot"
+      ],
+      "remaining": [
+        "真實 reference 發布與缺項補抓規劃器"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A06",
+      "tests": [
+        "local_tests/test_layout.py::test_mixed_human_columns_require_stable_member_rows",
+        "local_tests/test_snapshots.py::test_member_key_is_region_scoped_and_delimiter_safe"
+      ],
+      "remaining": [
+        "完整 roster 生命週期與人工區搬移對照"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A07",
+      "tests": [
+        "local_tests/test_local_state.py::test_durable_request_and_immutable_object_roundtrip",
+        "local_tests/test_local_state.py::test_hosted_claim_requires_reserved_dispatch_and_replay_is_run_scoped"
+      ],
+      "remaining": [
+        "正式平台 dispatch callback 與 D1 條件更新"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A08",
+      "tests": [
+        "local_tests/test_local_state.py::test_two_connections_cannot_begin_publication_together",
+        "local_tests/test_mock_publication.py::test_invalid_or_stale_publisher_cannot_write_any_workbook"
+      ],
+      "remaining": [
+        "D1／本機／雲端跨 runtime 寫入競爭實測"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A09",
+      "tests": [
+        "local_tests/test_local_state.py::test_unknown_publication_keeps_locks_across_time_and_restart"
+      ],
+      "remaining": [
+        "正式路由 registry 對應實際 shared spreadsheet ID"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A10",
+      "tests": [
+        "local_tests/test_local_state.py::test_current_version_supersedes_old_computation_before_publish"
+      ],
+      "remaining": [
+        "遠端舊 writer 停止與已送出 HTTP 核對證據"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A11",
+      "tests": [
+        "local_tests/test_sheet_workflow.py::test_candidate_is_frozen_while_new_sheet_edit_remains_unpublished",
+        "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training"
+      ],
+      "remaining": [
+        "薄 GS onEdit／排程 reconcile 離線入口與遠端授權"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A12",
+      "tests": [
+        "local_tests/test_mock_publication.py::test_partial_outcome_reconciles_same_commit_across_adapter_restart",
+        "local_tests/test_local_worker.py::test_unknown_publication_is_not_replayed_by_worker"
+      ],
+      "remaining": [
+        "真實 Sheets readback 與舊 invocation 終止證據"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 3
+    },
+    {
+      "id": "A13",
+      "tests": [
+        "local_tests/test_local_state.py::test_one_union_failure_does_not_fail_other_fanout_targets"
+      ],
+      "remaining": [
+        "全聯盟彙總檢視與正式路由整合"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A14",
+      "tests": [
+        "local_tests/test_collection.py::test_auth_error_stops_member_source_requests_and_preserves_explicit_state",
+        "local_tests/test_collection.py::test_collection_task_seals_only_complete_observation"
+      ],
+      "remaining": [
+        "真實 Session 狀態與 provider 完整性證據對應"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 4
+    },
+    {
+      "id": "A15",
+      "tests": [
+        "local_tests/test_gs_raid_final.py::test_finalized_assignments_match_frozen_gs_for_mock_cases"
+      ],
+      "remaining": [
+        "GS／Python 差異分類與 tie／安全 guard 規則確認"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A16",
+      "tests": [
+        "local_tests/test_raid_confirmation.py::test_sorted_generated_view_keeps_identity_original_inputs_and_multiline_tail"
+      ],
+      "remaining": [
+        "實際出刀工作簿格式與保護區 renderer"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A17",
+      "tests": [
+        "local_tests/test_outbox.py::test_accepted_but_response_lost_blocks_all_retries_until_verified"
+      ],
+      "remaining": [
+        "真實 Discord rate limit／訊息查證與路由授權"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 1
+    },
+    {
+      "id": "A18",
+      "tests": [
+        "local_tests/test_local_state.py::test_cloud_budget_reservation_is_atomic_and_blocked_work_can_reroute_local",
+        "local_tests/test_local_state.py::test_pending_dispatch_expiry_is_bounded_and_never_refunds_unknown_usage"
+      ],
+      "remaining": [
+        "帳戶共用實際免費用量與降頻政策量測"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A19",
+      "tests": [
+        "local_tests/test_local_worker.py::test_worker_skips_unsupported_wrong_code_and_hosted_jobs",
+        "local_tests/test_local_state.py::test_wrong_executor_code_and_cancellation_cannot_complete_work"
+      ],
+      "remaining": [
+        "同遠端協定備援與 immutable release distribution"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A20",
+      "tests": [
+        "local_tests/test_raid_execution.py::test_operation_limit_preserves_checkpoint_and_local_retry_finishes",
+        "local_tests/test_local_worker.py::test_healthcheck_budget_interrupts_without_partial_results"
+      ],
+      "remaining": [
+        "實際 hosted deadline／memory profile 與硬性程序隔離"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 5
+    },
+    {
+      "id": "A21",
+      "tests": [
+        "local_tests/test_workbook_staging.py::test_incomplete_and_cancelled_stage_preserves_result_and_human_data",
+        "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation"
+      ],
+      "remaining": [
+        "真實 staging tab 啟用／取消與完整 merge／format／protection"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    },
+    {
+      "id": "A22",
+      "tests": [
+        "local_tests/test_local_backup.py::test_quiescent_backup_restores_exact_data_with_worker_fence",
+        "local_tests/test_local_state.py::test_rollback_reuses_result_but_requires_a_new_publication"
+      ],
+      "remaining": [
+        "正式 release binary／降版 migration／跨 runtime 單一 ownership"
+      ],
+      "evidence_status": "local_evidence_passed",
+      "observed_cases": 2
+    }
+  ],
+  "suite_status": "passed"
+}

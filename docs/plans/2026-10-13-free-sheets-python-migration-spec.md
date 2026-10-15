@@ -855,12 +855,12 @@ blablalink-tools/
 
 1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
-3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
-4. mock publisher、欄位 planner、基本格子請求與舊 GS 六列／十二欄標準 decoder 已完成；十一欄遷移、完整格式／維度、分片 staging 與完整表格對照仍待完成。
-5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
-6. mock Discord outbox、固定報告／路由快照編譯及健檢／排刀本地 worker CLI 已完成；仍需正式路由授權與 head、collector 介面、遠端 executor 協定及其他命令 handler。
+3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
+4. mock publisher、欄位 planner、基本格子請求、十二欄 decoder 與分片 staging 完成；十一欄遷移、完整格式／維度與完整表格對照仍待完成。
+5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint 與本機 RSS reader 完成；仍需工作簿呈現、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
+6. mock outbox、固定報告／路由編譯、本地計算 worker 及 mock collector 契約已完成；仍需路由授權 head／registry、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
-8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
+8. A01–A22 已對應真實 JUnit 與逐項缺口（docs/spec/64-local-acceptance-evidence.md）；繼續補其本地未完成範圍，不以 local evidence passed 視為正式驗收。
 
 ### 17.5 第二批完成與新增契約（2026-10-15）
 
@@ -1092,3 +1092,10 @@ blablalink-tools/
 - 0007 receipt 使清理原子且可重播；新引用／新物件使舊計畫整批拒絕。壞 hash、超過 10000 objects／100000 root rows／bytes 邊界均停止。
 - 新增 5 項臨時 mock DB 驗收，沒有刪除專案檔案、正式試算表或遠端資源。
 - chunk／staging／archive 清理、歷史裁切與遠端 D1 預算仍待完成；新增外部引用來源前須定義 pin，不能直接假設沒有引用。詳見 docs/spec/63-local-object-retention.md。
+
+### 17.28 第二十五批：逐項驗收證據與缺口報告（2026-10-15）
+
+- A01–A22 逐項綁定明確 pytest node IDs，從真實 JUnit 結果生成本地證據；缺案例／skip／任一參數失敗都不能算通過，保留 suite 整體失敗狀態。
+- 本輪全套 383 項 mock 測試通過，22 項都有對應案例通過；報告明確 is_production_accepted=false，逐項列出 remaining，不能推導為全部需求完成。
+- 追加 4 項報告 importer 驗收，防止空紀錄、skip 或部分參數失敗被當成通過。報告入口只讀既有 JUnit，輸出新檔，不載入正式設定。
+- 本地未完成範圍與真正外部依賴分開記錄；仍可自主推進 renderer、薄 GS／hosted／D1 離線契約、checkpoint／registry／效能等，不進入 blocked。證據見 docs/validation/2026-10-15-local-acceptance.json，契約見 docs/spec/64-local-acceptance-evidence.md。
