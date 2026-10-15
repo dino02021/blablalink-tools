@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，520 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，535 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -23,7 +23,7 @@
 | A17 | unknown delivery 不盲重發 | Discord adapter／路由授權 |
 | A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |
-| A20 | budget 中斷與 checkpoint／恢復 | hosted profile／硬性隔離 |
+| A20 | budget／checkpoint／恢復，Windows child native memory／wall time 與 kill 狀態邊界 | hosted profile、Linux 實測與 dispatcher 採用 |
 | A21 | 缺片／取消不改結果、schema CAS、mock 格線遷移／archive、十一欄草稿遷移 | 真實 staging／merge／protection |
 | A22 | 備份還原 fence、回滾另取 publisher | binary／降版與跨 runtime ownership |
 

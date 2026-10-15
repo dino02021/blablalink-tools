@@ -1187,3 +1187,10 @@ blablalink-tools/
 - 追加：reference 相容不代表資料完整，unknown 仍由同一計算核心阻擋；新角色或改動 prefix 定義不可沿用舊 absence／數值，auth 也不能因投影被升級。
 - 十項本地 mock 案例驗證固定 plan、衍生計算、unknown／auth、拒絕來源置換及原 raw／雙 reference 的 retention；normalizer 加入逐 member／role 合作式預算檢查。
 - 尚不自動排補抓、合併 provider 資料或發布。詳見 docs/spec/76-reference-projection.md。
+
+### 17.42 第三十八批：本地計算子程序 native 限制（2026-10-15）
+
+- 新 compute-only isolated 入口，固定 repo／Python、過濾環境、child 握手後才開始 worker；不提供發布旗標。
+- Windows 私有 Job Object 設 committed memory／active-process=1／kill-on-close，父程序另管整批 wall time 與輸出；不把 cooperative RSS 當 native memory 的同一量測。
+- 追加：hard kill 不等於 job 失敗或成功，更不能逕自解鎖。父程序只證明 owned child 停止，保留 coordinator 的真實 lease／checkpoint 狀態；stderr 不回原文。
+- 15 項本地案例實測無限迴圈、大額單次 allocation、native fence 失敗、環境／receipt／輸出與不發布；Linux rlimit 分支未於 Windows 實測，hosted 與整合採用仍待完成。詳見 docs/spec/77-local-process-isolation.md。

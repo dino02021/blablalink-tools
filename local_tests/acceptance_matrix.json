@@ -203,10 +203,13 @@
       "tests": [
         "local_tests/test_raid_execution.py::test_operation_limit_preserves_checkpoint_and_local_retry_finishes",
         "local_tests/test_local_worker.py::test_healthcheck_budget_interrupts_without_partial_results",
-        "local_tests/test_process_memory.py::test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types"
+        "local_tests/test_process_memory.py::test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types",
+        "local_tests/test_process_guard.py::test_noncooperative_loop_is_stopped_by_parent_wall_clock",
+        "local_tests/test_process_guard.py::test_native_memory_limit_stops_single_large_allocation_without_checkpoints",
+        "local_tests/test_process_guard.py::test_killed_compute_does_not_mark_job_successful_or_force_release_its_lease"
       ],
       "remaining": [
-        "實際 hosted deadline／memory profile 與硬性程序隔離"
+        "hosted deadline／memory profile、Linux native 實測與 dispatcher 採用"
       ]
     },
     {

@@ -10,4 +10,4 @@
 
 local_tests/test_process_memory.py 在實際本機驗證正值、明確小上限及讀取失敗分類；test_local_worker 的四個不同檢查位置驗證健檢中斷均無 result、無半份 workbook，恢復可成功發布。現有排刀時間／記憶體／heartbeat 測試繼續執行。
 
-這是合作式限制，不能中止單次 JSON 解析、序列化、排序或作業系統阻塞；memory reader 讀取的是整個程序而非個別工作，Unix fallback 為歷史 peak。尚未提供子程序硬性終止、平台實際 deadline 讀取或 hosted billing 證明；不得以此宣稱通過雲端資源驗收。512 MiB 為本地保守設定，非平台額度承諾。
+這是合作式限制，不能中止單次 JSON 解析、序列化、排序或作業系統阻塞；memory reader 讀取的是整個程序而非個別工作，Unix fallback 為歷史 peak。另有 [77 的明確子程序入口](77-local-process-isolation.md) 提供本地 native 限制；原入口不自動切換。平台實際 deadline／hosted billing 仍未驗收；512 MiB 是本地保守設定，非平台額度承諾。
