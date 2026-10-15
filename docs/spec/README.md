@@ -43,6 +43,8 @@
     不可變排刀輸入、候選來源池、前三輪與剩餘刀補洞。
 16. [50-local-raid-finalization.md](./50-local-raid-finalization.md)
     改派、指定保留、元素交換、最終補刀與 GS 全流程對照。
+17. [51-local-raid-confirmation-and-view.md](./51-local-raid-confirmation-and-view.md)
+    不可變排刀草稿、輸入與確認 CAS、過期提示及成員 ID 檢視。
 
 ## 涵蓋範圍
 

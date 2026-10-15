@@ -857,7 +857,7 @@ blablalink-tools/
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
-5. 排刀核心、最終穩定化、改派／交換與 60 組 GS 最終分配對照完成；仍需草稿確認、輸出、deadline／checkpoint、擴充邊界與完整效能驗收。
+5. 排刀核心、60 組 GS 對照、本地草稿確認與成員 ID 結構化輸出完成；仍需工作簿呈現、deadline／checkpoint、擴充邊界與完整效能驗收。
 6. mock Discord outbox 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
@@ -983,3 +983,13 @@ blablalink-tools/
 - Python 交換／恢復的已落地指定與刀數保護比部分 GS helper 嚴格，明列為仍需擴充比較的差異，不假稱所有輸入完全相容。
 - 草稿確認、輸出與指定區呈現、deadline／checkpoint 及完整 A15／A16 仍待完成。
 - 全套 244 項本地 mock 測試及 Python／Node 語法檢查通過。
+
+### 17.15 第十二批：排刀草稿確認與結構化輸出（2026-10-15）
+
+- domain/raid_view.py 保存成員 ID、五王逐刀來源／傷害／階段與新刀數，依有新刀、同步、名稱及 ID 排序；原始指定保持獨立不可變。
+- 追加：渲染前重模擬並驗證來源池、指定身份與自動估傷；不能只靠結果 hash 接受自相矛盾內容，也不能刪除必要 warning 迴避缺刀確認。
+- LocalRaidPlans 與 0003 migration 保存 input head／revision、draft、confirmation 及 request alias；確認同時 CAS 輸入與上一確認，全部只在本地 SQLite。
+- 追加：新排名只更新依據與新草稿；已確認內容不替換。過期／是否目前確認是獨立動態狀態，不修改原確認物件。
+- 追加：歷史與新刀混格保留逐行來源，全歷史才整格灰色；多刀 IV 共用單一階段顯示。億顯示採精確正數 half-up，原始真實傷害仍保存字串。
+- 全套 251 項本地 mock 測試通過，含兩連線同 base 確認、重啟、過期、同名成員與警告確認；Python 語法檢查通過。
+- 尚無遠端 actor 授權、工作簿確認 UI、固定路由、精確座標／rich text publisher 串接與 deadline／checkpoint；不以本地確認代表正式生效。

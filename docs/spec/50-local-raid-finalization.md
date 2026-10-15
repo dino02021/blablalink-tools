@@ -32,3 +32,5 @@ domain/raid_finalize.py 接收 RaidProblem 與相符 RoundSelection，輸出固�
 - 對照範圍限這些案例的 member／boss／stage／kind／damage；不是所有最適性、同分 locale、顯示格式或最壞執行時間的證明。
 - Python 交換／恢復另外保護原已落地指定與總落地數，此保護比部分 GS helper 嚴格；其他資料情境可能有不同結果，需擴充比較，不宣稱無差異。
 - 尚需草稿確認、成員 ID 輸出排序、原始指定保留的工作簿呈現、deadline／checkpoint 與完整 A15／A16 驗收。
+
+後續本地確認及結構化輸出已新增於 [51-local-raid-confirmation-and-view.md](./51-local-raid-confirmation-and-view.md)；工作簿呈現、deadline／checkpoint 與完整驗收仍待完成。
