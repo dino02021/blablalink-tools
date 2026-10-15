@@ -1173,3 +1173,10 @@ blablalink-tools/
 - 追加重大遺漏：ownership complete 必須綁定當時的角色 universe。新 collector 保存 reference_role_ids，normalizer 拒絕擴大／縮減，planner 對舊缺證據 raw 保守停止，避免新角色被當未持有。
 - 十二項新 mock 案例覆蓋選詞條／改門檻零補抓、精確 effect、options coverage、突破、auth、override、新人、reference 與 universe 邊界。
 - 尚未做 reference 持久發布 head、補抓 executor 或新舊來源拼接，不對正式 provider 發請求。詳見 docs/spec/74-training-reuse-planner.md。
+
+### 17.40 第三十六批：不可變 reference 與本地 CAS 發布（2026-10-15）
+
+- reference 字典以內容 SHA 作版本，包含角色／prefix／function／alias／雙屬性；同內容不同 capture time 共用版本，讀取時重建核對。
+- 0009 migration 與 LocalReferences 保存固定候選、validation code、明確確認、head CAS、receipt 與 request 去重；兩連線只允許一個版本跨越相同 base。
+- 追加：重播舊 reference 發布只能取回 receipt，不得把新 head 倒回；reference 發布不能連帶重標 raw 或發布 config。舊候選／publication 均須留在 retention roots。
+- 13 項新 mock 案例及既有 retention／backup 驗證通過；provider 字典擷取、reference transition 衍生投影、補抓 executor 與外部 endpoint 仍未接線。詳見 docs/spec/75-local-reference-registry.md。

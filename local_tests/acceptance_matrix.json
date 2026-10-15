@@ -51,10 +51,12 @@
         "local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot",
         "local_tests/test_training_reuse.py::test_threshold_and_selected_trait_changes_reuse_same_raw_and_training",
         "local_tests/test_training_reuse.py::test_missing_role_universe_cannot_prove_new_role_absence",
-        "local_tests/test_training_reuse.py::test_missing_effect_targets_matching_option_identity"
+        "local_tests/test_training_reuse.py::test_missing_effect_targets_matching_option_identity",
+        "local_tests/test_local_references.py::test_new_reference_never_relabels_old_raw_or_advances_config",
+        "local_tests/test_local_references.py::test_two_connections_cannot_publish_different_catalogs_over_same_base"
       ],
       "remaining": [
-        "reference 持久發布 head、補抓 executor 與 provider 真實完整性對應"
+        "reference transition 衍生投影、補抓 executor 與 provider 真實完整性對應"
       ]
     },
     {
