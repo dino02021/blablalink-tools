@@ -1111,3 +1111,9 @@ blablalink-tools/
 - Python gate 固定 reconcile family／sealed route／principal 權限，本地 worker 讀 mock source 產生固定候選；明確確認 config 仍是另一步，不因 onEdit 自動發布。
 - 新增 9 項離線測試，Node 執行真實橋接 HMAC，再由 Python gate 驗證、worker 產生相同候選；驗證 HTTP accepted 不等於計算成功、timeout 不盲重試與停用不讀 key。
 - A11 補上跨語言端到端本地證據；無正式 trigger／Properties／URL／部署，HTTP runtime、coalescing 與 durable hint queue 仍待完成。詳見 docs/spec/65-thin-gs-reconcile-bridge.md。
+
+### 17.31 第二十七批：控制 HTTP 邊界的離線串接（2026-10-15）
+
+- 新增預設停用的 transport-neutral handler，限制 route／method／body／header／envelope 大小與重複 key；只有持久受理 job 才回 202 accepted。
+- 薄 GS 測試改走 HTTP handler→簽章 gate→本地 worker→固定候選，不啟動 socket 或使用真實 URL。
+- 新增 11 項 mock 驗收，確保停用不接觸 gate、錯誤脫敏、受理與完成不混淆；Worker／D1／TLS／限流與平台 runtime binding 尚未實作。詳見 docs/spec/66-offline-control-http.md。

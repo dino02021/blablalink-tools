@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 396,
+  "observed_test_cases": 407,
   "local_evidence_passed": 22,
   "requirements": [
     {

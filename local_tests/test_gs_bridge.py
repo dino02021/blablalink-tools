@@ -9,6 +9,7 @@ import pytest
 from adapters.local_request_gate import LocalRequestGate
 from adapters.mock_sheets import MockSheets
 from application.control_requests import RequestPrincipal
+from application.control_http import handle_control_request
 from domain.snapshots import capture_document
 from executors.local.demo import run_demo
 from executors.local.worker import run_worker
@@ -30,7 +31,10 @@ def test_gs_signed_hint_reaches_python_and_only_prepares_candidate(tmp_path):
         assert result["outcome"]["state"] == "accepted"
         request, = result["requests"]
         envelope = json.loads(request["options"]["headers"]["X-Control-Envelope"])
-        job = gate.submit_signed(envelope, request["options"]["payload"].encode())
+        response = handle_control_request("POST", "/v1/requests", {**request["options"]["headers"],
+            "Content-Type": request["options"]["contentType"]}, request["options"]["payload"].encode(), gate, is_enabled=True)
+        assert response.status == 202 and response.body["state"] == "accepted"
+        job = gate.get_job(response.body["job_id"])
         assert gate.submit_signed(envelope, request["options"]["payload"].encode()).job_id == job.job_id
         before = MockSheets(directory / "workbooks").read("output_demo")
         processed = run_worker(directory, "mock-release-v1")

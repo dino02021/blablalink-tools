@@ -8,6 +8,7 @@ integrations/gs/local_control_bridge.gs 是獨立未部署來源檔，不修改�
 - body 與 HMAC envelope 使用 canonical JSON、UTF-8、明確 nonce／timestamp／request ID，對應 Python gate。只允許 HTTPS 固定 /v1/requests URL，關閉 redirect；key 只從 Script Properties 讀取，不進 body／回傳值。
 - 只把 202＋accepted＋job ID 視為受理；timeout／無效 receipt 是 acceptance_unknown，非 202 為 not_accepted。不以 HTTP 成功代表候選完成，不盲重試。
 - Python gate 新增 reconcile 權限，固定 config_reconcile family，從 sealed reconcile_route 解析 resource 並檢查 principal scope／workbook 白名單；route 必須為同 scope 的 union_inputs，reconcile_kind=structured_healthcheck_standard。
+- [控制 HTTP handler](66-offline-control-http.md) 已以直接函式呼叫串接測試；沒有啟動 listener 或公開 endpoint。
 - run_standard_reconcile_job 使用 route 內固定 reference／role IDs／function IDs，Python 讀 structured mock source，建立固定候選並封存 candidate ID。候選不自動確認／發布；重複觀測由既有 semantic candidate 去重。
 - 本地 worker 支援此第三種命令，預設即只讀 mock 標準與保存候選，無需開啟 --publish-mock。
 
