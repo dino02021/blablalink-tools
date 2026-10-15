@@ -3,7 +3,7 @@
 from pathlib import Path
 from datetime import datetime, timezone
 
-from adapters.local_healthcheck_workflows import LocalHealthcheckWorkflows
+from adapters.local_worker_store import LocalWorkerStore
 from adapters.mock_sheets import MockSheets
 from adapters.mock_collection_script import MockScriptCollection
 from adapters.mock_grid import materialize_generated_grid
@@ -12,6 +12,9 @@ from adapters.process_memory import local_compute_budget
 from adapters.local_workbook_staging import LocalWorkbookStaging
 from application.publication import publish_workbooks
 from application.collection import run_collection_job
+from application.system_status_publication import run_system_status_job
+from application.compute_budget import ComputeLimit
+from domain.execution import execution_checks
 from application.supplementary_collection import run_supplementary_collection_job
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
@@ -21,7 +24,7 @@ from application.tasks import LeaseLost, ResourceBusy, StateConflict, validate_i
 from application.workbook_staging import StagedSheets, prepare_workbook_stage
 from executors.local.workflow_ticks import WorkflowTickSession
 
-SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan", "refresh_roster_and_training", "reconcile")
+SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan", "refresh_roster_and_training", "reconcile", "publish_system_status")
 
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
@@ -33,7 +36,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             or type(max_workflow_checks) is not int or not 0 <= max_workflow_checks <= 100):
         raise ValueError("bounded worker invocation required")
     directory = require_mock_workspace(directory, is_writer=True)
-    store = LocalHealthcheckWorkflows(directory / "state.sqlite")
+    store = LocalWorkerStore(directory / "state.sqlite")
     sheets = MockSheets(directory / "workbooks") if is_publish_enabled else None
     staging = LocalWorkbookStaging(directory / "staging.sqlite") if is_publish_enabled else None
     processed = []
@@ -45,7 +48,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             for job in store.computed_publication_jobs(code_sha, max_jobs):
                 if len(processed) >= max_jobs:
                     break
-                if (job.state == "computed" and job.spec.command in ("recompute_healthcheck", "publish_raid_plan")
+                if (job.state == "computed" and job.spec.command in ("recompute_healthcheck", "publish_raid_plan", "publish_system_status")
                         and job.spec.executor_type == "local" and job.spec.code_sha == code_sha):
                     try:
                         _publish(store, sheets, staging, job, worker_id, code_sha)
@@ -64,6 +67,8 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                     computed = run_healthcheck_job(store, lease, budget_factory())
                 elif job.spec.command == "publish_raid_plan":
                     computed = run_raid_publication_job(store, lease, budget_factory())
+                elif job.spec.command == "publish_system_status":
+                    computed = run_system_status_job(store, lease, budget_factory())
                 elif job.spec.command == "refresh_roster_and_training":
                     inputs = store.get_document(job.spec.version_map["collection_inputs"])
                     script = store.get_document(job.spec.version_map["mock_collection_script"])
@@ -96,7 +101,8 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
                     raise
             processed.append(_status(store.get_job(job.job_id)))
             ticks.advance()
-        return {"is_mock": True, "processed": processed, **ticks.summary(), "network_providers": []}
+        status_capture = _capture_status(store, directory, code_sha, budget_factory())
+        return {"is_mock": True, "processed": processed, **ticks.summary(), "system_status_capture": status_capture, "network_providers": []}
     finally:
         if staging is not None:
             staging.close()
@@ -136,3 +142,16 @@ def _publish(store, sheets, staging, job, worker_id, code_sha):
 
 def _status(job):
     return {"job_id": job.job_id, "command": job.spec.command, "state": job.state, "error_code": job.error_code}
+
+
+def _capture_status(store, directory, code_sha, budget):
+    try:
+        with execution_checks(budget.check):
+            job = store.observe_system_status(directory, code_sha, datetime.now(timezone.utc).isoformat())
+        return None if job is None else _status(job)
+    except ResourceBusy:
+        return {"error_code": "publisher_busy"}
+    except ComputeLimit as error:
+        return {"error_code": error.code}
+    except (ValueError, KeyError, TypeError, StateConflict):
+        return {"error_code": "status_input_invalid"}

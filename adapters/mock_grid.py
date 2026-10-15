@@ -6,6 +6,7 @@ import hashlib
 from domain.snapshots import canonical_json
 from domain.view_grid import restore_workbook_view
 from application.raid_workbook import restore_raid_workbook
+from application.system_status_publication import restore_system_status_workbook
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,17 @@ class GridMigrationPlan:
 
 
 def materialize_generated_grid(generated: dict) -> dict | None:
+    if generated.get("publication_kind") == "system_status":
+        if "view" in generated or "raid_workbook_view" in generated:
+            raise ValueError("ambiguous system status view kind")
+        view = restore_system_status_workbook(generated["status_workbook_view"])
+        if (generated.get("view_id") != view.view_id or generated.get("config_id") != view.route_id
+                or generated.get("snapshot_id") != view.occurrence_id or generated.get("calculation_id") != view.status_hash
+                or generated.get("code_sha") != view.code_sha):
+            raise ValueError("system status grid source binding differs")
+        return _materialize_tabs(view)
+    if "status_workbook_view" in generated:
+        raise ValueError("status view requires explicit publication kind")
     if generated.get("publication_kind") == "confirmed_raid":
         if "view" in generated:
             raise ValueError("ambiguous generated view kind")

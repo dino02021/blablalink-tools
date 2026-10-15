@@ -31,7 +31,7 @@ def test_restore_fence_prevents_pending_migration_before_any_writer_or_child(pen
     (directory/'restore-lock.json').write_text('{}',encoding='utf-8')
     before = (directory/'state.sqlite').read_bytes()
     monkeypatch.setattr('executors.local.isolated.run_python_module',unexpected_entry)
-    monkeypatch.setattr('executors.local.worker.LocalHealthcheckWorkflows',unexpected_entry)
+    monkeypatch.setattr('executors.local.worker.LocalWorkerStore',unexpected_entry)
     if entry=='status':
         result = workspace_status(directory)
         assert result['jobs'][0]['job_id']==summary['job_id']

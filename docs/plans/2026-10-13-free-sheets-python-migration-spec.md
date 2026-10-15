@@ -1309,3 +1309,10 @@ blablalink-tools/
 - 追加：atomic replace 不能取代完整 read-modify-write 互斥；sidecar 存在也不能當 writer 存活或停止證據。等待有界，持鎖不因 TTL 過期，程序退出由 OS 釋放。
 - 備份 bytes 擷取共用鎖並保留前後一致性檢查，sidecar 不備份；恢復副本原 fence 不變。整份 inputs replacement 不假裝自動合併 stale client snapshots。
 - 十四項實際 thread／子程序案例涵蓋雙向人工與發布、不同 cell、累計更新、重入／退出、timeout／budget、備份還原及錯 bounds。正式遠端 adapter／POSIX／rollback 等仍待完成。詳見 docs/spec/93-mock-workbook-process-locks.md。
+
+### 17.59 第五十五批：共享狀態表本地發布（2026-10-16）
+
+- 0017 固定可信本地路由、唯讀狀態 observation 與遞增 occurrence，AUTO 工作發布三張 protected mock tab，inputs／manual tabs 保留。
+- 追加：狀態表 owner 必須排除自身；時鐘變化不應反覆寫表，A→B→A 卻必須建立新次序，不能沿用舊成功。內容／路由／code 綁定與 stale 檢查已補齊。
+- bounded worker 結尾至多觀測一次，後續 invocation 計算／顯式 mock 發布；unknown 全域鎖不繞過，預算不足整筆觀測回滾。native child 維持 compute-only。
+- 固定雙頁各五十 scope 加快照 metadata，保留明確 as-of；不是完整歷史分頁或遠端瞬時 readback。正式 adapter／ACL／歷史清理與其他獨立工作仍待完成。詳見 docs/spec/94-shared-status-mock-publication.md。

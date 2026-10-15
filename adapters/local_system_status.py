@@ -11,6 +11,7 @@ from application.raid_inputs import is_raid_dependency_current
 from application.healthcheck_workflow import read_healthcheck_workflow
 from application.tasks import AUTO_COMMANDS, StateConflict, TaskSpec, validate_identifier
 from domain.snapshots import canonical_json
+from domain.execution import check_execution
 from domain.mock_workspace import MOCK_WORKSPACE_MARKER as MARKER
 
 BLOCKED = frozenset({"failed", "auth_required", "capacity_blocked", "publish_uncertain"})
@@ -37,6 +38,7 @@ def read_system_status(directory, scope_ids) -> dict:
         global_status = _global_status(connection, scopes)
         rows = []
         for scope in scopes:
+            check_execution()
             try:
                 rows.append(_scope_status(connection, scope))
             except (ValueError, KeyError, TypeError, StateConflict):

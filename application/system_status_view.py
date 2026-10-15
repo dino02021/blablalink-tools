@@ -3,6 +3,7 @@
 import hashlib
 from domain.snapshots import canonical_json
 from domain.view_grid import ViewCell, ViewTab
+from domain.execution import check_execution
 
 
 def render_system_status(status: dict) -> ViewTab:
@@ -20,6 +21,7 @@ def render_system_status(status: dict) -> ViewTab:
     labels = labels[:-1] + ("健檢後續調度", "後續調度錯誤", labels[-1])
     rows, ids = [tuple(ViewCell(label, "header") for label in labels)], ["header"]
     for scope in status["scopes"]:
+        check_execution()
         if not scope["is_available"]:
             rows.append((ViewCell(scope["scope_id"]), *(ViewCell() for _ in range(len(columns)-2)), ViewCell(scope["error_code"], "failed")))
             ids.append(canonical_json([scope["scope_id"], "unavailable"]))
@@ -27,6 +29,7 @@ def render_system_status(status: dict) -> ViewTab:
         targets = {target["family"]: target for target in scope["desired"]}
         publications = {item["family"]: item for item in scope.get("published_by_family", ())}
         for family in sorted(set(targets) | set(publications)) or [""]:
+            check_execution()
             target = targets.get(family)
             published = scope["last_published"]
             confirmation = scope["raid_confirmation"]

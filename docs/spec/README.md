@@ -114,6 +114,7 @@
 - [92：發布安全取消與原始基準](92-publication-no-write-abort.md)
 
 - [93：Mock 工作簿跨程序互斥](93-mock-workbook-process-locks.md)
+- [94：共享狀態表本地發布](94-shared-status-mock-publication.md)
 
 ## 撰寫規則
 

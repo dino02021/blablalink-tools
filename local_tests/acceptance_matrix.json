@@ -163,10 +163,16 @@
         "local_tests/test_system_status.py::test_one_failed_union_does_not_hide_success_or_previous_output",
         "local_tests/test_system_status.py::test_read_transaction_keeps_one_snapshot_during_concurrent_writer",
         "local_tests/test_system_status.py::test_corrupt_job_spec_is_isolated_to_its_scope_and_no_body_is_returned",
-        "local_tests/test_raid_publication.py::test_status_retains_latest_success_for_health_and_manual_raid_families"
+        "local_tests/test_raid_publication.py::test_status_retains_latest_success_for_health_and_manual_raid_families",
+        "local_tests/test_system_status_publication.py::test_worker_compute_publish_three_tabs_and_no_feedback",
+        "local_tests/test_system_status_publication.py::test_observation_clock_dedup_and_aba_occurrence",
+        "local_tests/test_system_status_publication.py::test_hundred_scopes_stable_two_pages",
+        "local_tests/test_system_status_publication.py::test_unknown_publisher_blocks_new_observation_and_route_change",
+        "local_tests/test_system_status_publication.py::test_corrupt_watched_scope_does_not_hide_other_scopes",
+        "local_tests/test_system_status_publication.py::test_backup_retains_status_versions_and_fences_new_capture"
       ],
       "remaining": [
-        "共享狀態表 publisher、完整歷史分頁與遠端 scope 授權"
+        "真實共享狀態表 adapter、完整歷史分頁與遠端 scope 授權"
       ]
     },
     {

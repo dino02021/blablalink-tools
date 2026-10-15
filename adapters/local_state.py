@@ -104,7 +104,7 @@ class LocalStateStore:
             raise ValueError("bounded computed publication count required")
         return tuple(_job(row) for row in self._connection.execute(
             "SELECT * FROM jobs WHERE state='computed' AND code_sha=? AND executor_type='local' "
-            "AND command IN ('recompute_healthcheck','publish_raid_plan') ORDER BY created_at,job_id LIMIT ?", (code_sha,limit)))
+            "AND command IN ('recompute_healthcheck','publish_raid_plan','publish_system_status') ORDER BY created_at,job_id LIMIT ?", (code_sha,limit)))
 
     def reject_computed_result(self, job_id: str, code_sha: str) -> Job:
         with _transaction(self._connection):
@@ -790,7 +790,7 @@ class LocalStateStore:
             if replay["signature"] != signature:
                 raise StateConflict("request ID reused with different content")
             return self.get_job(replay["job_id"])
-        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec):
+        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec) or not self._is_system_status_current(spec):
             raise StateConflict("task source head is stale, missing, or inactive")
         config_id = spec.version_map.get("healthcheck_config")
         if config_id is not None and self._connection.execute(
@@ -871,7 +871,7 @@ class LocalStateStore:
 
     def _is_current(self, row: sqlite3.Row) -> bool:
         spec = _job(row).spec
-        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec):
+        if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec) or not self._is_system_status_current(spec):
             return False
         if row["command"] not in AUTO_COMMANDS:
             return True
@@ -896,6 +896,24 @@ class LocalStateStore:
         if bound is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan"):
             return True
         return bound == head["input_id"] and head["roster_state"] == "active"
+
+    def _is_system_status_current(self, spec: TaskSpec) -> bool:
+        if spec.command != "publish_system_status":
+            return True
+        from application.system_status_publication import SCOPE, read_system_status_route
+        if spec.scope_id != SCOPE:
+            return False
+        if self.union_input_version(SCOPE) is not None:
+            return False
+        head = self._connection.execute("SELECT route_id FROM system_status_route_heads WHERE scope_id=?", (SCOPE,)).fetchone()
+        active = self._connection.execute("SELECT occurrence_id FROM system_status_observation_heads WHERE scope_id=?", (SCOPE,)).fetchone()
+        if head is None or active is None or spec.version_map.get("status_route") != head[0] or spec.version_map.get("status_occurrence") != active[0]:
+            return False
+        try:
+            route = read_system_status_route(self.get_document(head[0]))
+            return route["is_enabled"] and route["code_sha"] == spec.code_sha
+        except (StateConflict, ValueError, KeyError, TypeError):
+            return False
 
     def _is_raid_source_current(self, spec: TaskSpec) -> bool:
         if spec.command not in ("generate_raid_draft", "publish_raid_plan"):
