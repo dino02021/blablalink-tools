@@ -1337,3 +1337,10 @@ blablalink-tools/
 - 追加：來源採用後另排工作存在 crash window；A→B→A 也不能讓舊 A 工作重獲 current。新 task 綁此次 bundle，重播只回原 followup。
 - 既有 observe_problem 共用內部驗證／CAS body，SQL／採用後 budget 中斷整筆回滾；不自動確認或發布，實際 worker 開 publish 也只產生 draft。
 - 十一項新案例與三十六項相關舊案例通過，含 native child、route-only 保留確認、restart／retention／backup。健檢更新後 rebase policy、GS 人工格線與正式入口仍待完成。詳見 docs/spec/97-atomic-raid-source-draft-followup.md。
+
+### 17.63 第五十九批：穩定 ID 人工排刀格線（2026-10-16）
+
+- 新增十欄 mock 人工輸入契約：composite member ID、同步器、三個指定刀與五個傷害覆寫；raw grid 與衍生 member inputs 分別封存。
+- 追加：舊 GS 依 normalizeLabel 名稱及輸出列 join 有重名／排序風險，不能默默猜 ID。完整名單、canonical ID、固定 columns、formula／history／容量條件皆明確驗證，0／空／null 保留。
+- 候選在同一交易保存 raw／derived／problem／bundle，member_grid_id 綁 lineage 並重建驗證；擷取後 Sheet 編輯不改原候選，計算不改人工格線或自動發布。
+- 二十六項新案例與相關來源／followup 合計五十三項通過，含 mock Sheet 擷取→採用→worker、rollback／retention。舊名稱遷移、遠端公式／保護與歷史完整性、輪詢 semantic 去重仍待完成。詳見 docs/spec/98-stable-member-raid-input-grid.md。

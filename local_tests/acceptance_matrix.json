@@ -221,7 +221,12 @@
         "local_tests/test_raid_source_followups.py::test_enqueue_failure_rolls_back_source_problem_head_and_receipt",
         "local_tests/test_raid_source_followups.py::test_route_only_adoption_keeps_existing_confirmation_but_fences_old_followup",
         "local_tests/test_raid_source_followups.py::test_native_child_runs_adopted_followup_without_any_sheet_publication",
-        "local_tests/test_raid_source_followups.py::test_budget_interruption_after_source_head_write_rolls_back_whole_action"
+        "local_tests/test_raid_source_followups.py::test_budget_interruption_after_source_head_write_rolls_back_whole_action",
+        "local_tests/test_raid_member_grid.py::test_capture_preserves_original_values_and_reorders_only_by_stable_roster",
+        "local_tests/test_raid_member_grid.py::test_ambiguous_or_incomplete_grid_fails_closed",
+        "local_tests/test_raid_member_grid.py::test_mock_sheet_capture_candidate_adoption_and_worker_keep_frozen_source",
+        "local_tests/test_raid_member_grid.py::test_grid_candidate_derivation_failure_rolls_back_objects_and_candidate",
+        "local_tests/test_raid_member_grid.py::test_retention_keeps_raw_grid_provenance_through_candidate_reference"
       ],
       "remaining": [
         "真實 Sheets adapter／公開發布路由、GS 人工來源擷取與 adopted 來源後調度"

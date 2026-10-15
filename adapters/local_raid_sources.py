@@ -7,6 +7,7 @@ import json
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.local_state import _transaction
 from application.raid_inputs import compile_raid_problem, raid_task_spec
+from application.raid_member_grid import derive_raid_member_inputs
 from application.raid_publication import read_raid_publication_route
 from application.tasks import StateConflict, validate_identifier
 from domain.snapshots import canonical_json, capture_document
@@ -16,22 +17,16 @@ from domain.execution import check_execution
 class LocalRaidSources(LocalRaidPlans):
     def create_raid_source_candidate(self, healthcheck_job_id, settings_id, member_inputs_id, route_id, captured_at, code_sha):
         with _transaction(self._connection):
-            problem = compile_raid_problem(self, healthcheck_job_id, settings_id, member_inputs_id, code_sha)
+            return self._create_raid_source_candidate(healthcheck_job_id, settings_id, member_inputs_id, route_id, captured_at, code_sha)
+
+    def create_raid_source_candidate_from_grid(self, healthcheck_job_id, settings_id, grid_document, route_id, captured_at, code_sha):
+        with _transaction(self._connection):
             health = self.get_job(healthcheck_job_id)
             inputs = self.get_document(health.spec.version_map['union_inputs'])
-            scope, reference = inputs.envelope['scope_id'], inputs.envelope['reference_version']
-            read_raid_publication_route(self, scope, reference, route_id)
-            head = self.raid_source_version(scope)
-            bundle = capture_document('union_inputs', scope, captured_at, reference,
-                {'input_kind': 'raid_source_bundle', 'raid_schema_version': 1,
-                    'base_bundle_id': head['bundle_id'] if head else None, 'base_revision': head['revision'] if head else 0,
-                    'union_inputs': inputs.snapshot_id, 'healthcheck_job': healthcheck_job_id, 'healthcheck_result': health.result_id,
-                    'settings_id': settings_id, 'member_inputs_id': member_inputs_id, 'route_id': route_id,
-                    'code_sha': code_sha, 'problem_id': problem.problem_id})
-            self._put_object(canonical_json(asdict(problem)))
-            self._put_object(bundle.serialized)
-            self._connection.execute('INSERT OR IGNORE INTO raid_source_candidates VALUES(?,?)', (bundle.snapshot_id, scope))
-            return bundle.snapshot_id
+            derived = derive_raid_member_inputs(inputs,grid_document)
+            self._put_object(grid_document.serialized)
+            self._put_object(derived.serialized)
+            return self._create_raid_source_candidate(healthcheck_job_id,settings_id,derived.snapshot_id,route_id,captured_at,code_sha,grid_document.snapshot_id)
 
     def raid_source_candidate(self, candidate_id):
         row = self._connection.execute('SELECT * FROM raid_source_candidates WHERE candidate_id=?', (candidate_id,)).fetchone()
@@ -42,10 +37,14 @@ class LocalRaidSources(LocalRaidPlans):
         fields = {'input_kind', 'raid_schema_version', 'base_bundle_id', 'base_revision', 'union_inputs', 'healthcheck_job',
             'healthcheck_result', 'settings_id', 'member_inputs_id', 'route_id', 'code_sha', 'problem_id'}
         if (bundle.envelope['scope_id'] != row['scope_id'] or bundle.envelope['kind'] != 'union_inputs'
-                or set(data) != fields or data['input_kind'] != 'raid_source_bundle' or type(data['raid_schema_version']) is not int
+                or set(data) not in (fields,fields|{'member_grid_id'}) or data['input_kind'] != 'raid_source_bundle' or type(data['raid_schema_version']) is not int
                 or data['raid_schema_version'] != 1 or type(data['base_revision']) is not int or data['base_revision'] < 0
                 or (data['base_bundle_id'] is None) != (data['base_revision'] == 0)):
             raise StateConflict('raid source candidate schema differs')
+        if 'member_grid_id' in data:
+            derived = derive_raid_member_inputs(self.get_document(data['union_inputs']),self.get_document(data['member_grid_id']))
+            if derived.snapshot_id != data['member_inputs_id']:
+                raise StateConflict('raid candidate member grid derivation differs')
         return bundle
 
     def adopt_raid_sources(self, request_id, candidate_id, confirmed_candidate_id, actor_id, code_sha, is_generate_draft=False):
@@ -116,6 +115,27 @@ class LocalRaidSources(LocalRaidPlans):
         elif followup is not None:
             raise StateConflict('unexpected raid source followup')
         return {**body, **extra, 'adoption_id': adoption_id, 'created_at': row['created_at']}
+
+    def _create_raid_source_candidate(self, healthcheck_job_id, settings_id, member_inputs_id, route_id, captured_at, code_sha, member_grid_id=None):
+        problem = compile_raid_problem(self, healthcheck_job_id, settings_id, member_inputs_id, code_sha)
+        health = self.get_job(healthcheck_job_id)
+        inputs = self.get_document(health.spec.version_map['union_inputs'])
+        scope, reference = inputs.envelope['scope_id'], inputs.envelope['reference_version']
+        read_raid_publication_route(self, scope, reference, route_id)
+        head = self.raid_source_version(scope)
+        bundle = capture_document('union_inputs', scope, captured_at, reference,
+            {'input_kind': 'raid_source_bundle', 'raid_schema_version': 1,
+                'base_bundle_id': head['bundle_id'] if head else None, 'base_revision': head['revision'] if head else 0,
+                'union_inputs': inputs.snapshot_id, 'healthcheck_job': healthcheck_job_id, 'healthcheck_result': health.result_id,
+                'settings_id': settings_id, 'member_inputs_id': member_inputs_id, 'route_id': route_id,
+                'code_sha': code_sha, 'problem_id': problem.problem_id})
+        if member_grid_id is not None:
+            payload = {**bundle.payload,'member_grid_id':member_grid_id}
+            bundle = capture_document('union_inputs',scope,captured_at,reference,payload)
+        self._put_object(canonical_json(asdict(problem)))
+        self._put_object(bundle.serialized)
+        self._connection.execute('INSERT OR IGNORE INTO raid_source_candidates VALUES(?,?)', (bundle.snapshot_id, scope))
+        return bundle.snapshot_id
 
 
 def _hash(value):
