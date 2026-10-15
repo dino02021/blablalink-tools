@@ -23,7 +23,10 @@
         "local_tests/test_integrated_scenario.py::test_whole_scenario_preserves_sources_human_edits_and_fenced_recovery",
         "local_tests/test_mock_workbook_lock.py::test_read_modify_write_hold_prevents_lost_updates_across_real_processes",
         "local_tests/test_mock_workbook_lock.py::test_parent_human_update_and_subprocess_publish_both_survive",
-        "local_tests/test_mock_workbook_lock.py::test_two_human_cell_editors_preserve_each_others_columns"
+        "local_tests/test_mock_workbook_lock.py::test_two_human_cell_editors_preserve_each_others_columns",
+        "local_tests/test_gs_header_contract.py::test_standard_all_twelve_slots_groups_and_merges_match_frozen_gs",
+        "local_tests/test_gs_header_contract.py::test_training_group_header_difference_is_explicit_and_identity_order_matches",
+        "local_tests/test_gs_header_contract.py::test_trait_display_normalization_difference_is_recorded"
       ],
       "remaining": [
         "舊版 header 對照與遠端 grid／protection adapter"

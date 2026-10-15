@@ -116,6 +116,7 @@
 - [93：Mock 工作簿跨程序互斥](93-mock-workbook-process-locks.md)
 - [94：共享狀態表本地發布](94-shared-status-mock-publication.md)
 - [95：已終止發布的暫存傳輸副本清理](95-terminal-staging-retention.md)
+- [96：凍結 GS 模板表頭對照與差異](96-frozen-gs-header-contract.md)
 
 ## 撰寫規則
 

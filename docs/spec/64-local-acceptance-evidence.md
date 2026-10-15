@@ -1,11 +1,11 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，860 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，867 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
 | A01 | 候選後編輯仍固定原版本 | GS 事件／編輯範圍 |
-| A02 | 同源設定重算、不重抓、八個 typed workbook 格線、清尾與人工 tab 保護 | 遠端 grid／protection 與舊 header 相容 |
+| A02 | 同源設定重算、不重抓、八個 typed workbook 格線、清尾與人工 tab 保護、凍結 GS 十二欄標準表群組／merge 對照及練度表頭差異分類 | 遠端 grid／protection 與完整舊 header 相容 |
 | A03 | 全員分數／總分／排名與 GS 50 組對照 | header／nickname／cache |
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
 | A05 | 缺 detail 不當零、function ID 投影、coverage／成員補抓 executor、reference CAS 與相容衍生投影 | hosted／細粒度／真實完整性 |

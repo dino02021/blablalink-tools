@@ -1323,3 +1323,10 @@ blablalink-tools/
 - 追加：未知 activation 即使看到成功 marker 也不能推定可刪；沒有 parent 的 stage／獨立 chunks 保留。所有 writer 明確停止與無 active／unknown coordinator 是前提，不能靠 TTL 或清理解除鎖。
 - coordinator 只持鎖不寫，刪除與 receipt 只在同一 staging transaction 原子提交；SQL／budget／CAS 失敗整批回滾。重播不重刪後來新建的相同 ID。
 - 二十四項實際 SQLite／CLI 案例驗證共享資料、terminal／unknown、取消、預算／刪除故障、backup／fence。邏輯 bytes 不冒充物理檔縮小；獨立 chunks／archive／history／receipt 清理仍待完成。詳見 docs/spec/95-terminal-staging-retention.md。
+
+### 17.61 第五十七批：凍結 GS 表頭契約與差異（2026-10-16）
+
+- 只讀本地 GS 原始碼，固定來源 head／hash／行範圍與十個真實模板函式；隔離 Node VM 以 synthetic Sheet 取得實際十二欄表頭及合併結果。
+- 七項案例核對名單／屬性／縮寫字典、十二欄 metric 身分、標準表群組與 merge，含未知詞條與 literal 名稱。
+- 發現差異：Python 練度表採逐項 header，舊 GS 採群組合併；非標準化詞條顯示字典亦有 trim／縮寫差異。已明確分類，不藉此改原 label 或宣稱可原格覆蓋。
+- 完整評分表頭／nickname cache、舊人工區與正式盤點仍未完成，保留驗收缺口。詳見 docs/spec/96-frozen-gs-header-contract.md。

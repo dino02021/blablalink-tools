@@ -1,0 +1,62 @@
+{
+  "source_repository": "nikke-union-management",
+  "source_head": "309b7c8c342e97d3cdb8441c23d0ab21c8f138b4",
+  "captured_date": "2026-10-16",
+  "functions": [
+    "_hcNormalizeText",
+    "_hcCompareKey",
+    "_hcTraitAbbreviation",
+    "_hcBuildTraitHeaderLabelFromTraits",
+    "_hcApplyTemplateColumnWidths",
+    "_hcApplyTemplateGroupDividers",
+    "_hcApplyTemplateOuterBorder",
+    "_hcResetTemplateDataArea",
+    "_hcApplyFixedWidthTemplate",
+    "_hcSetStandardTemplate"
+  ],
+  "source_ranges": {
+    "_hcNormalizeText": [
+      44,
+      46
+    ],
+    "_hcCompareKey": [
+      63,
+      73
+    ],
+    "_hcTraitAbbreviation": [
+      100,
+      105
+    ],
+    "_hcBuildTraitHeaderLabelFromTraits": [
+      122,
+      128
+    ],
+    "_hcApplyTemplateColumnWidths": [
+      398,
+      402
+    ],
+    "_hcApplyTemplateGroupDividers": [
+      404,
+      412
+    ],
+    "_hcApplyTemplateOuterBorder": [
+      414,
+      427
+    ],
+    "_hcResetTemplateDataArea": [
+      463,
+      470
+    ],
+    "_hcApplyFixedWidthTemplate": [
+      472,
+      508
+    ],
+    "_hcSetStandardTemplate": [
+      664,
+      673
+    ]
+  },
+  "source_text_sha256": "7c19f65f8bc8f51f58bd0609b270859ee589b14ca813aa85b4338fbce5589e28",
+  "fixture_sha256": "2f833cf8f60dfb140b146f0d191c118f97f8d4d8bf6cd9156010b8e3aa1b92fe",
+  "scope": "Exact twelve-column standard/training grouped-header construction and trait abbreviations. Synthetic Sheet operations; no provider services. Does not cover full workbook inventory, nickname cache or score-result header layout."
+}
