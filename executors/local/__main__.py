@@ -19,6 +19,7 @@ def main() -> int:
     parser.add_argument("--code-sha")
     parser.add_argument("--worker-id", default="offline-worker")
     parser.add_argument("--max-jobs", type=int, default=10)
+    parser.add_argument("--max-workflow-checks", type=int, default=10)
     parser.add_argument("--publish-mock", action="store_true")
     parser.add_argument("--archive", type=Path)
     parser.add_argument("--backup-id")
@@ -32,7 +33,8 @@ def main() -> int:
         elif args.command == "work":
             if not args.code_sha:
                 raise ValueError("work requires code SHA")
-            result = run_worker(args.workspace, args.code_sha, args.worker_id, args.max_jobs, args.publish_mock)
+            result = run_worker(args.workspace, args.code_sha, args.worker_id, args.max_jobs, args.publish_mock,
+                max_workflow_checks=args.max_workflow_checks)
         else:
             result = run_demo(args.workspace) if args.command == "demo" else workspace_status(args.workspace)
     except (ValueError, OSError, StateConflict, sqlite3.Error, zipfile.BadZipFile) as error:

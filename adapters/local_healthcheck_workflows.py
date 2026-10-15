@@ -18,6 +18,35 @@ from domain.snapshots import MemberKey, Override, canonical_json, capture_docume
 
 
 class LocalHealthcheckWorkflows(LocalRaidPlans):
+    def take_workflow_scopes(self, code_sha, limit=10):
+        validate_identifier(code_sha)
+        if type(limit) is not int or not 1<=limit<=100 or len(code_sha)>128:
+            raise ValueError('bounded workflow pass required')
+        with _transaction(self._connection):
+            rows = self._connection.execute('SELECT scope_id FROM healthcheck_workflow_heads ORDER BY scope_id LIMIT 101').fetchall()
+            if len(rows)>100:
+                raise StateConflict('workflow scope capacity differs')
+            candidates = []
+            for row in rows:
+                check_execution()
+                try:
+                    head = self.workflow_policy(row['scope_id'])
+                    if head['policy']['code_sha']==code_sha:
+                        candidates.append(row['scope_id'])
+                except (StateConflict,ValueError,KeyError,TypeError):
+                    candidates.append(row['scope_id'])  # report invalid scopes without blocking healthy ones
+            if not candidates:
+                return ()
+            cursor = self._connection.execute('SELECT last_scope_id FROM healthcheck_workflow_tick_cursors WHERE code_sha=?',(code_sha,)).fetchone()
+            if cursor is None and self._connection.execute('SELECT COUNT(*) FROM healthcheck_workflow_tick_cursors').fetchone()[0]>=1000:
+                raise StateConflict('workflow cursor capacity reached')
+            last = cursor[0] if cursor else ''
+            ordered = [scope for scope in candidates if scope>last]+[scope for scope in candidates if scope<=last]
+            selected = tuple(ordered[:limit])
+            self._connection.execute('INSERT INTO healthcheck_workflow_tick_cursors VALUES(?,?,1,?) ON CONFLICT(code_sha) DO UPDATE SET last_scope_id=excluded.last_scope_id,revision=revision+1,updated_at=excluded.updated_at',
+                (code_sha,selected[-1],self._now()))
+            return selected
+
     def workflow_policy(self, scope_id):
         validate_identifier(scope_id)
         row = self._connection.execute('SELECT * FROM healthcheck_workflow_heads WHERE scope_id=?',(scope_id,)).fetchone()

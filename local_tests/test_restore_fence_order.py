@@ -31,7 +31,7 @@ def test_restore_fence_prevents_pending_migration_before_any_writer_or_child(pen
     (directory/'restore-lock.json').write_text('{}',encoding='utf-8')
     before = (directory/'state.sqlite').read_bytes()
     monkeypatch.setattr('executors.local.isolated.run_python_module',unexpected_entry)
-    monkeypatch.setattr('executors.local.worker.LocalRaidPlans',unexpected_entry)
+    monkeypatch.setattr('executors.local.worker.LocalHealthcheckWorkflows',unexpected_entry)
     if entry=='status':
         result = workspace_status(directory)
         assert result['jobs'][0]['job_id']==summary['job_id']
@@ -65,8 +65,7 @@ def test_actual_status_cli_on_fenced_pending_schema_is_read_only(pending_workspa
 def test_fence_is_checked_before_workspace_validation(pending_workspace, monkeypatch):
     directory,_ = pending_workspace
     (directory/'restore-lock.json').write_text('{}',encoding='utf-8')
-    monkeypatch.setattr('executors.local.worker.workspace_status',unexpected_entry)
-    monkeypatch.setattr('executors.local.isolated.workspace_status',unexpected_entry)
+    monkeypatch.setattr('adapters.mock_workspace._is_mock_marker',unexpected_entry)
     with pytest.raises(ValueError,match='fenced'): run_worker(directory,'code')
     with pytest.raises(ValueError,match='fenced'): run_isolated_worker(directory,'code')
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import sqlite3
 
 from application.tasks import StateConflict, validate_identifier
-from executors.local.demo import workspace_status
+from adapters.mock_workspace import require_mock_workspace
 from executors.local.process_guard import run_python_module
 
 
@@ -16,9 +16,7 @@ def run_isolated_worker(directory, code_sha, worker_id="isolated-worker", max_jo
     validate_identifier(worker_id)
     if type(max_jobs) is not int or not 1 <= max_jobs <= 100:
         raise ValueError("bounded isolated worker job count required")
-    if (directory / "restore-lock.json").exists():
-        raise ValueError("restored workspace is fenced read-only")
-    workspace_status(directory)
+    directory = require_mock_workspace(directory, is_writer=True)
     receipt = run_python_module("executors.local", ("work", "--workspace", str(directory), "--code-sha", code_sha,
         "--worker-id", worker_id, "--max-jobs", str(max_jobs)), seconds, memory_limit_bytes)
     raw = receipt.pop("stdout")

@@ -17,3 +17,5 @@ local_tests/test_local_worker.py 包含 compute-only→重啟發布、跳過雲�
 目前支援上述五種命令，reconcile 只準備標準候選，不執行候選確認。collector 只領取綁定 immutable mock script 的工作（88），不能執行真實 provider、遠端 dispatch 或發送。已接上[本地 RSS 與合作式迴圈檢查](57-local-compute-resources.md)，D1／外部 runtime adapter 尚未接線；子程序硬性時間／記憶體限制由 77 的另一個 compute-only 入口提供。
 
 85 補上已確認排刀的獨立發布候選與 mock publisher。77 的 native compute-only 子程序亦適用於此命令，不自動發布；正式 provider 仍未接線。
+
+91 加入明確配置 policy 的有界自動 tick、持久公平 cursor 與 --max-workflow-checks（預設 10，0 停用）；無效 computed 結果在 publisher 前隔離，已取得 publisher 不解鎖。

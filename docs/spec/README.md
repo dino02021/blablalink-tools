@@ -109,6 +109,8 @@
 
 - [90：還原 fence 與唯讀初始化](90-restore-fence-before-initialization.md)
 
+- [91：有界公平 workflow runner](91-bounded-workflow-tick-runner.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

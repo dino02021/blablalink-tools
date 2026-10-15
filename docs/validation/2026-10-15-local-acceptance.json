@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 768,
+  "observed_test_cases": 786,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -77,13 +77,15 @@
         "local_tests/test_mock_collection_worker.py::test_mock_worker_runs_bound_supplement_without_any_publish",
         "local_tests/test_mock_collection_worker.py::test_native_worker_can_collect_bound_mock_script_without_python_parent_port",
         "local_tests/test_healthcheck_workflows.py::test_durable_tick_collects_gap_then_schedules_same_version_healthcheck",
-        "local_tests/test_healthcheck_workflows.py::test_complete_but_still_unknown_data_is_limited_to_three_supplementary_rounds"
+        "local_tests/test_healthcheck_workflows.py::test_complete_but_still_unknown_data_is_limited_to_three_supplementary_rounds",
+        "local_tests/test_workflow_tick_runner.py::test_one_worker_invocation_automatically_collects_and_computes_without_publish",
+        "local_tests/test_workflow_tick_runner.py::test_tick_scope_cursor_is_fair_across_restarts"
       ],
       "remaining": [
-        "有界 tick runner／公平輪巡、role／option 粒度、hosted 與真實完整性"
+        "role／option 粒度、hosted 與真實完整性"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 18
+      "observed_cases": 20
     },
     {
       "id": "A06",
@@ -96,13 +98,14 @@
         "local_tests/test_local_union_inputs.py::test_head_change_fences_old_claim_completion_and_publication",
         "local_tests/test_local_union_inputs.py::test_inactive_head_stops_work_but_keeps_last_output_and_can_reactivate",
         "local_tests/test_healthcheck_workflows.py::test_roster_rejoin_starts_new_epoch_cycle_and_replaces_old_pending_work",
-        "local_tests/test_healthcheck_workflows.py::test_empty_inactive_scope_clears_pending_scheduler_pointer_without_new_jobs"
+        "local_tests/test_healthcheck_workflows.py::test_empty_inactive_scope_clears_pending_scheduler_pointer_without_new_jobs",
+        "local_tests/test_workflow_tick_runner.py::test_explicit_mock_publish_completes_whole_workflow_in_same_bounded_invocation"
       ],
       "remaining": [
-        "tick runner 接線、全域 inactive 調度與舊實體人工區搬移"
+        "全域 inactive 調度與舊實體人工區搬移"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 11
+      "observed_cases": 12
     },
     {
       "id": "A07",

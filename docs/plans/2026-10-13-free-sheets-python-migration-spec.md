@@ -1286,3 +1286,11 @@ blablalink-tools/
 - 基本 status 改 URI read-only／query_only，只有 jobs 最小 metadata；worker／isolated 先檢查 restore-lock，才驗證／初始化或啟動 child。
 - 七項真實 mock SQLite 案例移除 migration receipt／tables，核對 bytes 不變及無 writer／child，含實際 status CLI；既有相關三十五項驗證亦通過。
 - 不解除 restore fence、不提升副本；有界 workflow runner 將採用同一順序。詳見 docs/spec/90-restore-fence-before-initialization.md。
+
+### 17.56 第五十二批：有界公平 workflow runner 與 worker hook（2026-10-15）
+
+- 0015 持久 code cursor，單次有界公平選 scope；失敗 scope 隔離、共享計算預算，cursor 只表示選取，不冒充完成。
+- worker 預設最多十次 scope 選取，在處理前／後排後續工作；max_jobs 與 compute-only／顯式 mock publish 邊界維持。獨立 CLI 不開背景程序。
+- 追加：入口驗證不該遍歷全部歷史工作；computed manifest／typed grid 應在 publisher 前驗證並隔離無效結果，不能堵住其他 scope。已取得 publisher 的錯誤仍保留 unknown／鎖，不得透過 quarantine 解鎖。
+- 十八項整合案例涵蓋公平／競爭／預算／code／fence、單次補抓→重算→mock 發布、native 一 job 後續排隊及無效結果隔離。
+- 發現待補：永久無法重試 publication 的安全取消必須具完整未改動／已還原證據；目前不能只靠 commit 不存在或 TTL 釋放。其他 hosted／D1／正式來源與歷史清理仍待完成。詳見 docs/spec/91-bounded-workflow-tick-runner.md。

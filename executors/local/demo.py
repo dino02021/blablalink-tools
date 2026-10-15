@@ -7,6 +7,7 @@ import sqlite3
 
 from adapters.local_state import LocalStateStore
 from adapters.mock_sheets import MockSheets
+from adapters.mock_workspace import require_mock_workspace
 from adapters.sheet_standard import StandardReference
 from application.publication import publish_workbooks
 from application.sheet_healthcheck import reconcile_standard, run_healthcheck_job
@@ -57,11 +58,7 @@ def run_demo(directory: Path) -> dict:
 
 
 def workspace_status(directory: Path) -> dict:
-    directory = Path(directory).resolve()
-    marker = directory / "mock-workspace.json"
-    if (not marker.is_file() or marker.stat().st_size > 4096 or canonical_json(json.loads(marker.read_text(encoding="utf-8"))) != canonical_json(MARKER)
-            or not (directory / "state.sqlite").is_file()):
-        raise ValueError("not an initialized mock workspace")
+    directory = require_mock_workspace(directory)
     connection = sqlite3.connect((directory / "state.sqlite").as_uri()+"?mode=ro", uri=True, isolation_level=None, timeout=2)
     connection.row_factory = sqlite3.Row
     try:

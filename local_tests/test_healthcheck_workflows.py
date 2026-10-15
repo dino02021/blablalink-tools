@@ -40,14 +40,14 @@ def test_durable_tick_collects_gap_then_schedules_same_version_healthcheck(workf
     assert first['status']=='collecting' and first['supplementary_rounds']==1
     job_id = first['pending_collection_id']
     assert tick(store)==first and len(store.list_jobs())==1
-    assert run_worker(directory,'code',max_jobs=1)['processed'][0]['state']=='succeeded'
+    assert run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)['processed'][0]['state']=='succeeded'
     second = tick(store)
     assert second['status']=='health_pending' and second['pending_collection_id'] is None
     assert second['last_collection_id']==job_id and second['raw_snapshot_id']!=policy.payload['base_raw_id']
     health = store.get_job(second['last_healthcheck_id'])
     assert health.spec.command=='recompute_healthcheck'
     assert store.get_document(health.spec.version_map['training']).payload['raw_snapshot_id']==second['raw_snapshot_id']
-    result = run_worker(directory,'code',max_jobs=1)
+    result = run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     assert result['processed'][0]['state']=='computed'
     assert tick(store)['status']=='health_computed'
     assert store._connection.execute('SELECT COUNT(*) FROM publications').fetchone()[0]==0
@@ -56,9 +56,9 @@ def test_durable_tick_collects_gap_then_schedules_same_version_healthcheck(workf
 def test_threshold_edit_uses_current_config_without_new_collection(workflow):
     directory,store,_,_ = workflow
     tick(store)
-    run_worker(directory,'code',max_jobs=1)
+    run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     ready = tick(store)
-    run_worker(directory,'code',max_jobs=1)
+    run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     config_id = store.config_head('healthcheck','common')
     config = store.get_document(config_id)
     payload = config.payload
@@ -97,7 +97,7 @@ def test_restart_and_policy_replay_do_not_reset_progress_or_rewind_policy(workfl
 
 def test_external_desired_owner_is_reported_without_competing_for_head(workflow):
     directory,store,_,_ = workflow
-    tick(store);run_worker(directory,'code',max_jobs=1)
+    tick(store);run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     ready = tick(store)
     health = store.get_job(ready['last_healthcheck_id'])
     other = store.submit_job('other_owner',replace(health.spec,intent_id='other_owner'),is_desired=True)
@@ -174,7 +174,7 @@ def test_complete_but_still_unknown_data_is_limited_to_three_supplementary_round
     for round_number in range(1,4):
         state = tick(store)
         assert state['status']=='collecting' and state['supplementary_rounds']==round_number
-        result = run_worker(directory,'code',max_jobs=1)
+        result = run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
         assert result['processed'][0]['state']=='succeeded'
     stopped = tick(store)
     assert stopped['status']=='capacity_blocked' and stopped['error_code']=='supplementary_round_limit'
@@ -195,7 +195,7 @@ def test_auth_collection_is_not_automatically_requeued_by_followup_ticks(workflo
     blocked_policy = capture_healthcheck_workflow('union_demo',TIME,policy.envelope['reference_version'],'code',policy.payload['reference_id'],
         policy.payload['base_raw_id'],blocked_script.snapshot_id)
     store.configure_healthcheck_workflow('auth',blocked_policy,blocked_policy.snapshot_id,1,'actor')
-    tick(store);run_worker(directory,'code',max_jobs=1)
+    tick(store);run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     state = tick(store)
     assert state['status']=='auth_required' and state['raw_snapshot_id']==policy.payload['base_raw_id']
     assert tick(store)==state and len(store.list_jobs())==1
@@ -206,7 +206,7 @@ def test_unresolved_publisher_retains_new_observation_without_enqueuing_health(w
     from application.publication import publish_workbooks
 
     directory,store,_,_ = workflow
-    tick(store);run_worker(directory,'code',max_jobs=1)
+    tick(store);run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     other = store.submit_job('other',TaskSpec('prepare_layout','other','code',family='layout'),is_desired=True)
     manifest = {'workbooks':{'held_book':{'mock':True}},'layout_revisions':{'held_book':'layout'}}
     store.complete_compute(store.claim('other','code',commands=('prepare_layout',)),manifest)
@@ -255,9 +255,9 @@ def test_empty_inactive_scope_clears_pending_scheduler_pointer_without_new_jobs(
 
 def test_config_return_to_previous_content_uses_revision_and_reasserts_desired(workflow):
     directory,store,_,_ = workflow
-    tick(store);run_worker(directory,'code',max_jobs=1)
+    tick(store);run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     original_state = tick(store)
-    run_worker(directory,'code',max_jobs=1)
+    run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     original_config = store.get_document(store.config_head('healthcheck','common'))
     data = original_config.payload
     data['rules'][0]['metrics'][0]['threshold']=99
@@ -305,9 +305,9 @@ def test_followup_observation_to_actual_mock_publication_preserves_human_tab(wor
     sheets.create('mock_book','layout',{'manual':0})
     sheets.set_manual_tab('mock_book','notes','人工備註',[['=literal',0,'']])
     before = sheets.read('mock_book')
-    tick(store);run_worker(directory,'code',max_jobs=1)
+    tick(store);run_worker(directory,'code',max_workflow_checks=0,max_jobs=1)
     ready = tick(store)
-    result = run_worker(directory,'code',max_jobs=1,is_publish_enabled=True)
+    result = run_worker(directory,'code',max_workflow_checks=0,max_jobs=1,is_publish_enabled=True)
     assert result['processed'][0]['job_id']==ready['last_healthcheck_id'] and result['processed'][0]['state']=='succeeded'
     assert tick(store)['status']=='health_published'
     book = sheets.read('mock_book')

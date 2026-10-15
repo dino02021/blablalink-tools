@@ -98,6 +98,26 @@ class LocalStateStore:
     def list_jobs(self) -> tuple[Job, ...]:
         return tuple(_job(row) for row in self._connection.execute("SELECT * FROM jobs ORDER BY created_at, job_id"))
 
+    def computed_publication_jobs(self, code_sha: str, limit: int = 10) -> tuple[Job, ...]:
+        validate_identifier(code_sha)
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("bounded computed publication count required")
+        return tuple(_job(row) for row in self._connection.execute(
+            "SELECT * FROM jobs WHERE state='computed' AND code_sha=? AND executor_type='local' "
+            "AND command IN ('recompute_healthcheck','publish_raid_plan') ORDER BY created_at,job_id LIMIT ?", (code_sha,limit)))
+
+    def reject_computed_result(self, job_id: str, code_sha: str) -> Job:
+        with _transaction(self._connection):
+            row = self._job_row(job_id)
+            if row["code_sha"] != code_sha:
+                raise StateConflict("computed result release differs")
+            if row["state"] != "computed":
+                return self.get_job(job_id)  # another publisher may already have claimed it
+            if self._connection.execute("SELECT 1 FROM publications WHERE job_id=? AND state!='succeeded'", (job_id,)).fetchone():
+                raise StateConflict("computed result has unresolved publication evidence")
+            self._transition(job_id, "failed", "worker_result_invalid", is_clear_lease=True)
+            return self.get_job(job_id)
+
     def events(self, job_id: str) -> tuple[dict, ...]:
         self._job_row(job_id)
         return tuple(dict(row) for row in self._connection.execute(

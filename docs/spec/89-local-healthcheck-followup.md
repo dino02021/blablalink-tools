@@ -37,3 +37,5 @@ read_system_status 增加 healthcheck_workflow metadata，核對 policy／state 
 local_tests/test_healthcheck_workflows.py 的 20 項 mock 案例驗證補抓→重算→實際 MockSheets 發布及人工 tab 保留、門檻更新不重抓、雙連線、重啟／重播、owner 衝突、名單 rejoin／inactive、假觀測拒絕、budget／DB rollback、三輪上限、auth 不重送、publisher 等待、缺 fixture、ABA revision 與唯讀／壞 scope 隔離。
 
 尚需有界 worker／tick runner 接線、公平 scope 輪巡、raid 採用後調度、hosted／D1 契約、正式 provider 與服務身分。本機 API 不等於已部署排程；沒有使用正式資料或試算表。
+
+91 已加入獨立有界 runner、持久公平 cursor 與 worker hook；直接 API 仍可單獨使用。worker 預設最多十次 scope 選取，0 可停用本次自動 tick；沒有建立正式 scheduler。
