@@ -27,3 +27,5 @@ local_tests/test_training_reuse.py 十二項案例覆蓋門檻／詞條沿用、
 ## 加入版本補充（82）
 
 沿用計畫另綁 member_epoch_hash；目前加入版本無法由原 training 證明時，ownership 補抓理由為 membership_epoch_unproven。人工 override 不能繞過此次加入的來源證據。
+
+87 增加成員粒度補抓 executor：有 request 的成員完整重抓三個 source，其餘沿用原來源；保存獨立 fresh observation 與 merged raw lineage。完成觀測不等於目前全部需求 ready，結果明列 followup，未自動接 worker／正式 provider。

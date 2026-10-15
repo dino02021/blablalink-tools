@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，708 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，724 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -8,7 +8,7 @@
 | A02 | 同源設定重算、不重抓、八個 typed workbook 格線、清尾與人工 tab 保護 | 遠端 grid／protection 與舊 header 相容 |
 | A03 | 全員分數／總分／排名與 GS 50 組對照 | header／nickname／cache |
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
-| A05 | 缺 detail 不當零、function ID 投影、coverage／補抓 planner、reference CAS 與相容衍生投影 | 補抓 executor／跨 reference provider 相容性／真實完整性 |
+| A05 | 缺 detail 不當零、function ID 投影、coverage／成員補抓 executor、reference CAS 與相容衍生投影 | worker collector transport／採用後補抓調度／真實完整性 |
 | A06 | composite identity、名單轉換／封存、epoch、head CAS／舊工作 fence 與補抓後計算 | 自動重算／補抓、全域 inactive 與舊人工區搬移 |
 | A07 | request／dispatch 持久去重 | D1／平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |
@@ -35,6 +35,6 @@ application/acceptance.py 會將參數化案例映射回明確 pytest node ID，
 
 ## 後續順序與外部依賴
 
-仍可獨立開發：完整舊 header 對照、名單採用後重算／全域 inactive／舊人工資料遷移、raid 採用後調度／GS 人工來源契約、補抓 executor、薄 GS 與 hosted entry 的平台離線契約、D1 adapter 契約、staging／chunk／archive／history 清理、更完整效能矩陣及共享狀態表 publisher。不能因已有 22 項本地證據就 block 或標完成。
+仍可獨立開發：完整舊 header 對照、名單採用後重算／全域 inactive／舊人工資料遷移、raid 採用後調度／GS 人工來源契約、補抓 worker transport／後續調度、薄 GS 與 hosted entry 的平台離線契約、D1 adapter 契約、staging／chunk／archive／history 清理、更完整效能矩陣及共享狀態表 publisher。不能因已有 22 項本地證據就 block 或標完成。
 
 真正需要後續外部決策或驗證：正式工作簿與可編輯範圍盤點、正式服務 principal／key、實際 provider 的完整性欄位、帳戶共享免費用量、GS tie／安全 guard 差異採用、原 writer 停用證據、正式切換與 rollback ownership。這些不在目前授權的本地 mock 執行範圍內。

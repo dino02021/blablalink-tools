@@ -1258,3 +1258,10 @@ blablalink-tools/
 - 追加：設定或指定刀採用後立即使舊 problem／確認／工作失效，不能只等待 observe 新 problem。route-only 改版保留原計算，只阻擋舊路由發布。
 - 十六項 mock 案例驗證競爭、回滾、重播不倒回、unknown publisher、舊 legacy bypass、重啟／retention、分階段工作 fence 與唯讀狀態。
 - 不自動 observe／計算／確認／發布；GS 人工來源擷取、跨 runtime 採用及正式 principal 仍待完成。詳見 docs/spec/86-local-raid-source-adoption.md。
+
+### 17.52 第四十八批：固定缺口的成員補抓 executor（2026-10-15）
+
+- 補抓輸入綁定 reuse plan、config／raw／reference／名單／epoch／code；只對有缺口的成員重抓 ownership／details／effects，使用既有持久頁面與原子觀測。
+- 追加：新組合快照不可把舊成員的時間冒充成這次刷新，也不能 fallback 掩蓋 auth／partial／not_owned。新 raw 保存逐成員來源鏈，原 raw 不改。
+- 完成觀測與需求 ready 分開，尚有缺口回完整 followup plan，不擴大原固定工作或自動發布。過期名單可在 fetch 前原子 supersede lease。
+- 十六項 mock 案例驗證補抓、重試、來源／加入版本／時間、篡改前拒絕、not_owned、followup、預算／retention 與 stale fence。worker transport／採用後調度及真實 provider 尚未接線。詳見 docs/spec/87-member-scoped-supplementary-collection.md。

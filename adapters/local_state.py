@@ -65,6 +65,14 @@ class LocalStateStore:
     def is_job_current(self, job_id: str) -> bool:
         return self._is_current(self._job_row(job_id))
 
+    def supersede_if_stale(self, lease: ComputeLease) -> Job | None:
+        with _transaction(self._connection):
+            row = self._require_lease(lease)
+            if self._is_current(row):
+                return None
+            self._transition(lease.job_id, "superseded", is_clear_lease=True)
+            return self.get_job(lease.job_id)
+
     def has_successful_publication(self, job_id: str) -> bool:
         job = self.get_job(job_id)
         return job.state == "succeeded" and self._connection.execute(

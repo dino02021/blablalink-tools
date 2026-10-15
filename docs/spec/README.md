@@ -101,6 +101,8 @@
 
 - [86：排刀來源原子採用](86-local-raid-source-adoption.md)
 
+- [87：成員粒度補抓 executor](87-member-scoped-supplementary-collection.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：
