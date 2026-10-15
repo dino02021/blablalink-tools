@@ -21,7 +21,8 @@ class NormalizedCollection:
     is_auth_required: bool
 
 
-def capture_raw_training(scope_id: str, captured_at: str, reference_version: str, members: tuple[dict, ...]) -> Document:
+def capture_raw_training(scope_id: str, captured_at: str, reference_version: str, members: tuple[dict, ...],
+                         role_ids: tuple[str, ...] | None = None) -> Document:
     """Only known data fields survive; caller transport headers/session data never enter raw."""
     cleaned, identities = [], set()
     for member in members:
@@ -54,8 +55,18 @@ def capture_raw_training(scope_id: str, captured_at: str, reference_version: str
             "details": {"status": details["status"], "requested_codes": list(requested),
                 "is_options_complete": details.get("is_options_complete", False),
                 "character_details": rows, "state_effects": effects}})
-    return capture_document("raw", scope_id, captured_at, reference_version,
-                            {"source_schema_version": 1, "members": cleaned})
+    payload = {"source_schema_version": 1, "members": cleaned}
+    if role_ids is not None:
+        if isinstance(role_ids, str):
+            raise ValueError("role universe must be an identity sequence")
+        role_ids = tuple(role_ids)
+        if not role_ids or len(role_ids) > 1000 or len(set(role_ids)) != len(role_ids) or any(not isinstance(code, str) or not code.strip() for code in role_ids):
+            raise ValueError("bounded unique source role universe required")
+        if any({str(row["name_code"]) for row in member["ownership"]["characters"]} - set(role_ids)
+                or set(member["details"]["requested_codes"]) - set(role_ids) for member in cleaned):
+            raise ValueError("source row is outside role universe")
+        payload["reference_role_ids"] = list(role_ids)
+    return capture_document("raw", scope_id, captured_at, reference_version, payload)
 
 
 def normalize_training(raw: Document, role_ids: tuple[str, ...], function_prefixes: dict[str, str]) -> NormalizedCollection:
@@ -64,6 +75,8 @@ def normalize_training(raw: Document, role_ids: tuple[str, ...], function_prefix
             or payload["source_schema_version"] != 1):
         raise ValueError("unsupported raw training schema")
     role_ids = tuple(role_ids)
+    if "reference_role_ids" in payload and payload["reference_role_ids"] != list(role_ids):
+        raise ValueError("normalization role universe differs from source coverage")
     if not role_ids or len(set(role_ids)) != len(role_ids):
         raise ValueError("unique reference roles required")
     for code in role_ids:

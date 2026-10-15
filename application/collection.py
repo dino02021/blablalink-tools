@@ -35,8 +35,8 @@ class SourceCollection:
 def collect_training(port: CollectionPort, scope_id: str, captured_at: str, reference_version: str,
                      roster: tuple[MemberKey, ...], role_ids: tuple[str, ...],
                      max_pages: int = 100, max_rows: int = 10000):
-    if (not roster or len(set(roster)) != len(roster) or any(not isinstance(m, MemberKey) for m in roster)
-            or not role_ids or len(set(role_ids)) != len(role_ids)
+    if (not roster or len(roster) > 300 or len(set(roster)) != len(roster) or any(not isinstance(m, MemberKey) for m in roster)
+            or not role_ids or len(role_ids) > 1000 or len(set(role_ids)) != len(role_ids)
             or any(not isinstance(r, str) or not r.strip() for r in role_ids)):
         raise ValueError("fixed nonempty unique roster and role reference required")
     if any(type(v) is not int or not 1 <= v <= 100000 for v in (max_pages, max_rows)):
@@ -65,7 +65,7 @@ def collect_training(port: CollectionPort, scope_id: str, captured_at: str, refe
         proof.append({"member": {"area_id": member.area_id, "member_id": member.member_id},
             "sources": {name: {"status": result.status, "pages": list(result.evidence)}
                         for name, result in zip(SOURCES, (ownership, details, effects))}})
-    raw = capture_raw_training(scope_id, captured_at, reference_version, tuple(members))
+    raw = capture_raw_training(scope_id, captured_at, reference_version, tuple(members), role_ids)
     return capture_document("raw", scope_id, captured_at, reference_version,
         {**raw.payload, "collection_protocol_version": 1, "collection_proof": proof})
 

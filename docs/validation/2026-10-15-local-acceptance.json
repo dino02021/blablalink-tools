@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 485,
+  "observed_test_cases": 497,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -61,13 +61,16 @@
       "id": "A05",
       "tests": [
         "local_tests/test_normalization.py::test_missing_owned_detail_requests_refetch_without_erasing_ownership",
-        "local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot"
+        "local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot",
+        "local_tests/test_training_reuse.py::test_threshold_and_selected_trait_changes_reuse_same_raw_and_training",
+        "local_tests/test_training_reuse.py::test_missing_role_universe_cannot_prove_new_role_absence",
+        "local_tests/test_training_reuse.py::test_missing_effect_targets_matching_option_identity"
       ],
       "remaining": [
-        "真實 reference 發布與缺項補抓規劃器"
+        "reference 持久發布 head、補抓 executor 與 provider 真實完整性對應"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 5
     },
     {
       "id": "A06",

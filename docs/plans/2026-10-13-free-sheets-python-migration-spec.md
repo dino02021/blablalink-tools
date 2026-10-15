@@ -857,7 +857,7 @@ blablalink-tools/
 2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
 3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive、已知十一欄草稿遷移完成；遠端格式／維度／metadata adapter 與完整舊表格對照仍待完成。
-5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint 與本機 RSS reader 完成；仍需工作簿呈現、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
+5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint、本機 RSS reader 與五 tab 工作簿視圖完成；仍需 confirmed publisher eligibility、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
 6. mock outbox、固定報告／路由編譯、本地計算 worker 及 mock collector 契約已完成；仍需路由授權 head／registry、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. A01–A22 已對應真實 JUnit 與逐項缺口（docs/spec/64-local-acceptance-evidence.md）；繼續補其本地未完成範圍，不以 local evidence passed 視為正式驗收。
@@ -1166,3 +1166,10 @@ blablalink-tools/
 - 追加：混合歷史與新刀不得用單一格色掩蓋來源，總覽保留註記且逐刀明細分色；大額真實傷害保持 decimal 字串。
 - 確認結果 renderer 重讀確認當時的 problem／final，核對原 view hash；新輸入只使狀態 stale，不換掉確認內容。六項新案例及既有 job 驗證涵蓋來源、格式與確認邊界。
 - 尚未串接正式排刀工作簿路由／publisher eligibility，不能以模型 protection 宣稱遠端保護生效。詳見 docs/spec/73-raid-workbook-view.md。
+
+### 17.39 第三十五批：養成快照沿用與補抓 planner（2026-10-15）
+
+- 純規劃器以同一 normalizer／計算核心驗證可沿用性，固定 config／raw／reference／prefix map／roster／override／code hash；缺項按 member／source／role／option 合併成 deterministic requests。
+- 追加重大遺漏：ownership complete 必須綁定當時的角色 universe。新 collector 保存 reference_role_ids，normalizer 拒絕擴大／縮減，planner 對舊缺證據 raw 保守停止，避免新角色被當未持有。
+- 十二項新 mock 案例覆蓋選詞條／改門檻零補抓、精確 effect、options coverage、突破、auth、override、新人、reference 與 universe 邊界。
+- 尚未做 reference 持久發布 head、補抓 executor 或新舊來源拼接，不對正式 provider 發請求。詳見 docs/spec/74-training-reuse-planner.md。
