@@ -9,6 +9,7 @@ from application.collection_checkpoint import CollectionCheckpoint
 from application.tasks import StateConflict
 from domain.execution import check_execution, execution_checks
 from domain.normalization import capture_raw_training, normalize_training
+from domain.member_epochs import validate_member_epochs
 from domain.snapshots import MemberKey, canonical_json, capture_document
 
 SOURCES = ("ownership", "details", "effects")
@@ -36,13 +37,15 @@ class SourceCollection:
 
 def collect_training(port: CollectionPort, scope_id: str, captured_at: str, reference_version: str,
                      roster: tuple[MemberKey, ...], role_ids: tuple[str, ...],
-                     max_pages: int = 100, max_rows: int = 10000, checkpoint=None):
+                     max_pages: int = 100, max_rows: int = 10000, checkpoint=None, member_epochs=None):
     if (not roster or len(roster) > 300 or len(set(roster)) != len(roster) or any(not isinstance(m, MemberKey) for m in roster)
             or not role_ids or len(role_ids) > 1000 or len(set(role_ids)) != len(role_ids)
             or any(not isinstance(r, str) or not r.strip() for r in role_ids)):
         raise ValueError("fixed nonempty unique roster and role reference required")
     if any(type(v) is not int or not 1 <= v <= 100000 for v in (max_pages, max_rows)):
         raise ValueError("bounded collection limits required")
+    if member_epochs is not None:
+        member_epochs = validate_member_epochs(member_epochs, roster)
     members, proof = [], []
     for member in roster:
         check_execution()
@@ -68,7 +71,7 @@ def collect_training(port: CollectionPort, scope_id: str, captured_at: str, refe
             "sources": {name: {"status": result.status, "pages": list(result.evidence),
                 **({"cache_validation": result.cache_validation} if result.cache_validation is not None else {})}
                         for name, result in zip(SOURCES, (ownership, details, effects))}})
-    raw = capture_raw_training(scope_id, captured_at, reference_version, tuple(members), role_ids)
+    raw = capture_raw_training(scope_id, captured_at, reference_version, tuple(members), role_ids, member_epochs)
     return capture_document("raw", scope_id, captured_at, reference_version,
         {**raw.payload, "collection_protocol_version": 1, "collection_proof": proof})
 
@@ -87,7 +90,7 @@ def run_collection_job(store, lease, port: CollectionPort, captured_at: str, bud
             payload = inputs.payload
             checkpoint = CollectionCheckpoint(store, lease, inputs, job.spec.code_sha)
             raw = collect_training(port, job.spec.scope_id, captured_at, inputs.envelope["reference_version"],
-                tuple(MemberKey(**member) for member in payload["members"]), tuple(payload["role_ids"]), checkpoint=checkpoint)
+                tuple(MemberKey(**member) for member in payload["members"]), tuple(payload["role_ids"]), checkpoint=checkpoint, member_epochs=payload.get("member_epochs"))
             normalized = normalize_training(raw, tuple(payload["role_ids"]), payload["function_prefixes"])
             check_execution()
             raw_id = store.put_document(raw)

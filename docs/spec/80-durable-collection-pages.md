@@ -36,3 +36,5 @@ save_collection_observation 在一個 SQLite 交易核對目前 progress、job c
 每頁保存前及重建 cached pages 都有合作式 execution check；取消／過期 generation 不能更新進度。中斷前已保存頁可追溯，尚未掛入有效進度的新 immutable blob 只能視為待清理物件，不能授予發布資格。這是本地 SQLite 契約，不等於 D1 或正式 API 的 resume 保證。
 
 local_tests/test_collection_checkpoint.py 二十項案例涵蓋持久頁／脫敏、重啟沿用、未承諾 revision 全重抓、改版／auth／role scope／短頁、cursor 輪替、錯誤 checkpoint、fragment／mutable state hash、retention roots、預算中斷／取消／容量、線性 blob 策略、歷史觀測與 SQLite trigger 故障時的原子回滾。
+
+collection inputs 可固定 member_epochs；collector 在任何 port 呼叫前驗證，raw／training／原子 observation 必須保留相同 map。名單重新加入的 epoch 不符不得沿用舊 training，詳見 82。

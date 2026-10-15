@@ -371,6 +371,8 @@ class LocalStateStore:
                     or raw.envelope["reference_version"] != training.envelope["reference_version"]
                     or raw.envelope["reference_version"] != inputs.envelope["reference_version"]
                     or raw.payload.get("reference_role_ids") != inputs.payload.get("role_ids")
+                    or raw.payload.get("member_epochs", {}) != training.payload.get("member_epochs", {})
+                    or raw.payload.get("member_epochs", {}) != inputs.payload.get("member_epochs", {})
                     or raw.envelope["captured_at"] != observation["captured_at"] or training.envelope["captured_at"] != observation["captured_at"]):
                 raise StateConflict("collection observation snapshot lineage differs")
             object_id = self._put_object(serialized)

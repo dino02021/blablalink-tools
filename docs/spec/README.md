@@ -91,6 +91,8 @@
 - [80：Collector 持久分頁與觀測](80-durable-collection-pages.md)
 - [81：跨模組合成協作情境](81-integrated-mock-scenario.md)
 
+- [82：名單生命週期與加入版本](82-roster-lifecycle-and-member-epochs.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

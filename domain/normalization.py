@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from domain.snapshots import Document, MemberKey, TrainingRecord, capture_document, capture_training
 from domain.execution import check_execution
+from domain.member_epochs import validate_member_epochs
 
 OUTCOMES = frozenset({"complete", "partial", "failed", "auth_required"})
 DETAIL_FIELDS = ("name_code", "skill1_lv", "skill2_lv", "ulti_skill_lv", "favorite_item_tid", "favorite_item_lv",
@@ -23,7 +24,7 @@ class NormalizedCollection:
 
 
 def capture_raw_training(scope_id: str, captured_at: str, reference_version: str, members: tuple[dict, ...],
-                         role_ids: tuple[str, ...] | None = None) -> Document:
+                         role_ids: tuple[str, ...] | None = None, member_epochs=None) -> Document:
     """Only known data fields survive; caller transport headers/session data never enter raw."""
     cleaned, identities = [], set()
     for member in members:
@@ -67,6 +68,8 @@ def capture_raw_training(scope_id: str, captured_at: str, reference_version: str
                 or set(member["details"]["requested_codes"]) - set(role_ids) for member in cleaned):
             raise ValueError("source row is outside role universe")
         payload["reference_role_ids"] = list(role_ids)
+    if member_epochs is not None:
+        payload["member_epochs"] = validate_member_epochs(member_epochs, tuple(MemberKey(member["area_id"], member["member_id"]) for member in cleaned))
     return capture_document("raw", scope_id, captured_at, reference_version, payload)
 
 
@@ -137,8 +140,10 @@ def normalize_training(raw: Document, role_ids: tuple[str, ...], function_prefix
                 issues.append((identity.key, role, "ownership_unknown"))
             records.append(TrainingRecord(identity, role, status, metrics, traits))
     training = capture_training(envelope["scope_id"], envelope["captured_at"], envelope["reference_version"], tuple(records))
+    epochs = ({"member_epochs": validate_member_epochs(payload["member_epochs"], tuple(MemberKey(member["area_id"], member["member_id"]) for member in payload["members"]))}
+        if "member_epochs" in payload else {})
     training = capture_document("training", envelope["scope_id"], envelope["captured_at"], envelope["reference_version"],
-        {**training.payload, "raw_snapshot_id": raw.snapshot_id, "normalizer_version": 1})
+        {**training.payload, "raw_snapshot_id": raw.snapshot_id, "normalizer_version": 1, **epochs})
     return NormalizedCollection(training, tuple(issues), tuple(missing), is_auth_required)
 
 

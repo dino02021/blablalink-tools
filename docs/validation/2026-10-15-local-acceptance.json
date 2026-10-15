@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 603,
+  "observed_test_cases": 635,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -82,13 +82,15 @@
       "id": "A06",
       "tests": [
         "local_tests/test_layout.py::test_mixed_human_columns_require_stable_member_rows",
-        "local_tests/test_snapshots.py::test_member_key_is_region_scoped_and_delimiter_safe"
+        "local_tests/test_snapshots.py::test_member_key_is_region_scoped_and_delimiter_safe",
+        "local_tests/test_member_epochs.py::test_rejoin_blocks_old_known_record_then_fresh_collection_unblocks_calculation",
+        "local_tests/test_member_epochs.py::test_departure_recalculates_survivor_maximum_without_recollecting"
       ],
       "remaining": [
-        "完整 roster 生命週期與人工區搬移對照"
+        "持久名單 head 採用、inactive 流程與舊實體人工區搬移對照"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 4
     },
     {
       "id": "A07",

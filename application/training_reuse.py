@@ -5,6 +5,7 @@ import hashlib
 
 from application.healthcheck import IncompleteTraining, calculate_healthcheck, healthcheck_input_hash
 from domain.execution import check_execution
+from domain.member_epochs import validate_member_epochs
 from domain.healthcheck import evaluate_metric, parse_score_number
 from domain.normalization import normalize_training
 from domain.snapshots import MemberKey, apply_overrides, canonical_json, metric_values, read_config, read_training
@@ -27,6 +28,7 @@ class TrainingReusePlan:
     reference_hash: str
     function_map_hash: str
     input_hash: str
+    member_epoch_hash: str
     code_sha: str
     training_id: str | None
     calculation_id: str | None
@@ -43,7 +45,7 @@ class TrainingReusePlan:
         return _hash(asdict(self))
 
 
-def plan_training_reuse(config, raw, reference, function_prefixes, members, display_names, code_sha, overrides=()):
+def plan_training_reuse(config, raw, reference, function_prefixes, members, display_names, code_sha, overrides=(), member_epochs=None):
     members, overrides = tuple(members), tuple(overrides)
     if (not members or len(members) > 300 or len(reference.role_ids) > 1000
             or any(not isinstance(member, MemberKey) for member in members) or len(set(members)) != len(members)
@@ -53,8 +55,10 @@ def plan_training_reuse(config, raw, reference, function_prefixes, members, disp
     if raw.envelope["kind"] != "raw" or config.envelope["scope_id"] not in ("common", raw.envelope["scope_id"]):
         raise ValueError("reuse source kind or scope differs")
     input_hash = healthcheck_input_hash(members, display_names, overrides)
+    required_epochs = validate_member_epochs(member_epochs, members)
     dependencies = dict(config_id=config.snapshot_id, raw_snapshot_id=raw.snapshot_id,
-        reference_hash=_hash(asdict(reference)), function_map_hash=_hash(function_prefixes), input_hash=input_hash, code_sha=code_sha)
+        reference_hash=_hash(asdict(reference)), function_map_hash=_hash(function_prefixes), input_hash=input_hash,
+        member_epoch_hash=_hash(required_epochs), code_sha=code_sha)
     if raw.envelope["reference_version"] != reference.version or config.envelope["reference_version"] != reference.version:
         return TrainingReusePlan(**dependencies, training_id=None, calculation_id=None, requests=(), blockers=("reference_reconciliation_required",))
     if raw.payload.get("reference_role_ids") != list(reference.role_ids):
@@ -73,6 +77,11 @@ def plan_training_reuse(config, raw, reference, function_prefixes, members, disp
         (raw_members[key]["ownership"]["status"], raw_members[key]["details"]["status"])}
     if blocked_auth:
         return TrainingReusePlan(**dependencies, training_id=normalized.training.snapshot_id, calculation_id=None, requests=(), blockers=("auth_required",))
+    training_epochs = normalized.training.payload.get("member_epochs", {})
+    stale_members = tuple(member for member in members if member.key in required_epochs and training_epochs.get(member.key) != required_epochs[member.key])
+    if stale_members:
+        requests = tuple(SupplementaryRequest(member, "ownership", tuple(sorted(rule.name_code for rule in rules)), (), ("membership_epoch_unproven",)) for member in stale_members)
+        return TrainingReusePlan(**dependencies, training_id=normalized.training.snapshot_id, calculation_id=None, requests=requests, blockers=())
     try:
         result = calculate_healthcheck(config, normalized.training, members, display_names, code_sha, overrides)
         return TrainingReusePlan(**dependencies, training_id=normalized.training.snapshot_id, calculation_id=result.result_id, requests=(), blockers=())

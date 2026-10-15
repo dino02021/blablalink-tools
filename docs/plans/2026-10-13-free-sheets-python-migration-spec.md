@@ -1223,3 +1223,10 @@ blablalink-tools/
 - 追加：整合證據必須核對來源 ID 串接、未確認草稿不發布、改門檻不重抓、人工 tab 保留，不能只以各模組單測通過推定整段流程可用。
 - 四項實際本地情境測試與固定 JSON 證據，十二次 synthetic port calls、三次 native child、兩份 mock 訊息；兩個新 workspace 的資料與計算版本可重現。
 - 僅一聯盟／兩人／一角色，不宣稱所有規模、roster、平台、正式 provider 或 A01–A22 完整驗收。詳見 docs/spec/81-integrated-mock-scenario.md。
+
+### 17.47 第四十三批：名單生命週期與加入版本（2026-10-15）
+
+- 固定觀測與確認計畫處理加入、離開、改名及排序；只允許 complete 名單移除成員，人工欄按 composite ID 保留，離開資料完整封存。
+- 追加：相同 ID 重新加入仍是新的加入版本，不可沿用先前完整養成或自動恢復人工修正。raw／training／collector／reference 投影均傳遞加入版本，健檢與沿用 planner 必須核對。
+- 本地案例涵蓋重新加入舊資料等待、mock 補抓後發布、移除成員直接重算及容量防護。原輸入與目標上限 8 MiB、archive 上限 1,000，不自動丟棄歷史。
+- 純計畫確認尚非持久 head CAS；inactive 採用、raid stale 依賴、舊格線人工欄遷移仍待完成。詳見 docs/spec/82-roster-lifecycle-and-member-epochs.md。

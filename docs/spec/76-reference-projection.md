@@ -21,3 +21,5 @@ reference 相容只表示可以做 schema／字典投影，不等於資料完整
 補充執行限制：normalizer 每個 member／role 都呼叫既有 execution check，使大量重投影也遵守 worker deadline／operation／memory budget，數值與 schema 版本不變。
 
 local_tests/test_reference_projection.py 十項案例涵蓋別名更新、移除角色／prefix、三種不相容變更、缺 universe、unknown 不升級、code／plan/source 置換、auth 及 lineage retention。尚未有跨 reference 補抓 executor 或正式 provider 相容性保證。
+
+相容投影保留 training 的 member_epochs；reference 相容不能重設或補造加入版本。詳見 82。

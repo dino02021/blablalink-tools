@@ -9,7 +9,8 @@ from application.compute_budget import ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
 from application.workbook_views import render_healthcheck_view
 from domain.execution import check_execution, execution_checks
-from domain.snapshots import MemberKey, Override, canonical_json, read_config
+from domain.member_epochs import validate_member_epochs
+from domain.snapshots import MemberKey, Override, canonical_json, read_config, read_training
 
 
 def reconcile_standard(store, sheets, resource: str, scope_id: str, captured_at: str, reference: StandardReference) -> str | None:
@@ -69,6 +70,12 @@ def _run_healthcheck_job(store, lease):
     roster = tuple(MemberKey(**row["member"]) for row in inputs.payload["members"])
     display_names = {MemberKey(**row["member"]).key: row["display_name"] for row in inputs.payload["members"]}
     overrides = tuple(Override(**{**row, "member": MemberKey(**row["member"])}) for row in inputs.payload.get("overrides", []))
+    required_epochs = validate_member_epochs(inputs.payload.get("member_epochs"), roster)
+    training_payload = training.payload
+    training_epochs = (validate_member_epochs(training_payload.get("member_epochs"), tuple(record.member for record in read_training(training)))
+        if required_epochs or "member_epochs" in training_payload else {})
+    if any(training_epochs.get(member) != epoch for member, epoch in required_epochs.items()):
+        return store.defer(lease, "waiting_for_data", "training_membership_epoch_unproven")
     route = inputs.payload["healthcheck_route"]
     if set(route) != {"resource", "layout_revision"} or any(not isinstance(v, str) or not v.strip() for v in route.values()):
         raise ValueError("fixed workbook route and layout required")

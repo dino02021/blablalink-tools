@@ -60,6 +60,7 @@ def project_reference_training(raw, source_reference, target_reference, code_sha
     base = capture_training(raw.envelope["scope_id"], raw.envelope["captured_at"], target.reference.version, records)
     training = capture_document("training", raw.envelope["scope_id"], raw.envelope["captured_at"], target.reference.version,
         {**base.payload, "raw_snapshot_id": raw.snapshot_id, "normalizer_version": 1,
+            **({"member_epochs": normalized.training.payload["member_epochs"]} if "member_epochs" in normalized.training.payload else {}),
             "reference_projection": {"schema_version": 1, "source_reference_id": source_reference.snapshot_id,
                 "target_reference_id": target_reference.snapshot_id, "source_reference_version": source.reference.version,
                 "source_training_id": normalized.training.snapshot_id, "code_sha": code_sha}})

@@ -23,3 +23,7 @@ application/training_reuse.py 的 plan_training_reuse 是本地純規劃器，�
 只讀取本輪相關角色所需欄位的缺口；不因其他未選角色的資料不足而強迫重抓。補抓結果仍需新 source revision／完整性驗證，不能直接拿 planner 的 request 當完整性證明。reference 的持久發布／CAS head 已見 [75](75-local-reference-registry.md)，跨 reference 的相容投影見 [76](76-reference-projection.md)；補抓 executor 尚未完成。
 
 local_tests/test_training_reuse.py 十二項案例覆蓋門檻／詞條沿用、可信缺角、新人／同名跨區、指定來源／option 補抓、auth、override、reference 不符、缺 universe、拒絕擴大 universe、原始角色越界與 deterministic plan_id。
+
+## 加入版本補充（82）
+
+沿用計畫另綁 member_epoch_hash；目前加入版本無法由原 training 證明時，ownership 補抓理由為 membership_epoch_unproven。人工 override 不能繞過此次加入的來源證據。
