@@ -10,12 +10,13 @@ from adapters.local_workbook_staging import LocalWorkbookStaging
 from application.publication import publish_workbooks
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
+from application.raid_publication import run_raid_publication_job
 from application.sheet_healthcheck import run_healthcheck_job, run_standard_reconcile_job
 from application.tasks import LeaseLost, ResourceBusy, StateConflict, validate_identifier
 from application.workbook_staging import StagedSheets, prepare_workbook_stage
 from executors.local.demo import workspace_status
 
-SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "reconcile")
+SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan", "reconcile")
 
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
@@ -38,7 +39,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             for job in store.list_jobs():
                 if len(processed) >= max_jobs:
                     break
-                if (job.state == "computed" and job.spec.command == "recompute_healthcheck"
+                if (job.state == "computed" and job.spec.command in ("recompute_healthcheck", "publish_raid_plan")
                         and job.spec.executor_type == "local" and job.spec.code_sha == code_sha):
                     _publish(store, sheets, staging, job, worker_id, code_sha)
                     processed.append(_status(store.get_job(job.job_id)))
@@ -50,6 +51,8 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             try:
                 if job.spec.command == "recompute_healthcheck":
                     computed = run_healthcheck_job(store, lease, budget_factory())
+                elif job.spec.command == "publish_raid_plan":
+                    computed = run_raid_publication_job(store, lease, budget_factory())
                 elif job.spec.command == "reconcile":
                     computed = run_standard_reconcile_job(store, MockSheets(directory / "workbooks"), lease,
                         datetime.now(timezone.utc).isoformat(), budget_factory())

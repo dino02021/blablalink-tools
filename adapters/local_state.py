@@ -695,7 +695,7 @@ class LocalStateStore:
                 raise StateConflict("request ID reused with different content")
             return self.get_job(replay["job_id"])
         if not self._is_union_input_current(spec) or not self._is_raid_source_current(spec):
-            raise StateConflict("task union input head is stale, missing, or inactive")
+            raise StateConflict("task source head is stale, missing, or inactive")
         config_id = spec.version_map.get("healthcheck_config")
         if config_id is not None and self._connection.execute(
             "SELECT 1 FROM config_versions WHERE config_id=?", (config_id,)
@@ -797,23 +797,31 @@ class LocalStateStore:
         if head is None:
             return True
         bound = spec.version_map.get("union_inputs")
-        if bound is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft"):
+        if bound is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan"):
             return True
         return bound == head["input_id"] and head["roster_state"] == "active"
 
     def _is_raid_source_current(self, spec: TaskSpec) -> bool:
-        if spec.command != "generate_raid_draft":
+        if spec.command not in ("generate_raid_draft", "publish_raid_plan"):
             return True
         versions = spec.version_map
-        if self.union_input_version(spec.scope_id) is None and "raid_compiler" not in versions:
+        if spec.command == "generate_raid_draft" and self.union_input_version(spec.scope_id) is None and "raid_compiler" not in versions:
             return True
         from application.raid_codec import restore_problem
         from application.raid_inputs import COMPILER, is_raid_dependency_current
         if versions.get("raid_compiler") != COMPILER or "problem" not in versions:
             return False
         problem = restore_problem(self.get_result(versions["problem"]))
-        return (problem.problem_id == versions["problem"] and problem.code_sha == spec.code_sha and all(versions.get(key) == value for key, value in problem.input_versions)
-            and is_raid_dependency_current(self, spec.scope_id, problem))
+        if not (problem.problem_id == versions["problem"] and problem.code_sha == spec.code_sha and all(versions.get(key) == value for key, value in problem.input_versions)
+                and is_raid_dependency_current(self, spec.scope_id, problem)):
+            return False
+        if spec.command == "generate_raid_draft":
+            return True
+        confirmation_id = versions.get("raid_confirmation")
+        row = self._connection.execute("SELECT c.signature,d.problem_id,i.problem_id AS current_problem FROM raid_confirmed_heads h "
+            "JOIN raid_confirmations c ON c.confirmation_id=h.confirmation_id JOIN raid_drafts d ON d.scope_id=c.scope_id AND d.draft_id=c.draft_id "
+            "JOIN raid_input_heads i ON i.scope_id=h.scope_id WHERE h.scope_id=? AND h.confirmation_id=?", (spec.scope_id, confirmation_id)).fetchone()
+        return row is not None and hashlib.sha256(row["signature"].encode()).hexdigest() == confirmation_id and row["problem_id"] == row["current_problem"] == problem.problem_id
 
     def _require_no_publisher(self) -> None:
         if (self._connection.execute("SELECT 1 FROM resource_locks LIMIT 1").fetchone()

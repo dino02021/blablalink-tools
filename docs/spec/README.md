@@ -97,6 +97,8 @@
 
 - [84：排刀輸入編譯與來源過期](84-raid-input-compiler.md)
 
+- [85：已確認排刀的本地發布](85-confirmed-raid-publication.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

@@ -5,6 +5,7 @@ import hashlib
 
 from domain.snapshots import canonical_json
 from domain.view_grid import restore_workbook_view
+from application.raid_workbook import restore_raid_workbook
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,17 @@ class GridMigrationPlan:
 
 
 def materialize_generated_grid(generated: dict) -> dict | None:
+    if generated.get("publication_kind") == "confirmed_raid":
+        if "view" in generated:
+            raise ValueError("ambiguous generated view kind")
+        view = restore_raid_workbook(generated["raid_workbook_view"])
+        if (generated.get("view_id") != view.view_id or generated.get("problem_id") != view.problem_id
+                or generated.get("draft_plan_id") != view.draft_plan_id or generated.get("code_sha") != view.code_sha
+                or not generated.get("confirmation_id")):
+            raise ValueError("confirmed raid grid source binding differs")
+        return _materialize_tabs(view)
+    if "raid_workbook_view" in generated:
+        raise ValueError("raid view requires explicit publication kind")
     if "view" not in generated:
         if "view_id" in generated:
             raise ValueError("view identity without view")
@@ -40,14 +52,7 @@ def materialize_generated_grid(generated: dict) -> dict | None:
             or generated.get("calculation_id") != view.calculation_id
             or generated.get("code_sha") != view.code_sha):
         raise ValueError("generated grid source binding differs")
-    return {"schema_version": 1, "view_id": view.view_id, "tabs": {
-        tab.tab_key: {"title": tab.title, "layout_revision": tab.layout_revision,
-            "row_count": len(tab.rows), "column_count": len(tab.column_ids),
-            "column_ids": tab.column_ids, "row_ids": tab.row_ids, "cells": tab.typed_rows(),
-            "merges": tab.merges, "frozen_rows": tab.frozen_rows,
-            "frozen_columns": tab.frozen_columns, "hidden_columns": tab.hidden_columns,
-            "is_generated_protected": True}
-        for tab in view.tabs}}
+    return _materialize_tabs(view)
 
 
 def is_same_grid_layout(before: dict, after: dict) -> bool:
@@ -74,6 +79,18 @@ def prepare_grid_migration(resource: str, book: dict, generated: dict) -> GridMi
             changes.append(("replace", key))
     return GridMigrationPlan(resource, book["layout_revision"], book["commit_id"], book["payload_hash"],
         _hash(before), _hash(generated), _hash(after), after["view_id"], generated["config_id"], generated["code_sha"], tuple(changes))
+
+
+def _materialize_tabs(view):
+    return {"schema_version": 1, "view_id": view.view_id, "tabs": {
+        tab.tab_key: {"title": tab.title, "layout_revision": tab.layout_revision,
+            "row_count": len(tab.rows), "column_count": len(tab.column_ids),
+            "column_ids": tab.column_ids, "row_ids": tab.row_ids, "cells": tab.typed_rows(),
+            "merges": tab.merges, "frozen_rows": tab.frozen_rows,
+            "frozen_columns": tab.frozen_columns, "hidden_columns": tab.hidden_columns,
+            "is_generated_protected": True}
+        for tab in view.tabs}}
+
 
 
 def _hash(value) -> str:

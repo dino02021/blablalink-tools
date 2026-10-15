@@ -63,7 +63,7 @@ def _scope_status(connection, scope):
         if spec.command in AUTO_COMMANDS and config_id is not None:
             head = connection.execute("SELECT h.config_id FROM config_versions v JOIN config_heads h ON h.config_type=v.config_type AND h.scope_id=v.scope_id WHERE v.config_id=?", (config_id,)).fetchone()
             config_current = head is not None and head[0] == config_id
-        input_current = input_head is None or (spec.version_map.get("union_inputs") is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft")) or (
+        input_current = input_head is None or (spec.version_map.get("union_inputs") is None and spec.command not in ("recompute_healthcheck", "generate_raid_draft", "publish_raid_plan")) or (
             spec.version_map.get("union_inputs") == input_head["input_id"] and input_head["roster_state"] == "active")
         desired.append({"family": spec.family, "job_id": row["job_id"], "command": spec.command, "state": row["state"],
             "is_union_input_current": input_current,
@@ -74,11 +74,19 @@ def _scope_status(connection, scope):
     published = connection.execute("SELECT p.publication_id,p.commit_id,p.updated_at,j.job_id,j.family,j.fingerprint,j.code_sha,j.result_id "
         "FROM publications p JOIN jobs j ON j.job_id=p.job_id WHERE j.scope_id=? AND p.state='succeeded' ORDER BY p.updated_at DESC,p.publication_id DESC LIMIT 1", (scope,)).fetchone()
     last_published = dict(published) if published else None
+    latest = _bounded(connection, "SELECT publication_id,commit_id,updated_at,job_id,family,fingerprint,code_sha,result_id FROM ("
+        "SELECT p.publication_id,p.commit_id,p.updated_at,j.job_id,j.family,j.fingerprint,j.code_sha,j.result_id,"
+        "ROW_NUMBER() OVER(PARTITION BY j.family ORDER BY p.updated_at DESC,p.publication_id DESC) AS ordinal "
+        "FROM publications p JOIN jobs j ON j.job_id=p.job_id WHERE j.scope_id=? AND p.state='succeeded') WHERE ordinal=1 ORDER BY family", (scope,), 50)
+    published_by_family = []
+    for row in latest:
+        item = dict(row)
+        item["is_live_workbook_verified"] = False
+        item["is_current_target"] = _ReadOnlyStatusState(connection).is_job_current(item["job_id"])
+        item.pop("fingerprint")
+        published_by_family.append(item)
     if last_published:
-        last_published["is_live_workbook_verified"] = False
-        target = next((target for target in desired if target["family"] == last_published["family"]), None)
-        last_published["is_current_target"] = target is not None and target["job_id"] == last_published["job_id"] and target["is_job_current"]
-        last_published.pop("fingerprint")
+        last_published = next(item for item in published_by_family if item["publication_id"] == last_published["publication_id"])
     confirmed = connection.execute("SELECT h.confirmation_id,d.draft_id,d.problem_id,i.problem_id AS current_problem_id FROM raid_confirmed_heads h "
         "JOIN raid_confirmations c ON c.confirmation_id=h.confirmation_id JOIN raid_drafts d ON d.scope_id=c.scope_id AND d.draft_id=c.draft_id "
         "LEFT JOIN raid_input_heads i ON i.scope_id=h.scope_id WHERE h.scope_id=?", (scope,)).fetchone()
@@ -92,7 +100,7 @@ def _scope_status(connection, scope):
         confirmation["is_stale"] = not is_raid_dependency_current(reader, scope, restore_problem(data))
     batches = dict(connection.execute("SELECT is_accepted,COUNT(*) FROM report_send_candidates WHERE scope_id=? GROUP BY is_accepted", (scope,)).fetchall())
     return {"scope_id": scope, "is_available": True, "union_input_head": input_head, "desired": desired, "historical_job_counts": counts,
-        "last_published": last_published, "raid_confirmation": confirmation,
+        "last_published": last_published, "published_by_family": published_by_family, "raid_confirmation": confirmation,
         "report_batch_counts": {"prepared": batches.get(0, 0), "accepted": batches.get(1, 0)},
         "has_blocked_target": any(target["state"] in BLOCKED or not target["is_job_current"] for target in desired),
         "has_pending_target": any(target["state"] not in BLOCKED | {"succeeded", "superseded", "cancelled"} for target in desired),

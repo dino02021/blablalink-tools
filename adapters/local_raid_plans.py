@@ -10,6 +10,7 @@ from application.raid_codec import restore_problem
 from application.raid_execution import restore_final
 from application.raid_workbook import render_raid_workbook
 from application.raid_inputs import compile_raid_problem, is_raid_dependency_current
+from application.raid_publication import compile_raid_publication, raid_publication_task
 from domain.raid_finalize import FinalRaidPlan
 from domain.raid_planner import RaidProblem
 from domain.raid_view import build_raid_view
@@ -17,6 +18,22 @@ from domain.snapshots import canonical_json
 
 
 class LocalRaidPlans(LocalStateStore):
+    def prepare_raid_publication(self, request_id, candidate, confirmed_candidate_id, intent_id):
+        if confirmed_candidate_id != candidate.candidate_id:
+            raise StateConflict("raid publication confirmation differs")
+        with _transaction(self._connection):
+            spec = raid_publication_task(candidate, intent_id)
+            request = self._connection.execute("SELECT job_id FROM requests WHERE request_id=?", (request_id,)).fetchone()
+            if request is not None:
+                # The normal request signature still verifies exact replay after sources change.
+                return self._enqueue(request_id, spec, False)
+            rebuilt = compile_raid_publication(self, candidate.confirmation_id, candidate.route_id, candidate.code_sha)
+            if rebuilt != candidate or confirmed_candidate_id != candidate.candidate_id:
+                raise StateConflict("raid publication confirmation differs")
+            self._require_no_publisher()
+            self._put_object(canonical_json(asdict(candidate)))
+            return self._enqueue(request_id, spec, False)
+
     def observe_problem(self, scope_id: str, problem: RaidProblem, expected_revision: int) -> int:
         validate_identifier(scope_id)
         if type(expected_revision) is not int or expected_revision < 0:
@@ -35,6 +52,7 @@ class LocalRaidPlans(LocalStateStore):
                 raise StateConflict("raid input revision changed")
             if head and head["problem_id"] == problem.problem_id:
                 return revision
+            self._require_no_publisher()
             object_id = self._put_object(canonical_json(asdict(problem)))
             self._connection.execute("INSERT INTO raid_input_heads VALUES(?,?,?) ON CONFLICT(scope_id) DO UPDATE SET problem_id=excluded.problem_id,revision=excluded.revision",
                                      (scope_id, object_id, revision + 1))
@@ -106,6 +124,7 @@ class LocalRaidPlans(LocalStateStore):
                 final = self.get_result(draft["final_id"])
                 if final["warnings"] and not is_accept_warnings:
                     raise StateConflict("raid warnings require explicit acknowledgement")
+                self._require_no_publisher()
                 self._connection.execute("INSERT INTO raid_confirmations VALUES(?,?,?,?,?,?)",
                     (confirmation_id, scope_id, intent_id, signature, draft_id, self._now()))
                 self._connection.execute("INSERT INTO raid_confirmed_heads VALUES(?,?) ON CONFLICT(scope_id) DO UPDATE SET confirmation_id=excluded.confirmation_id",

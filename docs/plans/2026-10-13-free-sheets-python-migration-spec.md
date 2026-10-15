@@ -1244,3 +1244,10 @@ blablalink-tools/
 - 追加：problem head 尚未更新不能視為舊確認仍有效。名單或來源健檢 desired 變更，確認及排刀工作都必須即時失效；已確認 view 保留原內容。
 - observe 時重編譯比對；compiled task 固定全部來源，queued／running／computed 均共用 fence。唯讀狀態沿用 query-only snapshot，不因依賴檢查執行 migration。
 - confirmed publisher、raid 設定／人工輸入的獨立採用 head 及正式格線來源仍待完成。詳見 docs/spec/84-raid-input-compiler.md。
+
+### 17.50 第四十六批：已確認排刀的獨立本地發布（2026-10-15）
+
+- 新 publish_raid_plan 明確意圖命令與固定發布候選，獨立於草稿／確認；同 code 的目前 compiler 來源、confirmed head、目的 route 與完整 manifest 必須一致。
+- worker compute-only／native child 只產生 computed，顯式 mock publisher 才透過 staging／回讀寫入五個 protected tabs；人工欄與 tab 保留。
+- 追加：新確認／problem 採用也須避開 unresolved publisher；回應遺失保留鎖，正面回讀恢復避免重寫。狀態必須分工作類型保存最近發布，排刀成功不能遮住健檢紀錄。
+- 十九項 mock 驗證含各階段 stale、native／budget、五 tab、兩種 response loss、恢復與狀態。正式 provider／公開發布路由／免費用量仍未接線。詳見 docs/spec/85-confirmed-raid-publication.md。

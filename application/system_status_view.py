@@ -22,11 +22,13 @@ def render_system_status(status: dict) -> ViewTab:
             rows.append((ViewCell(scope["scope_id"]), *(ViewCell() for _ in range(len(columns)-2)), ViewCell(scope["error_code"], "failed")))
             ids.append(canonical_json([scope["scope_id"], "unavailable"]))
             continue
-        for target in scope["desired"] or [None]:
+        targets = {target["family"]: target for target in scope["desired"]}
+        publications = {item["family"]: item for item in scope.get("published_by_family", ())}
+        for family in sorted(set(targets) | set(publications)) or [""]:
+            target = targets.get(family)
             published = scope["last_published"]
             confirmation = scope["raid_confirmation"]
-            family = target["family"] if target else ""
-            last = published if published and published["family"] == family else None
+            last = publications.get(family) or (published if published and published["family"] == family else None)
             values = (scope["scope_id"], family, target["job_id"] if target else None, target["state"] if target else "no_desired_target",
                 target["is_config_current"] if target else None, target["code_sha"] if target else None,
                 last["job_id"] if last else None, last["is_current_target"] if last else None,

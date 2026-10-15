@@ -31,3 +31,5 @@ raid_task_spec 固定 problem 與全部來源版本。coordinator 在新 request
 local_tests/test_raid_inputs.py 覆蓋真實 sealed 健檢排名、錯 scope／reference、缺人／重複／外部 ID、未知欄位、history、未發布／不同 code、問題偽造、名單與健檢 desired 變更立即 stale、queued／running／computed fence、實際 draft 工作不自動確認及壞物件隔離。
 
 尚未實作 confirmed plan 的實體 publisher eligibility／路由與遠端發布、raid 設定與人工輸入的獨立採用 head、GS 人工範圍擷取或正式來源。新 immutable 文件本身不代表使用者已採用，只有 observe 的 problem 固定該設定。正式語意與免費平台協作仍須依主規格後續完成。
+
+85 補上 confirmed plan 的獨立 mock 發布候選、publisher eligibility 與五 tab staging 寫入；正式 adapter／公開路由仍未接線。

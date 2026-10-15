@@ -12,12 +12,12 @@ from domain.snapshots import canonical_json
 COMMANDS = frozenset({
     "prepare_config", "publish_config", "refresh_roster_and_training", "refresh_raid_history",
     "publish_union_inputs", "recompute_healthcheck", "prepare_layout", "apply_layout",
-    "generate_raid_draft", "confirm_raid_plan", "send_reports", "reconcile",
+    "generate_raid_draft", "confirm_raid_plan", "publish_raid_plan", "send_reports", "reconcile",
 })
 AUTO_COMMANDS = frozenset({"recompute_healthcheck", "generate_raid_draft", "prepare_layout", "reconcile"})
 INTENT_COMMANDS = frozenset({
     "prepare_config", "refresh_roster_and_training", "refresh_raid_history",
-    "publish_union_inputs", "send_reports", "reconcile",
+    "publish_union_inputs", "publish_raid_plan", "send_reports", "reconcile",
 })
 
 

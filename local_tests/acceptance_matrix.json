@@ -144,7 +144,8 @@
         "local_tests/test_local_state.py::test_one_union_failure_does_not_fail_other_fanout_targets",
         "local_tests/test_system_status.py::test_one_failed_union_does_not_hide_success_or_previous_output",
         "local_tests/test_system_status.py::test_read_transaction_keeps_one_snapshot_during_concurrent_writer",
-        "local_tests/test_system_status.py::test_corrupt_job_spec_is_isolated_to_its_scope_and_no_body_is_returned"
+        "local_tests/test_system_status.py::test_corrupt_job_spec_is_isolated_to_its_scope_and_no_body_is_returned",
+        "local_tests/test_raid_publication.py::test_status_retains_latest_success_for_health_and_manual_raid_families"
       ],
       "remaining": [
         "共享狀態表 publisher、完整歷史分頁與遠端 scope 授權"
@@ -179,10 +180,13 @@
         "local_tests/test_raid_inputs.py::test_compiler_binds_actual_ranks_roster_and_original_human_inputs",
         "local_tests/test_raid_inputs.py::test_new_healthcheck_desired_makes_existing_confirmation_stale_immediately",
         "local_tests/test_raid_inputs.py::test_roster_change_stales_confirmed_plan_without_replacing_problem_or_old_view",
-        "local_tests/test_raid_inputs.py::test_compiled_raid_job_loses_eligibility_when_healthcheck_desired_changes"
+        "local_tests/test_raid_inputs.py::test_compiled_raid_job_loses_eligibility_when_healthcheck_desired_changes",
+        "local_tests/test_raid_publication.py::test_confirmed_publication_is_explicit_and_compute_only_preserves_workbook",
+        "local_tests/test_raid_publication.py::test_changed_healthcheck_blocks_confirmed_publication_at_every_phase",
+        "local_tests/test_raid_publication.py::test_lost_publication_response_keeps_fence_until_positive_recovery"
       ],
       "remaining": [
-        "confirmed publisher eligibility、實體 adapter／路由與 raid 人工來源採用 head"
+        "真實 Sheets adapter／公開發布路由、raid 設定／人工輸入／route 採用 head"
       ]
     },
     {
