@@ -25,4 +25,4 @@ application/delivery.py 與 adapters/local_outbox.py 提供離線發送狀態。
 
 local_tests/test_outbox.py 使用合成 IDs、本地 provider 與時鐘，測試回應遺失、重啟、同 request／新 intent、延遲與次數上限、mention、錯誤 target、兩連線競爭與損毀阻擋。
 
-目前 trusted reconcile 證據由測試呼叫者提供，未驗證真實 Discord 訊息或 run。已發布結果與固定本地路由快照可透過 [報告候選編譯](55-report-delivery-compilation.md) 產生 DeliverySpec，驗證完整性、保留格式分段並整批確認入列；真實路由授權、route head、rate limit adapter 與雲端 outbox 仍待串接。
+目前 trusted reconcile 證據由測試呼叫者提供，未驗證真實 Discord 訊息或 run。已發布結果與固定本地路由快照可透過 [報告候選編譯](55-report-delivery-compilation.md) 產生 DeliverySpec。另有 [79 的受授權 port](79-local-routing-and-authorized-outbox.md) 提供本地 route head／grant／start permit；send_next 對具備 before_send 的 port 要求明確 True 才進 provider。原低階 LocalOutbox 不自動升級；真實 principal、rate limit adapter 與雲端 outbox 仍待串接。

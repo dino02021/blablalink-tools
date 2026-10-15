@@ -68,6 +68,9 @@ def send_next(outbox, provider, outbox_id: str, worker_id: str) -> bool:
         return False
     spec = outbox.spec(outbox_id)
     try:
+        before_send = getattr(outbox, "before_send", None)
+        if before_send is not None and before_send(claim) is not True:
+            return False
         message_id = provider.send(spec.target_thread, spec.payload(claim.ordinal))
     except NotSent as error:
         outbox.reject(claim, error.retry_after)

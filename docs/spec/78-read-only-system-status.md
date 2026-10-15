@@ -15,7 +15,7 @@ adapters/local_system_status.py 的 read_system_status 僅接受明確標記的 
 
 另外顯示此聯盟最近一筆 succeeded publication receipt、是否符合該 family 最新 desired；目前這是一筆最近發布，不宣稱列出每個 family 的完整發布歷史。is_live_workbook_verified 固定 false，因為這個查詢不讀回工作簿格線。computed 保持 pending，不當已發布。
 
-排刀 confirmation 以原 problem ID 與目前 input head 判定 stale，和最新健檢是否完成分開。共用區顯示 config／reference heads、publication holds／resource locks、delivery part 計數與 configured usage budgets；共用訊息計數沒有可靠 union linkage，不猜測歸屬。configured budgets 不是 provider 實際 billing。
+排刀 confirmation 以原 problem ID 與目前 input head 判定 stale，和最新健檢是否完成分開。共用區顯示 config／reference／route heads、publication holds／resource locks、sender route holds 的 start phase／deadline、delivery part 計數與 configured usage budgets；共用訊息計數沒有可靠 union linkage，不猜測歸屬。configured budgets 不是 provider 實際 billing。
 
 has_blocked_target／has_pending_target／is_all_desired_completed 是分開的判斷；沒有 desired 不能宣告全部完成。共享 publisher busy／unknown delivery 也在表格各列明示，不把它們錯當某一聯盟的計算失敗。
 

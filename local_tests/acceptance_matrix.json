@@ -94,10 +94,11 @@
     {
       "id": "A09",
       "tests": [
-        "local_tests/test_local_state.py::test_unknown_publication_keeps_locks_across_time_and_restart"
+        "local_tests/test_local_state.py::test_unknown_publication_keeps_locks_across_time_and_restart",
+        "local_tests/test_authorized_outbox.py::test_route_change_and_claim_cannot_both_win_the_same_database_race"
       ],
       "remaining": [
-        "正式路由 registry 對應實際 shared spreadsheet ID"
+        "真實 shared spreadsheet／Discord resource routing 與遠端 principal 身分接線"
       ]
     },
     {
@@ -175,10 +176,14 @@
     {
       "id": "A17",
       "tests": [
-        "local_tests/test_outbox.py::test_accepted_but_response_lost_blocks_all_retries_until_verified"
+        "local_tests/test_outbox.py::test_accepted_but_response_lost_blocks_all_retries_until_verified",
+        "local_tests/test_authorized_outbox.py::test_unknown_send_keeps_route_locked_across_restart_and_time_until_verified",
+        "local_tests/test_authorized_outbox.py::test_revocation_is_checked_between_parts_without_resending_first_part",
+        "local_tests/test_authorized_outbox.py::test_new_intent_cannot_bypass_unknown_outcome_for_identical_report_delivery",
+        "local_tests/test_authorized_outbox.py::test_unused_start_permit_is_rechecked_and_cancelled_without_provider_call"
       ],
       "remaining": [
-        "真實 Discord rate limit／訊息查證與路由授權"
+        "真實 principal／key 接線、Discord rate limit／receipt 查證與正式 handler 採用"
       ]
     },
     {

@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，545 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，579 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -12,7 +12,7 @@
 | A06 | composite identity 與人工欄位置保護 | roster 生命週期與搬移 |
 | A07 | request／dispatch 持久去重 | D1／平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |
-| A09 | 不同聯盟的 shared resource 鎖 | 正式路由 registry |
+| A09 | shared resource 鎖、route head／sender CAS 與 claim 競爭互斥 | 真實路由／principal／遠端 CAS |
 | A10 | 新 desired 使舊計算 superseded | 舊遠端 invocation 停止證據 |
 | A11 | 薄 GS 簽章提示到 Python 候選、內容去重 | HTTP 接線與正式 trigger／排程 |
 | A12 | timeout 隔離、回讀與重啟 | 真實 Sheets HTTP 核對 |
@@ -20,7 +20,7 @@
 | A14 | auth 停止來源請求且保持 unknown | 真實 Session／provider 對應 |
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
 | A16 | 排序 view／五 tab 排刀視圖不改指定刀，stale 確認保留原內容 | 實體 adapter／路由與 confirmed publisher eligibility |
-| A17 | unknown delivery 不盲重發 | Discord adapter／路由授權 |
+| A17 | unknown 不盲重發、逐段路由／grant／一次性 start permit、跨 intent 防重 | 真實 principal／Discord adapter／遠端確認與正式採用 |
 | A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |
 | A20 | budget／checkpoint／恢復，Windows child native memory／wall time 與 kill 狀態邊界 | hosted profile、Linux 實測與 dispatcher 採用 |

@@ -24,4 +24,4 @@
 
 local_tests/test_report_delivery.py 驗證長單行／多行／emoji 無損、固定路由與 mention、候選篡改、路由缺漏／重複／異 scope／reference、標準更新使待確認候選過期、已確認重播、重啟與後段衝突全批回滾。
 
-未實作真實路由／actor 授權 registry、路由版本 head、遠端確認端點、Discord rate limit adapter 或雲端 outbox。本地路由快照由可信 caller 提供；確認只保證固定內容與計算來源仍有效，不能證明該 thread 的真實權限或路由仍是最新。正式整合前必須補齊，不得直接把此介面公開。
+原編譯器／validator 只保證固定內容與計算來源仍有效，不單獨保證路由仍最新。[79 的本地受授權 outbox](79-local-routing-and-authorized-outbox.md) 另核對 route head／sender grant 與每段 start permit；原低階介面不得直接公開。真實 actor／principal 身分、遠端確認端點、Discord rate limit／receipt adapter 與雲端 outbox 仍未接線。

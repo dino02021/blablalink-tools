@@ -88,11 +88,14 @@ def _global_status(connection, scopes):
     placeholders = ",".join("?" for _ in ("common", *scopes))
     heads = _bounded(connection, f"SELECT config_type,scope_id,config_id,revision FROM config_heads WHERE scope_id IN ({placeholders}) ORDER BY scope_id,config_type", ("common", *scopes), 1000)
     references = _bounded(connection, f"SELECT scope_id,reference_id,revision FROM reference_heads WHERE scope_id IN ({placeholders}) ORDER BY scope_id", ("common", *scopes), 101)
+    routes = _bounded(connection, f"SELECT scope_id,route_snapshot_id,revision FROM route_registry_heads WHERE scope_id IN ({placeholders}) ORDER BY scope_id", ("common", *scopes), 101)
+    route_holds = _bounded(connection, "SELECT outbox_id,ordinal,generation,scope_id,principal_id,route_snapshot_id,is_started,start_deadline,started_at FROM authorized_route_leases ORDER BY scope_id,outbox_id,ordinal", (), 1000)
     holds = _bounded(connection, "SELECT p.publication_id,p.job_id,j.scope_id,p.state,p.commit_id FROM publications p JOIN jobs j ON j.job_id=p.job_id WHERE p.state!='succeeded' ORDER BY p.publication_id", (), 1000)
     locks = _bounded(connection, "SELECT resource_id,publication_id FROM resource_locks ORDER BY resource_id", (), 1000)
     budgets = _bounded(connection, "SELECT platform,period,limit_units,used_units,reserved_units FROM usage_budget ORDER BY platform,period", (), 1000)
     delivery = dict(connection.execute("SELECT state,COUNT(*) FROM report_parts GROUP BY state").fetchall())
     return {"config_heads": [dict(row) for row in heads], "reference_heads": [dict(row) for row in references],
+        "route_heads": [dict(row) for row in routes], "route_holds": [dict(row) for row in route_holds],
         "publication_holds": [dict(row) for row in holds], "resource_locks": [dict(row) for row in locks],
         "is_write_blocked": bool(holds or locks), "delivery_part_counts": delivery,
         "has_unknown_delivery": delivery.get("delivery_uncertain", 0) > 0,

@@ -87,6 +87,7 @@
 - [76：Reference 衍生養成投影](76-reference-projection.md)
 - [77：本地計算子程序限制](77-local-process-isolation.md)
 - [78：全聯盟唯讀狀態](78-read-only-system-status.md)
+- [79：路由與授權 outbox](79-local-routing-and-authorized-outbox.md)
 
 ## 撰寫規則
 

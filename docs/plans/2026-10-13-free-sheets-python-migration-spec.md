@@ -858,7 +858,7 @@ blablalink-tools/
 3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive、已知十一欄草稿遷移完成；遠端格式／維度／metadata adapter 與完整舊表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint、本機 RSS reader 與五 tab 工作簿視圖完成；仍需 confirmed publisher eligibility、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
-6. mock outbox、固定報告／路由編譯、本地計算 worker 及 mock collector 契約已完成；仍需路由授權 head／registry、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
+6. mock outbox、固定報告／路由編譯、路由／sender grant CAS、受授權 outbox 與 start permit、本地計算 worker 及 mock collector 契約已完成；仍需真實 principal／provider 接線、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. A01–A22 已對應真實 JUnit 與逐項缺口（docs/spec/64-local-acceptance-evidence.md）；繼續補其本地未完成範圍，不以 local evidence passed 視為正式驗收。
 
@@ -1201,3 +1201,11 @@ blablalink-tools/
 - 追加：computed 不能當已發布，最新失敗不能抹掉最後成功 receipt；讀狀態不能順便 migration／recover／改 lease。status_hash 綁定完整快照。
 - 十項 mock 驗收含 WAL 真實並行 writer 的一致讀取、一個聯盟壞資料不波及其他聯盟、DB bytes 不變、restore fence、原確認 stale 與 bounded child CLI。
 - 最近發布只是 coordinator receipt，不宣稱實際 workbook 回讀完成；完整歷史分頁、遠端 scope 授權與共享表 publisher 仍待完成。詳見 docs/spec/78-read-only-system-status.md。
+
+### 17.44 第四十批：路由與 sender grant 的受授權 outbox（2026-10-15）
+
+- 0010 migration 固定 route head、sender allowlists、管理變更 receipt、batch／delivery binding 與不可逾時釋放的 route lease。
+- 同一交易確認固定報告／目前路由／grant；每段 claim 再驗，provider 前以一次性 30 秒 start permit 再驗。撤權可阻止尚未開始的工作，不能召回已發出的許可／請求。
+- 追加：新 intent 不得繞過相同報告的 unresolved 舊 delivery；route 改版與 claim 必須互斥，unknown 不能按時間解鎖。receipt 保存後清理中斷只可憑精確正面狀態修復。
+- 14 項 registry 與 20 項多段 mock sender 案例通過，包含原子 fanout、撤權、跨 intent、舊 generation、重啟、路由競爭與 stale cleanup；status 只讀出 head／hold metadata。
+- 未啟用真實 principal、Discord transport 或 production sender；原低階 LocalOutbox 不自動採用新權限流程。詳見 docs/spec/79-local-routing-and-authorized-outbox.md。
