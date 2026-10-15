@@ -110,6 +110,20 @@ def test_unknown_publication_is_not_replayed_by_worker(workspace, monkeypatch):
     assert run_worker(directory, "mock-release-v1", is_publish_enabled=True)["processed"] == []
 
 
+@pytest.mark.parametrize("checks", [1, 4, 8, 14])
+def test_healthcheck_budget_interrupts_without_partial_results(workspace, checks):
+    directory, summary, store = workspace
+    job = submit_new_healthcheck(store, summary)
+    before = MockSheets(directory / "workbooks").read("output_demo")
+    factory = LimitedBudgetFactory(checks)
+    result = run_worker(directory, "mock-release-v1", is_publish_enabled=True, budget_factory=factory)
+    assert result["processed"][0]["state"] == "capacity_blocked"
+    assert store.get_job(job.job_id).result_id is None
+    assert MockSheets(directory / "workbooks").read("output_demo") == before
+    store.resume(job.job_id)
+    assert run_worker(directory, "mock-release-v1", is_publish_enabled=True)["processed"][0]["state"] == "succeeded"
+
+
 def publish_then_lose_response(store, sheets, claim, outputs, revisions):
     from application.publication import publish_workbooks
     return publish_workbooks(store, sheets, claim, outputs, revisions, faults={"output_demo": "after"})
@@ -145,3 +159,11 @@ def make_problem():
 
 def tiny_budget():
     return ComputeBudget(max_checks=1)
+
+
+class LimitedBudgetFactory:
+    def __init__(self, checks):
+        self.checks = checks
+
+    def __call__(self):
+        return ComputeBudget(max_checks=self.checks)

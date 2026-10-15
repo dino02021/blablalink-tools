@@ -10,6 +10,18 @@ class ComputeLimit(RuntimeError):
         self.code = code
 
 
+class ComputeExecutionCheck:
+    def __init__(self, store, lease, budget):
+        self.store, self.lease, self.budget = store, lease, budget
+        self.heartbeat_at = budget.started_at - 15
+
+    def __call__(self):
+        self.budget.check()
+        if self.budget.last_checked_at - self.heartbeat_at >= 15:
+            self.store.heartbeat(self.lease)
+            self.heartbeat_at = self.budget.last_checked_at
+
+
 class ComputeBudget:
     def __init__(self, seconds: float = 240, reserve_seconds: float = 10, max_checks: int = 500000,
                  memory_limit_bytes: int | None = None, memory_reader=None, clock=time.monotonic):

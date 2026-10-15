@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .healthcheck import ELEMENTS, Evaluation, RoleRule, evaluate_metric
 from .snapshots import MemberKey, RoleLabel, TrainingRecord, metric_values
+from .execution import check_execution
 
 
 FENCE = "\x60" * 3
@@ -49,6 +50,7 @@ def build_report(member: MemberKey, display_name: str, rules: tuple[RoleRule, ..
         raise ValueError("duplicate report configuration")
     by_record = {}
     for record in records:
+        check_execution()
         if record.member != member:
             continue
         if record.name_code in by_record:
@@ -61,6 +63,7 @@ def build_report(member: MemberKey, display_name: str, rules: tuple[RoleRule, ..
     assessments: list[RoleAssessment] = []
     warnings: list[str] = []
     for rule in rules:
+        check_execution()
         label = by_label.get(rule.name_code, RoleLabel(rule.name_code, rule.name_code))
         if label.priority == "忽略":
             continue

@@ -12,4 +12,4 @@
 
 local_tests/test_local_worker.py 包含 compute-only→重啟發布、跳過雲端／異版本／未知命令、105 筆不支援工作前置不飢餓、無效輸入、不明發布隔離、排刀 checkpoint resume、實際 scrubbed-env CLI 與未標記目錄拒絕。
 
-目前支援上述兩個計算命令，不能執行 collector、遠端 dispatch、候選確認或發送。尚未提供實際 RSS reader、健檢內迴圈 deadline、D1 或外部 runtime adapter；本地有界工作數不是硬性時間／記憶體隔離。
+目前支援上述兩個計算命令，不能執行 collector、遠端 dispatch、候選確認或發送。已接上[本地 RSS 與合作式迴圈檢查](57-local-compute-resources.md)，尚未提供 D1、外部 runtime adapter 或子程序硬性時間／記憶體隔離。

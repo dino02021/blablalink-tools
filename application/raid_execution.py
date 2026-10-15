@@ -2,7 +2,7 @@
 
 from dataclasses import asdict
 
-from application.compute_budget import ComputeBudget, ComputeLimit
+from application.compute_budget import ComputeBudget, ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
 from domain.execution import execution_checks
 from domain.raid import RaidKnife, RaidSimulation
@@ -12,16 +12,7 @@ from domain.raid_view import build_raid_view
 from domain.snapshots import MemberKey
 
 
-class RaidExecutionCheck:
-    def __init__(self, store, lease, budget):
-        self.store, self.lease, self.budget = store, lease, budget
-        self.heartbeat_at = budget.started_at - 15
-
-    def __call__(self):
-        self.budget.check()
-        if self.budget.last_checked_at - self.heartbeat_at >= 15:
-            self.store.heartbeat(self.lease)
-            self.heartbeat_at = self.budget.last_checked_at
+RaidExecutionCheck = ComputeExecutionCheck
 
 
 def run_raid_job(store, lease, problem: RaidProblem, budget: ComputeBudget):

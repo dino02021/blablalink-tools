@@ -2,7 +2,7 @@
 
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.mock_sheets import MockSheets
-from application.compute_budget import ComputeBudget
+from adapters.process_memory import local_compute_budget
 from application.publication import publish_workbooks
 from application.raid_codec import restore_problem
 from application.raid_execution import run_raid_job
@@ -14,7 +14,7 @@ SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft")
 
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
-               is_publish_enabled: bool = False, budget_factory=ComputeBudget) -> dict:
+               is_publish_enabled: bool = False, budget_factory=local_compute_budget) -> dict:
     validate_identifier(code_sha)
     validate_identifier(worker_id)
     if type(max_jobs) is not int or not 1 <= max_jobs <= 100 or type(is_publish_enabled) is not bool:
@@ -40,7 +40,7 @@ def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_
             job = store.get_job(lease.job_id)
             try:
                 if job.spec.command == "recompute_healthcheck":
-                    computed = run_healthcheck_job(store, lease)
+                    computed = run_healthcheck_job(store, lease, budget_factory())
                 else:
                     problem_id = job.spec.version_map["problem"]
                     problem = restore_problem(store.get_result(problem_id))

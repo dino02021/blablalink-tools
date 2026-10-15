@@ -5,7 +5,9 @@ from dataclasses import asdict
 from adapters.sheet_standard import StandardReference, read_standard_sheet
 from adapters.legacy_standard import LegacyCatalog, read_legacy_standard
 from application.healthcheck import IncompleteTraining, calculate_healthcheck
+from application.compute_budget import ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
+from domain.execution import check_execution, execution_checks
 from domain.snapshots import MemberKey, Override, canonical_json, read_config
 
 
@@ -19,7 +21,18 @@ def reconcile_legacy_standard(store, sheets, resource: str, scope_id: str, captu
     return _reconcile_captured(store, captured, scope_id, catalog.reference.version)
 
 
-def run_healthcheck_job(store, lease):
+def run_healthcheck_job(store, lease, budget=None):
+    if budget is None:
+        return _run_healthcheck_job(store, lease)
+    try:
+        with execution_checks(ComputeExecutionCheck(store, lease, budget)):
+            check_execution()
+            return _run_healthcheck_job(store, lease)
+    except ComputeLimit as error:
+        return store.defer(lease, "capacity_blocked", error.code)
+
+
+def _run_healthcheck_job(store, lease):
     job = store.get_job(lease.job_id)
     if job.spec.command != "recompute_healthcheck":
         raise StateConflict("not a healthcheck task")
@@ -47,6 +60,7 @@ def run_healthcheck_job(store, lease):
     generated = {"schema_version": 1, "config_id": result.config_id, "snapshot_id": result.snapshot_id,
         "code_sha": result.code_version, "calculation_id": result.result_id, "standards": config.payload,
         "scores": asdict(result.scores), "reports": [asdict(report) for report in result.reports]}
+    check_execution()
     return store.complete_compute(lease, {"workbooks": {route["resource"]: generated},
         "layout_revisions": {route["resource"]: route["layout_revision"]}})
 

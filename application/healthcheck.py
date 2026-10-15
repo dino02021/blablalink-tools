@@ -8,6 +8,7 @@ from typing import Mapping
 
 from domain.healthcheck import UnionScores, parse_score_number, score_union
 from domain.reports import ReportDraft, build_report
+from domain.execution import check_execution
 from domain.snapshots import (
     Document, MemberKey, Override, apply_overrides, canonical_json,
     metric_values, read_config, read_training,
@@ -62,7 +63,9 @@ def calculate_healthcheck(
     missing: list[str] = []
     values = {}
     for member in members:
+        check_execution()
         for rule in rules:
+            check_execution()
             if not rule.is_score_tracked:
                 continue
             record = indexed.get((member.key, rule.name_code))

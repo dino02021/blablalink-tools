@@ -1039,3 +1039,11 @@ blablalink-tools/
 - 健檢 computed 可重啟後從同 sealed manifest 發布；未知發布隔離且不自行解鎖／重寫。排刀從封存 hash 還原 typed problem，budget 中斷與 checkpoint 可明確恢復，完成不自動確認。
 - local_tests/test_local_worker.py 新增 8 項流程驗收；含實際 scrubbed-env CLI、105 筆佇列前置、重啟、未知發布與排刀 resume。只用合成資料與本地檔案。
 - RSS／健檢迴圈 deadline、collector、其他命令與遠端 runtime 尚待實作；工作數上限不可當成硬性執行時間限制。細節見 docs/spec/56-offline-worker.md。
+
+### 17.21 第十八批：本地資源讀取與健檢中斷（2026-10-15）
+
+- 新增本機 resident memory reader 與 worker 預設 budget，排刀與健檢共用 heartbeat 檢查；讀取記憶體失敗視為 unknown，不當作零使用量。
+- 健檢 coverage／報告／評分迴圈與結果封存前接上合作式 deadline／操作次數／記憶體檢查；中斷進 capacity_blocked，保留舊 workbook，不封存半份結果。
+- 追加：健檢中斷尚無 stage checkpoint，resume 從同 pinned 輸入重算；整個程序 RSS 與其他 Unix peak fallback 不能當單一工作精確用量。
+- 7 項新增 mock／本機測試涵蓋四處健檢中斷、恢復成功、本機 memory 讀值、小上限與 OS 讀取失敗。
+- 單次 JSON／排序／阻塞 I/O 仍不能合作式中止；硬性子程序隔離、平台 deadline 與 hosted 量測證據仍待驗收。完整契約見 docs/spec/57-local-compute-resources.md。

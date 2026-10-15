@@ -6,6 +6,7 @@ import math
 import re
 from dataclasses import dataclass
 from typing import Mapping
+from domain.execution import check_execution
 
 
 ELEMENTS = ("電擊", "水冷", "燃燒", "風壓", "鐵甲")
@@ -170,8 +171,10 @@ def score_union(
     by_role: dict[str, dict[str, int]] = {}
     role_scores: list[Score] = []
     for rule in active_rules:
+        check_execution()
         raw_by_member = {}
         for member_id in member_ids:
+            check_execution()
             row = values.get((member_id, rule.name_code), {})
             raw = 0.0
             for metric in rule.metrics:
@@ -187,6 +190,7 @@ def score_union(
         role_scores.extend(Score(member_id, rule.name_code, value) for member_id, value in scores.items())
     groups: list[Score] = []
     for group in (*ELEMENTS, "輔助"):
+        check_execution()
         eligible = tuple(rule for rule in active_rules if _is_in_group(rule, group) and rule.total_weight > 0)
         if not eligible:
             continue
