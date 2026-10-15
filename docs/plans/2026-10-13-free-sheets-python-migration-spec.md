@@ -1084,3 +1084,11 @@ blablalink-tools/
 - 追加：還原不能等同接手 writer。副本預設 restored_read_only，worker 一律拒絕執行，status 可讀；本地不提供自動移除 fence。
 - 還原僅新目錄，驗證後才寫資料，禁止越界 ZIP 路徑與既有檔案覆寫；保留已送 outbox／message ID，不重新排入已完成發送。
 - 新增 8 項 mock 驗收及實際 scrubbed-env CLI；A22 增加本地資料還原證據，尚非正式 release binary／跨平台 fencing／降版 migration 驗收。詳見 docs/spec/62-local-backup-restore.md。
+
+### 17.27 第二十四批：保守物件保留與清理計畫（2026-10-15）
+
+- 新增不可變 ObjectRetentionPlan 與 LocalObjectRetention；先規劃、指定 hash 確認，再在同一交易重驗 inventory／root 後刪除舊孤立 objects。
+- 追加：root 不限 SQL FK，還需解析 job／outbox／候選 JSON 與 training→raw 等嵌入引用，取傳遞閉包。歷史設定／任務不自動裁切，不以過期 lease 判斷可刪。
+- 0007 receipt 使清理原子且可重播；新引用／新物件使舊計畫整批拒絕。壞 hash、超過 10000 objects／100000 root rows／bytes 邊界均停止。
+- 新增 5 項臨時 mock DB 驗收，沒有刪除專案檔案、正式試算表或遠端資源。
+- chunk／staging／archive 清理、歷史裁切與遠端 D1 預算仍待完成；新增外部引用來源前須定義 pin，不能直接假設沒有引用。詳見 docs/spec/63-local-object-retention.md。
