@@ -1055,3 +1055,11 @@ blablalink-tools/
 - 對 auth 停止該成員後續請求；逾時／缺頁有限重試，結構矛盾隔離。白名單後才保存 rows hash，cursor／revision 只保存 hash。
 - 新增 19 項 mock 驗收；未呼叫真實 API、未讀取憑證或正式設定。
 - provider 仍是可信 port，未證明真實 API 有 revision／total 或跨 source 原子性；實際 adapter 必須提供真實證據，不得虛構完整性欄位。durable 分頁 checkpoint、roster 擷取與傳輸仍待完成。契約見 docs/spec/58-offline-collection-evidence.md。
+
+### 17.23 第二十批：本地控制請求授權與重放契約（2026-10-15）
+
+- 新增 HMAC envelope 與 LocalRequestGate，限制 64 KiB、時間窗、nonce、body digest、request_id、命令／scope／實際 workbook 權限。只允許健檢／排刀計算，不開放發布或發送。
+- 追加：workbook 權限必須從 sealed 計算輸入解析，不能信任 caller 另傳 resource 清單；排刀須綁 scope input head。所有重播重新檢查目前 principal／key policy。
+- 0006 migration 保存 nonce／request 去重，金鑰僅在可信 runtime 記憶體；replay 紀錄與 job 提交之間 crash 可用固定 request key 補完，不先回假成功。human actor 明確 unknown。
+- 新增 21 項 mock 驗收，包括 body／簽章篡改、撤銷 key、過期、nonce 重用、重複 JSON key、實際目標權限、重啟與中途 crash。
+- 尚無公開端點、正式 key registry／snapshot ingestion 授權／D1 adapter；不可把服務簽章當成編輯者身份。完整邊界見 docs/spec/59-local-control-request-gate.md。
