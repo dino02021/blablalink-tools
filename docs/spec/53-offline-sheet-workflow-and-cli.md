@@ -35,3 +35,5 @@ adapters/sheet_standard.py、application/sheet_healthcheck.py 與 executors/loca
 - Python 測試有 socket guard；CLI 子程序以清除 provider 秘密的環境執行固定離線入口。父程序 socket guard 不能被描述成會攔截任意子程序網路。
 
 尚未包含正式橫向 GS reader、通用 worker CLI、route／actor 授權、完整候選變更摘要 UI、細部格子格式與 D1／HTTP／雲端入口。不得把此 demo 視為正式切換已完成。
+
+後續已新增舊版橫向 grid 的離線 decoder 與獨立 reconcile 入口，見 [54-legacy-standard-grid-and-role-types.md](./54-legacy-standard-grid-and-role-types.md)；正式 API 讀取仍未啟用。

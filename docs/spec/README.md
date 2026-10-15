@@ -49,6 +49,8 @@
     合作式執行預算、heartbeat、排刀階段 checkpoint 與本地續跑。
 19. [53-offline-sheet-workflow-and-cli.md](./53-offline-sheet-workflow-and-cli.md)
     同源標準、候選 reconcile、健檢回寫與完整離線 demo CLI。
+20. [54-legacy-standard-grid-and-role-types.md](./54-legacy-standard-grid-and-role-types.md)
+    舊版六列／十二欄標準解析、字典身份與同角色多類型模型。
 
 ## 涵蓋範圍
 

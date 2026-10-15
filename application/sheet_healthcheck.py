@@ -3,6 +3,7 @@
 from dataclasses import asdict
 
 from adapters.sheet_standard import StandardReference, read_standard_sheet
+from adapters.legacy_standard import LegacyCatalog, read_legacy_standard
 from application.healthcheck import IncompleteTraining, calculate_healthcheck
 from application.tasks import StateConflict
 from domain.snapshots import MemberKey, Override, canonical_json, read_config
@@ -10,13 +11,12 @@ from domain.snapshots import MemberKey, Override, canonical_json, read_config
 
 def reconcile_standard(store, sheets, resource: str, scope_id: str, captured_at: str, reference: StandardReference) -> str | None:
     captured = read_standard_sheet(sheets.read(resource), scope_id, captured_at, reference)
-    head = store.config_head("healthcheck", scope_id)
-    if head:
-        published = store.get_document(head)
-        if canonical_json(published.payload) == canonical_json(captured.payload) and published.envelope["reference_version"] == reference.version:
-            return None
-    # Reconciliation prepares a fixed candidate; it never confirms or publishes it.
-    return store.create_candidate(captured, head)
+    return _reconcile_captured(store, captured, scope_id, reference.version)
+
+
+def reconcile_legacy_standard(store, sheets, resource: str, scope_id: str, captured_at: str, catalog: LegacyCatalog) -> str | None:
+    captured = read_legacy_standard(sheets.read(resource), scope_id, captured_at, catalog)
+    return _reconcile_captured(store, captured, scope_id, catalog.reference.version)
 
 
 def run_healthcheck_job(store, lease):
@@ -49,3 +49,13 @@ def run_healthcheck_job(store, lease):
         "scores": asdict(result.scores), "reports": [asdict(report) for report in result.reports]}
     return store.complete_compute(lease, {"workbooks": {route["resource"]: generated},
         "layout_revisions": {route["resource"]: route["layout_revision"]}})
+
+
+def _reconcile_captured(store, captured, scope_id, reference_version):
+    head = store.config_head("healthcheck", scope_id)
+    if head:
+        published = store.get_document(head)
+        if canonical_json(published.payload) == canonical_json(captured.payload) and published.envelope["reference_version"] == reference_version:
+            return None
+    # Reconciliation prepares a fixed candidate; it never confirms or publishes it.
+    return store.create_candidate(captured, head)

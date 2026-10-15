@@ -198,7 +198,7 @@ def capture_config(scope_id: str, captured_at: str, reference_version: str, rule
                    labels: tuple[RoleLabel, ...] = ()) -> Document:
     _validate_config(rules, labels)
     return capture_document("healthcheck_config", scope_id, captured_at, reference_version, {
-        "rules": [asdict(rule) for rule in rules], "labels": [asdict(label) for label in labels],
+        "model_version": 2, "rules": [asdict(rule) for rule in rules], "labels": [asdict(label) for label in labels],
     })
 
 
@@ -206,9 +206,14 @@ def read_config(document: Document) -> tuple[tuple[RoleRule, ...], tuple[RoleLab
     if document.envelope["kind"] != "healthcheck_config":
         raise ValueError("expected healthcheck configuration")
     payload = document.payload
+    if type(payload.get("model_version", 1)) is not int or payload.get("model_version", 1) not in (1, 2):
+        raise ValueError("unsupported healthcheck model version")
+    if payload.get("model_version", 1) == 1 and any(row.get("additional_role_types") or row.get("tracked_role_types") is not None for row in payload["rules"]):
+        raise ValueError("role type extensions require healthcheck model version 2")
     rules = tuple(RoleRule(
         row["name_code"], row["elements"], row["role_type"],
         tuple(MetricRule(**metric) for metric in row["metrics"]), row["total_weight"], row["is_score_tracked"],
+        row.get("additional_role_types", ()), row.get("tracked_role_types"),
     ) for row in payload["rules"])
     labels = tuple(RoleLabel(**row) for row in payload["labels"])
     _validate_config(rules, labels)

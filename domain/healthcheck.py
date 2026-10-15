@@ -39,6 +39,8 @@ class RoleRule:
     metrics: tuple[MetricRule, ...]
     total_weight: float = 0
     is_score_tracked: bool = True
+    additional_role_types: tuple[str, ...] = ()
+    tracked_role_types: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.elements, (tuple, list)) or not isinstance(self.metrics, (tuple, list)):
@@ -55,6 +57,19 @@ class RoleRule:
             raise ValueError("unknown element")
         if self.role_type not in ("output", "support"):
             raise ValueError("unknown role type")
+        if not isinstance(self.additional_role_types, (tuple, list)):
+            raise ValueError("additional role types must be a sequence")
+        object.__setattr__(self, "additional_role_types", tuple(self.additional_role_types))
+        declared = (self.role_type, *self.additional_role_types)
+        if len(set(declared)) != len(declared) or any(t not in ("output", "support") for t in declared):
+            raise ValueError("duplicate or unknown role types")
+        if self.tracked_role_types is not None:
+            if not isinstance(self.tracked_role_types, (tuple, list)):
+                raise ValueError("tracked role types must be a sequence")
+            tracked = tuple(self.tracked_role_types)
+            if len(set(tracked)) != len(tracked) or not set(tracked) <= set(declared) or bool(tracked) != self.is_score_tracked:
+                raise ValueError("tracked role types conflict with declared roles")
+            object.__setattr__(self, "tracked_role_types", tracked)
         if any(not isinstance(rule, MetricRule) for rule in self.metrics):
             raise ValueError("metrics must contain MetricRule")
         if len({rule.metric_id for rule in self.metrics}) != len(self.metrics):
@@ -67,6 +82,12 @@ class RoleRule:
             is_finite = False
         if not is_finite:
             raise ValueError("total weight must be finite")
+
+    @property
+    def tracked_types(self) -> tuple[str, ...]:
+        if not self.is_score_tracked:
+            return ()
+        return self.tracked_role_types if self.tracked_role_types is not None else (self.role_type, *self.additional_role_types)
 
 
 @dataclass(frozen=True)
@@ -189,8 +210,8 @@ def _is_blank(value: object) -> bool:
 
 def _is_in_group(rule: RoleRule, group: str) -> bool:
     if group == "輔助":
-        return rule.role_type == "support"
-    return rule.role_type == "output" and group in rule.elements
+        return "support" in rule.tracked_types
+    return "output" in rule.tracked_types and group in rule.elements
 
 
 def _normalize(values: Mapping[str, float]) -> dict[str, int]:

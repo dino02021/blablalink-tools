@@ -856,7 +856,7 @@ blablalink-tools/
 1. 快照模型、本地物件持久化、分片續傳、封存與原始 API mock normalizer 已完成；仍需 collector 端完整來源證明、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
-4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
+4. mock publisher、欄位 planner、基本格子請求與舊 GS 六列／十二欄標準 decoder 已完成；十一欄遷移、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
 6. mock Discord outbox 與離線整合 demo CLI 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定與通用本地 worker CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
@@ -1013,3 +1013,12 @@ blablalink-tools/
 - 新增 python -m executors.local demo／status，只使用明確 mock 目錄。demo 拒絕覆寫非空資料夾，status 需 mock marker 與既存本地 DB，不載入正式設定／憑證。
 - 全套 275 項本地 mock 測試通過，包含實際 CLI、候選固定、門檻重算不重抓、同名成員、漏事件 reconcile 與缺資料保留舊結果。
 - 正式表格 reader、一般 worker CLI、路由／actor 授權、collector／遠端協定及精確格子發布仍待完成；A01／A02／A06／A11 僅新增相應本地證據，不宣稱正式環境驗收。
+
+### 17.18 第十五批：舊標準格解析與同角色多類型（2026-10-15）
+
+- 新增 LegacyCatalog／read_legacy_standard／reconcile_legacy_standard，離線解析八／九欄名單與六列、每角色十二欄標準；門檻／係數／權重依已讀本地 GS 契約。
+- 追加：名稱與詞條須唯一對應 pinned ID，可用保護的角色 ID 消除歧義；已知名稱／ID 矛盾、錯位、未選詞條卻有值、雙屬性副本不一致都阻擋候選。
+- 發現並修正模型遺漏：既有 Python 支援同角色輸出／輔助，部分 GS 按名稱首項處理。新 model_version=2 共享 name_code 養成與標準，分別保存宣告類型與追蹤類型，角色原始分及報告只產生一次。
+- 同角色多類型的共用設定／詞條／顯示必須一致，追蹤可分開；v1 保持可讀，新型別擴充不能假冒 v1。正式採用需搭配理解 v2 的 release，舊正式入口未更動。
+- 全套 293 項本地 mock 測試及 Python 語法檢查通過；橫向標準已串接固定候選、計算與 mock 回寫，候選後再編輯不改既有確認。
+- 真實 grid／merge fetch、十一欄遷移、完整格式保護與字典擷取仍未接上；不以本地模板 decoder 宣稱所有正式表格相容。
