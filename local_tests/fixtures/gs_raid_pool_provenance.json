@@ -1,0 +1,48 @@
+{
+  "source_head": "309b7c8c342e97d3cdb8441c23d0ab21c8f138b4",
+  "fixture_sha256": "1804e7edd36011fe648a62c8e900a31f37631581966d8a5c500a727ea38ad613",
+  "sources": {
+    "raid_plan_execution.gs": {
+      "sha256": "acdd428996e8947db30e0cddb0cd80d91c098fd7f54bf16d8dd2d21da82f9fb4",
+      "symbols": [
+        "_createRaidPhasePlanEntries",
+        "_getRaidMembersBySyncDesc",
+        "_isBetterRaidKnife"
+      ]
+    },
+    "raid_plan_member_plan.gs": {
+      "sha256": "48d2abc0d3e2420e299fff6bef4227c40cc766ceea996ebe462761e4a7d3eab7",
+      "symbols": [
+        "_buildRaidCandidatePool",
+        "_buildRaidMemberPlan",
+        "_chooseRaidMemberPlanAutoKnife",
+        "_collectRaidMemberPlanBossCandidates",
+        "_detectRaidMemberPlanShortageReason",
+        "_findRaidMemberPlanAutoCandidate",
+        "_getRaidMemberPlanElementGroups"
+      ]
+    },
+    "raid_plan_output.gs": {
+      "sha256": "e87eaeb24cf490be207e45e6681d9e35ec22c7593a1fcab8885747966801f3e0",
+      "symbols": [
+        "_canUseRaidElement",
+        "_computeRaidElementGroups",
+        "_estimateRaidKnifeDamageYi",
+        "_getRaidAllKnives",
+        "_getRaidElementGroups",
+        "_getRaidElementRank",
+        "_getRaidPendingFixedKnives",
+        "_memberBlocksRaidBoss",
+        "_memberHasRaidBoss",
+        "_rankRaidElements",
+        "_recordRaidShortageLog"
+      ]
+    },
+    "utils.gs": {
+      "sha256": "9b5f423a727c3570fed59951d53d9d73c46b73f8ad6bcf450edad9c83166460c",
+      "symbols": [
+        "normalizeLabel"
+      ]
+    }
+  }
+}

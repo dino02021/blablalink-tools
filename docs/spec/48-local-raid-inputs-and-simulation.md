@@ -36,3 +36,5 @@ local_tests/test_raid.py 驗證多行歷史、指定順序、原始輸入保留�
 gs_raid_reference.js 凍結 8 個 GS 純函式；來源 head、各來源及 fixture hash 見 gs_raid_provenance.json。test_gs_raid_reference.py 以 100 組估傷及 40 組有限階段案例對照。本地 Node VM 不提供 require／fetch，子程序移除 provider 秘密及 NODE_OPTIONS。
 
 這些案例不涵蓋完整候選池、前三輪、補洞、改派、指定刀優先輪替、燃燒／鐵甲交換、缺刀草稿確認與效能上限。不得以本層通過宣稱 A15／A16 完整驗收。
+
+後續已新增主選刀與來源池，見 [49-local-raid-round-selection.md](./49-local-raid-round-selection.md)；完整最終穩定化仍未完成。
