@@ -1216,3 +1216,10 @@ blablalink-tools/
 - 追加：不可每頁留下整份成長 manifest，避免平方級 blob；較早 partial 觀測與其 fragment 也必須有 retention root，不能在 retry 後當孤兒刪除。
 - opaque cursor／revision 不落地。partial 重走首頁取得新 cursor；完成 source 只在明確穩定 revision 契約與 fresh head 驗證後沿用，預設全部重抓，不用 auth fallback 舊資料。
 - 二十項 mock 案例驗證重啟、revision／scope／短頁、取消、容量、hash／脫敏、歷史保留及 DB 故障原子性；正式 provider 的 revision／resume 語意仍未接線。詳見 docs/spec/80-durable-collection-pages.md。
+
+### 17.46 第四十二批：跨模組合成協作情境（2026-10-15）
+
+- 新建 mock-only 整合入口，串起內容 reference、部分收集／明確 resume、試算表候選、native compute、staging 發布、受授權報告、健檢排名作 raid 輸入、獨立確認、狀態、retention 與 fenced restore。
+- 追加：整合證據必須核對來源 ID 串接、未確認草稿不發布、改門檻不重抓、人工 tab 保留，不能只以各模組單測通過推定整段流程可用。
+- 四項實際本地情境測試與固定 JSON 證據，十二次 synthetic port calls、三次 native child、兩份 mock 訊息；兩個新 workspace 的資料與計算版本可重現。
+- 僅一聯盟／兩人／一角色，不宣稱所有規模、roster、平台、正式 provider 或 A01–A22 完整驗收。詳見 docs/spec/81-integrated-mock-scenario.md。

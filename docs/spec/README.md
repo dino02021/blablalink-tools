@@ -89,6 +89,7 @@
 - [78：全聯盟唯讀狀態](78-read-only-system-status.md)
 - [79：路由與授權 outbox](79-local-routing-and-authorized-outbox.md)
 - [80：Collector 持久分頁與觀測](80-durable-collection-pages.md)
+- [81：跨模組合成協作情境](81-integrated-mock-scenario.md)
 
 ## 撰寫規則
 

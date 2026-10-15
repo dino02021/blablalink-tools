@@ -1,0 +1,148 @@
+{
+  "backup_id": "c3c1b3bc7efae8e412ca93b43c6f29d4d247f764b4eafdd9d02ed6ae8a7c9042",
+  "code_sha": "integrated-mock-v1",
+  "collection_attempts": 2,
+  "collection_checkpoint_id": "bdb5f95cd464bf959c5344eff9f45abf8d99b3b160b15b279baafc9f18037825",
+  "collector_calls": 12,
+  "collector_calls_after_standard_edit": 12,
+  "compute_invocations": [
+    {
+      "command": "recompute_healthcheck",
+      "configured_deadline_seconds": 30,
+      "elapsed_seconds": 0.2612570999772288,
+      "exit_code": 0,
+      "is_child_stopped": true,
+      "job_id": "a54e047d1bfd224176b94eb6db5e557641c8ed3c102eec3b4250ece870f58516",
+      "memory_limit_bytes": 536870912,
+      "outcome": "completed"
+    },
+    {
+      "command": "recompute_healthcheck",
+      "configured_deadline_seconds": 30,
+      "elapsed_seconds": 0.25343330000760034,
+      "exit_code": 0,
+      "is_child_stopped": true,
+      "job_id": "961985296f2579d1acad6ee9e3620afc9482a084556092d7819fc24677a76a87",
+      "memory_limit_bytes": 536870912,
+      "outcome": "completed"
+    },
+    {
+      "command": "generate_raid_draft",
+      "configured_deadline_seconds": 30,
+      "elapsed_seconds": 0.26307089999318123,
+      "exit_code": 0,
+      "is_child_stopped": true,
+      "job_id": "13260cdc39b317fa0e05cefaa4b4b395d5ef76597a66b3ff44f4349be79a8780",
+      "memory_limit_bytes": 536870912,
+      "outcome": "completed"
+    }
+  ],
+  "final_config_id": "9453b22ae12f180d3ca6e975e5f6049563a14e5ce7047010a64b23c85606b168",
+  "final_job_id": "961985296f2579d1acad6ee9e3620afc9482a084556092d7819fc24677a76a87",
+  "first_config_id": "27d48d4f59a5c2f24b6e3c8269466f0a49332b44f45777317a3c1e794a8c7d60",
+  "first_job_id": "a54e047d1bfd224176b94eb6db5e557641c8ed3c102eec3b4250ece870f58516",
+  "generated_view_id": "4c5f0593e00d6eb446189771f3d7dd201bda3be39a8af9488a9f30c76d5ff62a",
+  "is_manual_tab_preserved": true,
+  "is_mock": true,
+  "is_restored_fenced": true,
+  "is_system_settled": true,
+  "is_unconfirmed_draft_isolated": true,
+  "network_providers": [],
+  "raid": {
+    "confirmation_id": "bcf82e493e3598e8b30d8760ae88d12e68047eb840cb04088d0a3d5422a65e08",
+    "draft_plan_id": "9bdb20c08808f0fe32509b96c07293b1e3fb4e5c968ad23c2b58fa987a1d4ddb",
+    "problem_id": "81384f9d6a5e7fda9211d8cd6c3228e38f9992c64ea637d9a27f9a45ad4703f9",
+    "source_healthcheck_result_id": "49359588d54e801d0be993dbb77ef563f563f3b843175cbde2a9106fc9c33a7f",
+    "workbook_view_id": "2f6d05aff00adb08a2e3d1a5f49e656259baa8eb6092f1fc43f628c100cae817"
+  },
+  "raw_snapshot_id": "953edb51948065f98449fc3e3ac45a0ff03e38c498f7ccf76ad44e2f4ba80f2e",
+  "reference_id": "e00bb8adb2e342e97ed7f686cf3dbd56bd1852059f12400447b30f7462b47b2a",
+  "reference_version": "723c3acf4bdeba2e744f86002fb384001313b7fc15db204f3b62beba8c9b1d90",
+  "reports": {
+    "candidate_id": "0263b8b9ca1e22982a4d59e5ed5fd1a6d4cdb8a0b3afd15a27abfdf9447ef386",
+    "delivery_count": 2,
+    "is_replay_idempotent": true,
+    "message_count": 2,
+    "route_snapshot_id": "16398db62ad364da6ec0748a234acae46f9399f6f0f6fee0372d3fe79bd0b324"
+  },
+  "retention_deleted_count": 4,
+  "schema_version": 1,
+  "scope_status": {
+    "desired": [
+      {
+        "code_sha": "integrated-mock-v1",
+        "command": "recompute_healthcheck",
+        "error_code": null,
+        "executor_type": "local",
+        "family": "healthcheck",
+        "is_config_current": true,
+        "job_id": "961985296f2579d1acad6ee9e3620afc9482a084556092d7819fc24677a76a87",
+        "lease_expires_at": null,
+        "result_id": "49359588d54e801d0be993dbb77ef563f563f3b843175cbde2a9106fc9c33a7f",
+        "state": "succeeded",
+        "versions": [
+          [
+            "healthcheck_config",
+            "9453b22ae12f180d3ca6e975e5f6049563a14e5ce7047010a64b23c85606b168"
+          ],
+          [
+            "training",
+            "994b6c9a198240516430cdd15c537450b3b5639d8a8ec99c95f6ee51924e4e92"
+          ],
+          [
+            "union_inputs",
+            "0ea96344ed0ce8c2a3e164442d2f293974d115086f7c0facef0544b8abab8a08"
+          ]
+        ]
+      },
+      {
+        "code_sha": "integrated-mock-v1",
+        "command": "generate_raid_draft",
+        "error_code": null,
+        "executor_type": "local",
+        "family": "raid",
+        "is_config_current": true,
+        "job_id": "13260cdc39b317fa0e05cefaa4b4b395d5ef76597a66b3ff44f4349be79a8780",
+        "lease_expires_at": null,
+        "result_id": "9d7ad27d66112de77df7f1561613e1c27235f95b5ebaeb8c0ebdecf4f6b9c93e",
+        "state": "succeeded",
+        "versions": [
+          [
+            "problem",
+            "81384f9d6a5e7fda9211d8cd6c3228e38f9992c64ea637d9a27f9a45ad4703f9"
+          ]
+        ]
+      }
+    ],
+    "has_blocked_target": false,
+    "has_pending_target": false,
+    "historical_job_counts": {
+      "succeeded": 4
+    },
+    "is_all_desired_completed": true,
+    "is_available": true,
+    "last_published": {
+      "code_sha": "integrated-mock-v1",
+      "commit_id": "3d9836f8724c93d672576283135bcfcd447a810469f357512197f99c71138ac2",
+      "family": "healthcheck",
+      "is_current_target": true,
+      "is_live_workbook_verified": false,
+      "job_id": "961985296f2579d1acad6ee9e3620afc9482a084556092d7819fc24677a76a87",
+      "publication_id": "f8be0cb61a9a4574871e7c9bdbad3230",
+      "result_id": "49359588d54e801d0be993dbb77ef563f563f3b843175cbde2a9106fc9c33a7f",
+      "updated_at": 1792067278.3191836
+    },
+    "raid_confirmation": {
+      "confirmation_id": "bcf82e493e3598e8b30d8760ae88d12e68047eb840cb04088d0a3d5422a65e08",
+      "draft_plan_id": "9bdb20c08808f0fe32509b96c07293b1e3fb4e5c968ad23c2b58fa987a1d4ddb",
+      "is_stale": false,
+      "problem_id": "81384f9d6a5e7fda9211d8cd6c3228e38f9992c64ea637d9a27f9a45ad4703f9"
+    },
+    "report_batch_counts": {
+      "accepted": 1,
+      "prepared": 0
+    },
+    "scope_id": "union_scenario_mock"
+  },
+  "training_snapshot_id": "994b6c9a198240516430cdd15c537450b3b5639d8a8ec99c95f6ee51924e4e92"
+}

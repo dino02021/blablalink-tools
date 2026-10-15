@@ -12,9 +12,7 @@ from application.sheet_healthcheck import reconcile_standard, run_healthcheck_jo
 from application.tasks import TaskSpec
 from domain.normalization import capture_raw_training, normalize_training
 from domain.snapshots import MemberKey, canonical_json, capture_document
-
-MARKER = {"schema_version": 1, "is_mock": True, "application": "offline-sheets-migration-demo"}
-
+from domain.mock_workspace import MOCK_WORKSPACE_MARKER as MARKER
 
 def run_demo(directory: Path) -> dict:
     directory = Path(directory).resolve()

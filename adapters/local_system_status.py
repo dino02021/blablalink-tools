@@ -7,8 +7,8 @@ import sqlite3
 
 from application.tasks import AUTO_COMMANDS, TaskSpec, validate_identifier
 from domain.snapshots import canonical_json
+from domain.mock_workspace import MOCK_WORKSPACE_MARKER as MARKER
 
-MARKER = {"schema_version": 1, "is_mock": True, "application": "offline-sheets-migration-demo"}
 BLOCKED = frozenset({"failed", "auth_required", "capacity_blocked", "publish_uncertain"})
 
 
