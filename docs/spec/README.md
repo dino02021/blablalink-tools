@@ -35,6 +35,8 @@
     穩定欄位、確認計畫、封存與型別化儲存格請求。
 12. [46-local-training-normalization.md](./46-local-training-normalization.md)
     原始欄位白名單、來源完整性、持有判斷與全部詞條投影。
+13. [47-local-report-outbox.md](./47-local-report-outbox.md)
+    固定發送意圖、分段狀態、未知結果與 mock Discord。
 
 ## 涵蓋範圍
 

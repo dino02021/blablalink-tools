@@ -858,7 +858,7 @@ blablalink-tools/
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. Python 排刀移轉、歷史／指定刀與固定案例／效能測試。
-6. mock Discord outbox、collector 介面、executor 協定及本地 CLI。
+6. mock Discord outbox 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
 
@@ -943,3 +943,13 @@ blablalink-tools/
 - 追加：裝備與收藏品轉換沿用已讀本地來源；五位詞條前綴、首個 function_details、百分比取絕對值累加與兩位小數為 normalizer v1 相容契約。尚未驗證未來 API 變種。
 - 尚無線上 collector、分頁／完整來源證明、參照資料發布與歷史刀轉換；trusted coverage flag 不代表已驗證遠端完整性。
 - 全套 193 項本地 mock 測試及新增模組 Python 語法檢查通過。
+
+### 17.11 第八批：本地報告 outbox（2026-10-15）
+
+- DeliverySpec 固定確認後的報告版本、成員、路由版本、thread、內容分段與 mention；request／intent 持久去重。
+- 追加 SQL migration 與 LocalOutbox，交易領取、逐段狀態、最多三次明確拒絕重試、provider message ID 與 sent_at；mock Discord 僅保存本地合成訊息。
+- 追加：每段按 UTF-16 2000 units 上限驗證，不能按 Python 字元數錯估 emoji；只有第一段允許明確使用者 mention，其他自動 mention 皆停用。
+- 追加：未知發送不因超時或重啟自動重送；後續分段等待。核對須確認舊 sender 停止與完整 payload／target receipt，或確實未送出，才能結案或重排。
+- 程序中斷的 sending 可以先隔離為 delivery_uncertain，但隔離不代表已證明 writer 停止；重新領取須另通過可信核對。
+- 尚需已發布報告／路由編譯、完整性驗證與格式保留分段、遠端授權及實際 provider adapter。本地 evidence 不能代替正式平台發送驗收。
+- 全套 205 項本地 mock 測試及 Python 語法檢查通過，包含兩連線競爭領取同一訊息。
