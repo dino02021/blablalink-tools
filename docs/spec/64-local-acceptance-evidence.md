@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，904 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-16-local-acceptance.json](../validation/2026-10-16-local-acceptance.json)，928 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。跨模組合成證據另見 [81](81-integrated-mock-scenario.md)。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@
 | A13 | 單一 fanout／壞資料隔離、唯讀跨聯盟一致 snapshot、共享狀態三 tab mock publisher／內容去重／次序與有界 worker hook | 真實共享表 adapter／歷史分頁／遠端 scope 授權 |
 | A14 | auth 停止且不 fallback cache、durable pages／觀測、穩定 revision 的 fresh head 契約 | 真實 Session／provider 完整性／revision 對應 |
 | A15 | GS 固定排刀案例 | tie／guard 差異確認 |
-| A16 | 排序 view／五 tab 視圖不改指定刀、sealed 來源編譯／依賴即時 stale、確認保留原內容、confirmed mock publisher／五 tab 寫入、原子來源採用與 batch-bound 草稿排程、穩定 ID 人工格線擷取／raw lineage | 真實 adapter／公開路由／舊名稱格線遷移與 Google 擷取、健檢更新後重編譯調度 |
+| A16 | 排序 view／五 tab 視圖不改指定刀、sealed 來源編譯／依賴即時 stale、確認保留原內容、confirmed mock publisher／五 tab 寫入、原子來源採用與 batch-bound 草稿排程、穩定 ID 人工格線擷取／raw lineage、已知舊格線的明確 row mapping mock 遷移 | 真實 adapter／公開路由／正式舊身分對照與 Google 擷取、健檢更新後重編譯調度 |
 | A17 | unknown 不盲重發、逐段路由／grant／一次性 start permit、跨 intent 防重 | 真實 principal／Discord adapter／遠端確認與正式採用 |
 | A18 | 預算原子保留、unknown 不退款 | 共用帳戶實際用量／降頻 |
 | A19 | code affinity、local／hosted 邊界 | 同遠端備援協定／release distribution |

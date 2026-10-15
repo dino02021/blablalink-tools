@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 904,
+  "observed_test_cases": 928,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -261,13 +261,19 @@
         "local_tests/test_raid_member_grid.py::test_ambiguous_or_incomplete_grid_fails_closed",
         "local_tests/test_raid_member_grid.py::test_mock_sheet_capture_candidate_adoption_and_worker_keep_frozen_source",
         "local_tests/test_raid_member_grid.py::test_grid_candidate_derivation_failure_rolls_back_objects_and_candidate",
-        "local_tests/test_raid_member_grid.py::test_retention_keeps_raw_grid_provenance_through_candidate_reference"
+        "local_tests/test_raid_member_grid.py::test_retention_keeps_raw_grid_provenance_through_candidate_reference",
+        "local_tests/test_legacy_raid_grid.py::test_preview_is_pure_and_explicit_row_mappings_preserve_reordered_values",
+        "local_tests/test_legacy_raid_grid.py::test_changed_source_or_intent_never_overwrites_collaborator_data",
+        "local_tests/test_legacy_raid_grid.py::test_missing_or_ambiguous_identity_metadata_is_not_guessed",
+        "local_tests/test_legacy_raid_grid.py::test_existing_stable_input_and_changed_target_are_never_replaced",
+        "local_tests/test_legacy_raid_grid.py::test_concurrent_human_edit_and_migration_share_one_read_modify_write_lock",
+        "local_tests/test_legacy_raid_grid.py::test_modified_archive_receipt_is_not_used_as_replay_authority"
       ],
       "remaining": [
         "真實 Sheets adapter／公開發布路由、GS 人工來源擷取與 adopted 來源後調度"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 49
+      "observed_cases": 70
     },
     {
       "id": "A17",

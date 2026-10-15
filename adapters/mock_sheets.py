@@ -13,6 +13,7 @@ from application.tasks import StateConflict
 from application.publication_safety import capture_publication_state
 from adapters.mock_grid import GridMigrationPlan, is_same_grid_layout, materialize_generated_grid, prepare_grid_migration
 from adapters.legacy_migration import SOURCE_KEYS, LegacyMigrationPlan, confirm_legacy_migration
+from adapters.legacy_raid_grid import legacy_raid_source,confirm_legacy_raid_grid
 from domain.snapshots import canonical_json
 from domain.layout import Column, Layout, LayoutPlan, confirm_layout, encode_cell_value
 
@@ -136,6 +137,37 @@ class MockSheets:
         book["layout_revision"] = layout.revision
         book["layout_archives"] = []
         self._save(layout.resource, book)
+
+    @locked_workbook_access
+    def apply_legacy_raid_grid(self, plan, union_inputs, confirmed_plan_id, code_sha):
+        book=self.read(plan.resource)
+        if plan.plan_id!=confirmed_plan_id or plan.union_inputs_id!=union_inputs.snapshot_id or plan.code_sha!=code_sha:
+            raise StateConflict('fixed legacy raid migration confirmation differs')
+        receipts=book.get('raid_input_migrations',[])
+        if not isinstance(receipts,list) or len(receipts)>20:
+            raise StateConflict('legacy raid migration history differs')
+        if (any(not isinstance(receipt,dict) or set(receipt)!={'plan_id','plan','source_hash','source'}
+                or not isinstance(receipt['plan'],dict) or _hash(receipt['plan'])!=receipt['plan_id']
+                or _hash(receipt['source'])!=receipt['source_hash'] or receipt['source_hash']!=receipt['plan'].get('source_hash')
+                for receipt in receipts) or len({receipt['plan_id'] for receipt in receipts})!=len(receipts)):
+            raise StateConflict('legacy raid migration receipt integrity differs')
+        prior=next((receipt for receipt in receipts if receipt['plan_id']==plan.plan_id),None)
+        if prior is not None:
+            if (prior['plan']!=json.loads(canonical_json(asdict(plan))) or prior['source_hash']!=plan.source_hash
+                    or _hash(prior['source'])!=plan.source_hash or prior['source_hash']!=_hash(legacy_raid_source(book))
+                    or canonical_json(book['inputs'].get('raid_member_grid'))!=plan.target_grid_json
+                    or book['layout_revision']!=plan.layout_revision):
+                raise StateConflict('legacy raid migration replay source changed')
+            return plan.grid_snapshot_id
+        if len(receipts)>=20:raise StateConflict('legacy raid migration receipt capacity reached')
+        grid=confirm_legacy_raid_grid(plan,book,union_inputs,confirmed_plan_id,code_sha)
+        source=legacy_raid_source(book)
+        book['inputs']['raid_member_grid']=grid
+        book.setdefault('raid_input_migrations',[]).append({'plan_id':plan.plan_id,'plan':json.loads(canonical_json(asdict(plan))),
+            'source_hash':_hash(source),'source':copy.deepcopy(source)})
+        if len(canonical_json(book).encode())>16*1024*1024:raise ValueError('migrated mock workbook exceeds byte bound')
+        self._save(plan.resource,book)
+        return plan.grid_snapshot_id
 
     def read_layout(self, resource: str) -> Layout:
         data = self.read(resource)["layout"]

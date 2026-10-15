@@ -119,6 +119,7 @@
 - [96：凍結 GS 模板表頭對照與差異](96-frozen-gs-header-contract.md)
 - [97：排刀來源採用與草稿排程的原子動作](97-atomic-raid-source-draft-followup.md)
 - [98：穩定 ID 人工排刀格線與封存來源](98-stable-member-raid-input-grid.md)
+- [99：舊人工排刀格線的明確身分遷移](99-explicit-legacy-raid-grid-migration.md)
 
 ## 撰寫規則
 

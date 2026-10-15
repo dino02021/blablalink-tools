@@ -1344,3 +1344,10 @@ blablalink-tools/
 - 追加：舊 GS 依 normalizeLabel 名稱及輸出列 join 有重名／排序風險，不能默默猜 ID。完整名單、canonical ID、固定 columns、formula／history／容量條件皆明確驗證，0／空／null 保留。
 - 候選在同一交易保存 raw／derived／problem／bundle，member_grid_id 綁 lineage 並重建驗證；擷取後 Sheet 編輯不改原候選，計算不改人工格線或自動發布。
 - 二十六項新案例與相關來源／followup 合計五十三項通過，含 mock Sheet 擷取→採用→worker、rollback／retention。舊名稱遷移、遠端公式／保護與歷史完整性、輪詢 semantic 去重仍待完成。詳見 docs/spec/98-stable-member-raid-input-grid.md。
+
+### 17.64 第六十批：舊人工排刀格線明確遷移（2026-10-16）
+
+- 支援已知 mock A2:B／A3:W 舊範圍，以兩份明確 physical row→MemberKey 對照建立新穩定 ID 輸入；同名、改名與排序不作 join 推測。
+- 固定來源 hash、union snapshot、layout、code、mapping links 與完整 target，確認時重建 CAS。只新增新 input，舊資料／生成區／人工備註與 commit 都保留。
+- 追加：預覽後人工變動、重播覆蓋新區、錯誤 archive receipt 與無限歷史都須阻擋。workbook process lock 包住完整流程，最多二十 receipt／整本十六 MiB。
+- 二十四項 mock 案例涵蓋逐格保留、同名重排、來源／意圖／身分失配、偽造 target、實際 thread 競爭與 archive integrity／capacity。正式身分對照、其他舊模板、未知離隊列及遠端物理遷移仍未完成。詳見 docs/spec/99-explicit-legacy-raid-grid-migration.md。
