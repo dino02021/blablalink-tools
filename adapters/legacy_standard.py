@@ -7,11 +7,9 @@ import unicodedata
 from adapters.sheet_standard import StandardReference, read_standard_sheet
 from domain.healthcheck import ELEMENTS, parse_score_number
 from domain.snapshots import canonical_json
+from domain.standard_layout import ABBREVIATIONS, METRICS
 
-METRICS = ("breakthrough", "skill_1", "skill_2", "skill_burst", "equip_head", "equip_arm", "equip_torso", "equip_leg", "collection")
 HEADERS = ("名稱", "屬性", "類型", "詞條1", "詞條2", "詞條3", "評分追蹤", "暱稱", "優先度")
-ABBREVIATIONS = {"優越代碼傷害": "優", "攻擊力": "攻", "最大裝彈數": "彈", "蓄力速度": "速",
-                 "暴擊率": "暴率", "暴擊傷害": "暴傷", "蓄力傷害": "蓄傷", "命中率": "命", "防禦力": "防"}
 
 
 @dataclass(frozen=True)

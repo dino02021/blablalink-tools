@@ -2,7 +2,7 @@
   "schema_version": 1,
   "requirements": [
     {"id":"A01","tests":["local_tests/test_sheet_workflow.py::test_candidate_is_frozen_while_new_sheet_edit_remains_unpublished"],"remaining":["正式輸入範圍與多人編輯觸發器尚未接線"]},
-    {"id":"A02","tests":["local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training","local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows"],"remaining":["完整標準／練度工作簿 renderer 與逐格格式對照"]},
+    {"id":"A02","tests":["local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training","local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows","local_tests/test_workbook_views.py::test_mock_publication_includes_reconstructable_same_version_view","local_tests/test_workbook_views.py::test_view_applies_same_override_without_rewriting_training"],"remaining":["實際 grid materialization／逐格保護與舊版 header 對照"]},
     {"id":"A03","tests":["local_tests/test_healthcheck.py::test_highest_member_changes_everyone_and_ignores_outside_roster","local_tests/test_gs_scoring.py::test_full_cohort_role_weighted_total_and_rank_match_frozen_gs"],"remaining":["正式 header／nickname／cache 映射驗證"]},
     {"id":"A04","tests":["local_tests/test_gs_reference.py::test_comparison_rank_and_float_round_boundaries_match_gs","local_tests/test_healthcheck.py::test_threshold_boundaries"],"remaining":["正式資料型別與自訂格式契約對應"]},
     {"id":"A05","tests":["local_tests/test_normalization.py::test_missing_owned_detail_requests_refetch_without_erasing_ownership","local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot"],"remaining":["真實 reference 發布與缺項補抓規劃器"]},

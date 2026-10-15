@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 415,
+  "observed_test_cases": 423,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -21,13 +21,15 @@
       "id": "A02",
       "tests": [
         "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training",
-        "local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows"
+        "local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows",
+        "local_tests/test_workbook_views.py::test_mock_publication_includes_reconstructable_same_version_view",
+        "local_tests/test_workbook_views.py::test_view_applies_same_override_without_rewriting_training"
       ],
       "remaining": [
-        "完整標準／練度工作簿 renderer 與逐格格式對照"
+        "實際 grid materialization／逐格保護與舊版 header 對照"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 4
     },
     {
       "id": "A03",

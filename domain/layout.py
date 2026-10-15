@@ -150,6 +150,10 @@ def render_columns(layout: Layout, member_ids: tuple[str, ...], values: dict,
     return tuple(requests)
 
 
+def encode_cell_value(value) -> dict:
+    return _cell_value(value)
+
+
 def _cell_value(value) -> dict:
     if value is None:
         return {}

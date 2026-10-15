@@ -1130,3 +1130,11 @@ blablalink-tools/
 - 實測發現 Windows RSS reader 每 check 重建 ctypes 型別／pointer signature，30 人／200 角色在約 6 秒達 512 MiB；快取 API／型別後，同輸入三次健檢約 1.47–1.83 秒、最高約 41.1 MiB，結果 hash 一致。
 - 追加：資源 reader 自身必須接受高頻穩定性驗收，不可只測一次讀值為正。新增一萬次讀取、profile 結果穩定與範圍測試，共 3 項。
 - 30 人合成排刀約 0.48–0.50 秒、三次同 hash；這不是 hosted／完整 trait／歷史矩陣或 billing 容量驗收。詳見 docs/spec/68-local-core-profile.md。
+
+### 17.34 第三十批：同源八 tab 健檢視圖（2026-10-15）
+
+- 新增 typed grid／八 tab WorkbookView，從固定 config／training／input hash 產生標準、五屬性練度、評分、報告，與計算 manifest 一起封存及 mock 發布。
+- 標準六列／十二欄、合併、詞條 function ID、隱藏 composite identity、格式與顏色均有明確模型；same override 只影響投影，不改原始 training。
+- 追加：renderer 必須驗 names／overrides／roster input hash，不得計算後偷偷更換來源；分數為 0..100 NUMBER，不當百分比。formula-like 字串只能轉 literal stringValue。
+- 新增 8 項 mock 驗收；selected 標準可經既有 decoder 回讀，實際 mock publication 可還原相同 view_id。
+- 新 training／score view schema 不宣稱所有舊版 header 相容；protected flag 尚非遠端 enforcement，真實 grid materialization／舊尾列清除／遷移仍待完成。詳見 docs/spec/69-generated-workbook-views.md。

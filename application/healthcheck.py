@@ -86,10 +86,14 @@ def calculate_healthcheck(
         missing.extend(f"{report.member.key}/{warning}" for warning in report.warnings)
     if missing:
         raise IncompleteTraining(tuple(dict.fromkeys(missing)))
-    input_hash = hashlib.sha256(canonical_json({
+    input_hash = healthcheck_input_hash(members, display_names, overrides)
+    return HealthcheckResult(config.snapshot_id, training.snapshot_id, code_version, input_hash,
+                             score_union(tuple(member.key for member in members), rules, values), reports)
+
+
+def healthcheck_input_hash(members, display_names, overrides=()):
+    return hashlib.sha256(canonical_json({
         "members": [asdict(member) for member in members],
         "display_names": {member.key: display_names.get(member.key, member.member_id) for member in members},
         "overrides": [asdict(override) for override in sorted(overrides, key=lambda item: item.key)],
     }).encode("utf-8")).hexdigest()
-    return HealthcheckResult(config.snapshot_id, training.snapshot_id, code_version, input_hash,
-                             score_union(tuple(member.key for member in members), rules, values), reports)

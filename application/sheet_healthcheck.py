@@ -7,6 +7,7 @@ from adapters.legacy_standard import LegacyCatalog, read_legacy_standard
 from application.healthcheck import IncompleteTraining, calculate_healthcheck
 from application.compute_budget import ComputeExecutionCheck, ComputeLimit
 from application.tasks import StateConflict
+from application.workbook_views import render_healthcheck_view
 from domain.execution import check_execution, execution_checks
 from domain.snapshots import MemberKey, Override, canonical_json, read_config
 
@@ -77,9 +78,11 @@ def _run_healthcheck_job(store, lease):
         return store.defer(lease, "waiting_for_data", "training_incomplete")
     # The standards rendered for upload are the very configuration used for calculation.
     read_config(config)
+    view = render_healthcheck_view(config, training, roster, display_names, result, overrides)
     generated = {"schema_version": 1, "config_id": result.config_id, "snapshot_id": result.snapshot_id,
-        "code_sha": result.code_version, "calculation_id": result.result_id, "standards": config.payload,
-        "scores": asdict(result.scores), "reports": [asdict(report) for report in result.reports]}
+        "code_sha": result.code_version, "calculation_id": view.calculation_id, "standards": config.payload,
+        "scores": asdict(result.scores), "reports": [asdict(report) for report in result.reports],
+        "view": asdict(view), "view_id": view.view_id}
     check_execution()
     return store.complete_compute(lease, {"workbooks": {route["resource"]: generated},
         "layout_revisions": {route["resource"]: route["layout_revision"]}})
