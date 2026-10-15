@@ -43,4 +43,4 @@
 - 全套命令：python -m pytest local_tests -q -p no:cacheprovider，目前共 124 項通過。
 - 本地方法的停止證明、讀回與用量參數是可信介面前置條件；尚無 provider adapter 驗證這些證據。
 - 沒有正式工作簿操作、網路入口、雲端派送、D1 adapter 或遠端憑證載入。SQLite 測試不能證明 D1 的交易與平台行為。
-- mock Sheets 格子發布與故障注入仍待後續實作。
+- mock Sheets 生成區發布與故障注入見 [43-mock-sheet-publication.md](./43-mock-sheet-publication.md)；正式格子座標、格式與 layout planner 仍待實作。

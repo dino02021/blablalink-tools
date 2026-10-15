@@ -856,7 +856,7 @@ blablalink-tools/
 1. 快照模型已完成；仍需原始 API mock normalizer、物件持久化與完整來源 coverage 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
-4. mock Sheets publisher、layout planner、未知發布與舊任務覆蓋測試。
+4. mock 生成區 publisher、未知發布及舊權限測試已完成；精確格子／格式 layout planner、分片 staging 與完整表格對照仍待完成。
 5. Python 排刀移轉、歷史／指定刀與固定案例／效能測試。
 6. mock Discord outbox、collector 介面、executor 協定及本地 CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
@@ -904,3 +904,12 @@ blablalink-tools/
 7. 發布恢復沿用相同 commit_id，檢查所有資源的讀回證據；部分成功時保留全部鎖與逐資源進度。SQLite migration 保存 checksum，已套用檔案變更即拒絕啟動。
 8. 目前「舊 writer 已停止」、實際用量與工作簿 commit 讀回仍由可信本地呼叫者提供。未來 provider adapter 必須取得可驗證證據，不能讓外部請求自行宣稱成功或 writer 已停止。
 9. 此批尚未實作 mock 工作簿格子寫入、正式 Sheets publisher、HTTP 身分驗證、D1 adapter 或雲端啟動。下一批須用可注入失敗的 mock Sheets 驗證實際發布流程，不能以狀態庫單元測試取代。
+
+### 17.7 第四批：mock 生成區發布（2026-10-15）
+
+- 新增本地檔案工作簿與 publisher，將封存結果、發布權限、生成內容與讀回驗證串接；僅使用合成資源。
+- 驗證跨工作簿部分成功、寫入前／後失去回應、SQLite 與工作簿 adapter 重啟恢復、同 commit 跳過已完成資源。
+- 追加：commit 標記必須和實際生成內容 hash 一起驗證；同 commit 不得替換 payload。publisher 不接受與封存結果不同的內容／layout manifest。
+- 追加：mock 人工區與生成區分離，生成區採完整替換避免舊尾端資料殘留。layout revision 衝突須拒絕覆寫並保留未明狀態。
+- 這批是邏輯生成區模型，尚不包含正式格子座標、格式、公式、保護區、分片 staging 或 Google HTTP 模擬；不能宣稱完整 Sheets 相容性。
+- 追加：封存 manifest 以 canonical JSON 比對，不能用 Python 的寬鬆數值相等取代不可變內容契約。全套 135 項 mock 測試通過。
