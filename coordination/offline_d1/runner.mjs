@@ -1,11 +1,36 @@
 import fs from "node:fs";
 import childProcess from "node:child_process";
+import {createHash} from "node:crypto";
 import { syncBuiltinESMExports } from "node:module";
 
 // The parent attaches its Job Object before opening this one-use start gate.
 const gate=fs.readFileSync(0,"utf8");
 if(gate!=="start\n" || !process.argv[2] || fs.statSync(process.argv[2]).size>65536)process.exit(2);
 const input=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+function bindValue(value){
+  if(value===null||typeof value!=="object")return value;
+  if(Object.keys(value).sort().join(',')!=="base64,sha256,type"||value.type!=="d1_binary_v1"||typeof value.base64!=="string"||value.base64.length>43692)throw new Error("invalid binary control value");
+  const bytes=Buffer.from(value.base64,"base64");
+  if(bytes.length<1||bytes.length>32768||bytes.toString("base64")!==value.base64||createHash("sha256").update(bytes).digest("hex")!==value.sha256)throw new Error("binary control integrity mismatch");
+  return new Uint8Array(bytes);
+}
+function encodeBinaryResults(value){
+  if(value&&typeof value==="object"){
+    if(Array.isArray(value.results))for(const row of value.results){
+      if(row&&Array.isArray(row.chunk_data)){
+        const bytes=Buffer.from(row.chunk_data);
+        if(bytes.length<1||bytes.length>32768)throw new Error("binary read bound exceeded");
+        row.chunk_data={type:"d1_binary_v1",base64:bytes.toString("base64"),sha256:createHash("sha256").update(bytes).digest("hex")};
+      }
+      encodeBinaryResults(row);
+    }
+    for(const [key,child] of Object.entries(value))if(key!=="results"){
+      if(Array.isArray(child))child.forEach(encodeBinaryResults);
+      else if(child&&typeof child==="object")encodeBinaryResults(child);
+    }
+  }
+  return value;
+}
 const children=[];
 const spawn=childProcess.spawn;
 childProcess.spawn=function(...arguments_){const child=spawn.apply(this,arguments_);children.push(child);return child;};
@@ -28,7 +53,7 @@ try{
     }};`,
     compatibilityDate,
     host:"127.0.0.1",port:0,inspectorPort:0,
-    d1Databases:["DB"],d1Persist:false,
+    d1Databases:["DB"],d1Persist:process.argv[3]??false,
     outboundService(){blocked++;return new Response("local-network-denied",{status:403});},
     log:new Log(LogLevel.NONE),
   });
@@ -41,21 +66,21 @@ try{
   // these trusted, semicolon-delimited fixture statements via prepare().run().
   const schemaStatements=Array.isArray(input.schema_statements)?input.schema_statements:
     input.schema.replace(/^\s*--.*$/gm,"").split(";").map(statement=>statement.trim()).filter(Boolean);
-  for(const sql of schemaStatements)await db.prepare(sql).run();
+  if(schemaStatements.length)await db.batch(schemaStatements.map(sql=>db.prepare(sql)));
   const operations=[];
   for(const operation of input.operations){
     try{
       if(operation.kind==="batch"){
         operations.push({outcome:"completed",results:await db.batch(operation.statements.map(statement=>
-          db.prepare(statement.sql).bind(...statement.parameters)))});
+          db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))))});
       }else if(operation.kind==="parallel_batches"){
         const batches=await Promise.all(operation.batches.map(async statements=>{
-          try{return {outcome:"completed",results:await db.batch(statements.map(statement=>db.prepare(statement.sql).bind(...statement.parameters)))};}
+          try{return {outcome:"completed",results:await db.batch(statements.map(statement=>db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))))};}
           catch(error){return {outcome:"rejected",error_name:error.name,error_message:String(error.message).slice(0,1000)};}
         }));
         operations.push({outcome:"completed",batches});
       }else if(operation.kind==="lookup_or_batch"){
-        const lookup=await db.prepare(operation.lookup.sql).bind(...operation.lookup.parameters).all();
+        const lookup=await db.prepare(operation.lookup.sql).bind(...operation.lookup.parameters.map(bindValue)).all();
         if(lookup.results.length>1)throw new Error("receipt lookup cardinality differs");
         if(lookup.results.length===1){
           const row=lookup.results[0],expected=operation.receipt;
@@ -63,10 +88,10 @@ try{
           operations.push({outcome:"completed",mode:"lookup_replay",lookup_result:lookup,receipt:row});
         }else{
           operations.push({outcome:"completed",mode:"batch",lookup_result:lookup,
-            results:await db.batch(operation.statements.map(statement=>db.prepare(statement.sql).bind(...statement.parameters)))});
+            results:await db.batch(operation.statements.map(statement=>db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))))});
         }
       }else if(operation.kind==="query"){
-        operations.push({outcome:"completed",result:await db.prepare(operation.sql).bind(...operation.parameters).all()});
+        operations.push({outcome:"completed",result:await db.prepare(operation.sql).bind(...operation.parameters.map(bindValue)).all()});
       }else throw new Error("unsupported local contract operation");
     }catch(error){operations.push({outcome:"rejected",error_name:error.name,error_message:String(error.message).slice(0,1000)});}
   }
@@ -89,4 +114,4 @@ for(const child of children){
   });
 }
 result.are_sdk_children_closed=children.every(child=>child.exitCode!==null||child.signalCode!==null);
-process.stdout.write(JSON.stringify(result)+"\n");
+process.stdout.write(JSON.stringify(encodeBinaryResults(result))+"\n");

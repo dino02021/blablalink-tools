@@ -12,15 +12,21 @@ import tempfile
 import time
 
 from adapters.windows_child_job import WindowsChildJob
+from adapters.mock_d1_workspace import require_mock_d1_workspace
 from executors.local.process_guard import _stop
 
 
-def run_d1_emulator(payload,seconds=30):
+def run_d1_emulator(payload,seconds=30,*,mock_directory=None,schema_id=None):
     if sys.platform!='win32':raise ValueError('local emulator process tree requires verified Windows supervision')
     if type(seconds) not in (int,float) or not math.isfinite(seconds) or not .05<=seconds<=60:
         raise ValueError('bounded local emulator duration required')
     serialized=json.dumps(payload,ensure_ascii=False,allow_nan=False).encode('utf-8')
     if len(serialized)>65536:raise ValueError('bounded local SQL contract payload required')
+    storage=None
+    if mock_directory is not None:
+        storage=require_mock_d1_workspace(mock_directory,schema_id)/'storage'
+    elif schema_id is not None:
+        raise ValueError('mock D1 directory required for schema identity')
     node=shutil.which('node')
     folder=Path(__file__).resolve().parents[2]/'coordination/offline_d1'
     script=folder/'runner.mjs'
@@ -35,7 +41,9 @@ def run_d1_emulator(payload,seconds=30):
         with tempfile.TemporaryDirectory(prefix='owned-d1-input-') as temporary, tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
             input_path=Path(temporary)/'contract.json'
             input_path.write_bytes(serialized)
-            process=subprocess.Popen((str(Path(node).resolve()),str(script),str(input_path)),cwd=folder,env=environment,
+            arguments=(str(Path(node).resolve()),str(script),str(input_path))
+            if storage is not None:arguments+= (str(storage),)
+            process=subprocess.Popen(arguments,cwd=folder,env=environment,
                 stdin=subprocess.PIPE,stdout=output,stderr=errors,shell=False,creationflags=subprocess.CREATE_NO_WINDOW)
             fence.attach(process)
             process.stdin.write(b'start\n')

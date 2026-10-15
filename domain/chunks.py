@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import zlib
 from dataclasses import asdict, dataclass
 
@@ -45,13 +46,12 @@ class ChunkManifest:
 
 
 def encode_document(document: Document) -> tuple[ChunkManifest, tuple[bytes, ...]]:
-    raw = document.serialized.encode("utf-8")
-    if len(raw) > MAX_OBJECT_BYTES:
-        raise ValueError("snapshot too large")
-    compressed = zlib.compress(raw)
-    chunks = tuple(compressed[i:i + CHUNK_BYTES] for i in range(0, len(compressed), CHUNK_BYTES))
-    manifest = ChunkManifest(document.snapshot_id, _hash(raw), len(raw), len(compressed), tuple(_hash(c) for c in chunks))
-    return manifest, chunks
+    return _encode_raw(document.serialized.encode("utf-8"))
+
+
+def encode_value(value) -> tuple[ChunkManifest, tuple[bytes, ...]]:
+    """Retain the canonical JSON identity used by coordinator result objects."""
+    return _encode_raw(canonical_json(value).encode("utf-8"))
 
 
 def verify_chunk(manifest: ChunkManifest, index: int, chunk: bytes) -> None:
@@ -63,6 +63,30 @@ def verify_chunk(manifest: ChunkManifest, index: int, chunk: bytes) -> None:
 
 
 def decode_document(manifest: ChunkManifest, chunks: tuple[bytes, ...]) -> Document:
+    return restore_document(_decode_raw(manifest, chunks).decode("utf-8"), manifest.object_id)
+
+
+def decode_value(manifest: ChunkManifest, chunks: tuple[bytes, ...]):
+    raw = _decode_raw(manifest, chunks)
+    try:
+        value = json.loads(raw)
+        if canonical_json(value).encode("utf-8") != raw:
+            raise ValueError("object JSON is not canonical")
+    except (UnicodeError, json.JSONDecodeError, OverflowError, RecursionError) as error:
+        raise ValueError("invalid canonical object JSON") from error
+    return value
+
+
+def _encode_raw(raw: bytes) -> tuple[ChunkManifest, tuple[bytes, ...]]:
+    if len(raw) > MAX_OBJECT_BYTES:
+        raise ValueError("snapshot too large")
+    compressed = zlib.compress(raw)
+    chunks = tuple(compressed[i:i + CHUNK_BYTES] for i in range(0, len(compressed), CHUNK_BYTES))
+    manifest = ChunkManifest(_hash(raw), _hash(raw), len(raw), len(compressed), tuple(_hash(c) for c in chunks))
+    return manifest, chunks
+
+
+def _decode_raw(manifest: ChunkManifest, chunks: tuple[bytes, ...]) -> bytes:
     if len(chunks) != len(manifest.chunk_hashes):
         raise ValueError("incomplete snapshot")
     for index, chunk in enumerate(chunks):
@@ -75,7 +99,7 @@ def decode_document(manifest: ChunkManifest, chunks: tuple[bytes, ...]) -> Docum
     if (len(raw) != manifest.raw_size or not decoder.eof or decoder.unused_data
             or decoder.unconsumed_tail or _hash(raw) != manifest.content_hash):
         raise ValueError("snapshot size, stream or hash mismatch")
-    return restore_document(raw.decode("utf-8"), manifest.object_id)
+    return raw
 
 
 def _hash(value: bytes) -> str:

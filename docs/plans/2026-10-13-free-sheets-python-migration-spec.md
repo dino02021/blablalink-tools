@@ -1381,3 +1381,12 @@ blablalink-tools/
 - 追加：節省 guard writes 不能犧牲 schema 失配拒絕。新 mutation 先核對五個完整 DDL 與 trigger inventory，失配在 trigger 執行前產生 SQL error；回讀仍核對原意圖，不以 run success 當完成。
 - 同 fixture 實際 Miniflare 比較：新 CAS 由 10讀／9寫變 16讀／2寫；直接 replay 由11讀／5寫變15讀／0寫。保留讀取代價與完整帳戶用量未知，不假稱固定容量或正式配額驗收。
 - 十六項 SQLite／十項實際 SDK／九項 usage metadata 回歸，另實際 CLI 保存 docs/validation/2026-10-16-receipt-d1-comparison.json。完整 D1 jobs／leases／publisher／objects／admission／auth／release 仍待完成。詳見 docs/spec/103-receipt-driven-d1-cas.md。
+
+### 17.69 第六十五批：D1 物件分片傳輸（開發中）
+
+- 保持 coordinator canonical JSON 身分，新增通用有界 codec 與雙端驗證 binary 控制封包；實際本地 D1 BLOB 綁定已測。
+- 16 MiB 目前只完成 Python codec 邊界，持久 D1／續傳／seal 與完整 suite 尚待繼續，不宣稱已完成 D1 遷移。詳見 docs/spec/104-d1-object-transport.md。
+
+- 同批持續完成：marked persistent D1、原子 schema bootstrap、操作前 DDL guard 與 Python object port；實際 SDK 驗證跨程序續傳、未 seal 拒絕與完整讀回。大型 D1 效能／上限與遠端授權尚未驗收，完整回歸進行中。
+
+- 本批完整回歸：1,056 項通過、22 項本地證據通過，正式驗收仍為 false。大型 inventory 合併回覆可能超限，已追加分頁遺漏，繼續處理。

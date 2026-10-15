@@ -116,7 +116,12 @@
         "local_tests/test_receipt_d1_runtime.py::test_stale_conflict_barrier_and_old_replay_preserve_the_new_head",
         "local_tests/test_receipt_d1_runtime.py::test_actual_d1_missing_trigger_is_rejected_before_receipt_or_head_write",
         "local_tests/test_receipt_d1_runtime.py::test_actual_d1_changed_table_shape_fails_closed",
-        "local_tests/test_receipt_d1_runtime.py::test_lost_readback_after_single_mutation_recovers_without_open_transaction"
+        "local_tests/test_receipt_d1_runtime.py::test_lost_readback_after_single_mutation_recovers_without_open_transaction",
+        "local_tests/test_d1_objects.py::test_actual_d1_object_resume_seal_and_read_across_owned_processes",
+        "local_tests/test_d1_objects.py::test_schema_guard_rejects_extra_trigger_before_writing",
+        "local_tests/test_d1_persistence.py::test_actual_d1_survives_two_owned_sdk_processes_and_atomic_schema_failure",
+        "local_tests/test_d1_binary_runtime.py::test_actual_maximum_chunk_round_trip_stays_within_output_bound",
+        "local_tests/test_d1_object_codec.py::test_full_sixteen_mib_canonical_object_round_trip_and_limit"
       ],
       "remaining": [
         "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
