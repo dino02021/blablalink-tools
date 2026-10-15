@@ -1099,3 +1099,8 @@ blablalink-tools/
 - 本輪全套 383 項 mock 測試通過，22 項都有對應案例通過；報告明確 is_production_accepted=false，逐項列出 remaining，不能推導為全部需求完成。
 - 追加 4 項報告 importer 驗收，防止空紀錄、skip 或部分參數失敗被當成通過。報告入口只讀既有 JUnit，輸出新檔，不載入正式設定。
 - 本地未完成範圍與真正外部依賴分開記錄；仍可自主推進 renderer、薄 GS／hosted／D1 離線契約、checkpoint／registry／效能等，不進入 blocked。證據見 docs/validation/2026-10-15-local-acceptance.json，契約見 docs/spec/64-local-acceptance-evidence.md。
+
+### 17.29 追加：外部請求不得自創 task family（2026-10-15）
+
+- 稽核發現 signed task 原可自選 family，可能使舊版本輸入避開 healthcheck／raid desired target 的比較；限制 signed command 使用固定 family，可信本地 API 的一般能力保留。
+- 新增入口測試驗證有效簽章也不能繞過 family policy，且拒絕時不寫入 replay receipt。這是本地授權契約修正，無正式環境變更。

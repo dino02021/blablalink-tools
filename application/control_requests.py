@@ -81,6 +81,9 @@ def verify_request(envelope: dict, body: bytes, principal: RequestPrincipal, now
     if (task.command not in COMPUTE_COMMANDS or task.command not in principal.commands
             or task.scope_id not in principal.scopes):
         raise RequestDenied("scope_denied")
+    expected_family = "healthcheck" if task.command == "recompute_healthcheck" else "raid"
+    if task.family != expected_family:
+        raise RequestDenied("task_family_denied")
     return task
 
 

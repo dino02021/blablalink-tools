@@ -5,7 +5,11 @@ import pytest
 from adapters.local_request_gate import LocalRequestGate
 from adapters.local_state import LocalStateStore
 from application.control_requests import RequestDenied, RequestPrincipal, encode_request_task, sign_request
-from domain.snapshots import capture_document
+from application.tasks import TaskSpec
+from domain.healthcheck import ELEMENTS
+from domain.raid import RaidMember
+from domain.raid_planner import RaidProblem
+from domain.snapshots import MemberKey, capture_document
 from executors.local.demo import run_demo
 
 KEY = b"mock-only-signing-key-never-production-0001"
@@ -56,6 +60,33 @@ def test_modified_body_and_nonce_reuse_are_denied(control):
     gate.submit_signed(envelope, body)
     with pytest.raises(RequestDenied, match="nonce_reused"):
         gate.submit_signed(sign(body, request_id="other_request"), body)
+
+
+def test_signed_client_cannot_escape_desired_target_by_changing_family(control):
+    gate, spec, _, _, _, _ = control
+    body = encode_request_task(replace(spec, family="invented_family"))
+    with pytest.raises(RequestDenied, match="task_family_denied"):
+        gate.submit_signed(sign(body), body)
+    assert gate._connection.execute("SELECT COUNT(*) FROM control_requests").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("change", ["valid", "code", "scope_head"])
+def test_raid_request_uses_scoped_problem_head_and_code(control, change):
+    gate, _, _, _, _, policy = control
+    gate.principals[policy.principal_id] = replace(policy, commands=frozenset({"generate_raid_draft"}))
+    member = RaidMember(MemberKey("area", "member"), "mock", 100)
+    problem = RaidProblem((member,), (("0",) * 5,) * 3, ELEMENTS, 100, ("10",) * 5, (), (), (),
+        (("inputs", "mock"),), "code")
+    gate.observe_problem("union_demo", problem, 0)
+    if change == "scope_head":
+        gate.observe_problem("union_demo", replace(problem, input_versions=(("inputs", "new"),)), 1)
+    task = TaskSpec("generate_raid_draft", "union_demo", "other" if change == "code" else "code", {"problem": problem.problem_id}, family="raid")
+    body = encode_request_task(task)
+    if change == "valid":
+        assert gate.submit_signed(sign(body), body).spec == task
+    else:
+        with pytest.raises(RequestDenied):
+            gate.submit_signed(sign(body), body)
 
 
 def test_request_id_cannot_change_payload_even_with_valid_signature(control):
