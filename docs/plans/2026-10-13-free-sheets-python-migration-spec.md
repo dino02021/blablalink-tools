@@ -1138,3 +1138,10 @@ blablalink-tools/
 - 追加：renderer 必須驗 names／overrides／roster input hash，不得計算後偷偷更換來源；分數為 0..100 NUMBER，不當百分比。formula-like 字串只能轉 literal stringValue。
 - 新增 8 項 mock 驗收；selected 標準可經既有 decoder 回讀，實際 mock publication 可還原相同 view_id。
 - 新 training／score view schema 不宣稱所有舊版 header 相容；protected flag 尚非遠端 enforcement，真實 grid materialization／舊尾列清除／遷移仍待完成。詳見 docs/spec/69-generated-workbook-views.md。
+
+### 17.35 第三十一批：mock 實體格線與保護（2026-10-15）
+
+- 回寫原子保存 generated payload 與 derived typed grid；八 tab 的顏色、note、merge、尺寸、凍結、隱藏欄及保護均可回讀核對，縮短列完整清尾。
+- 人工 tab 與 inputs 保留；產生 tab 禁止透過 mock 協作者入口編輯，初次 materialization 有 key／title 衝突即拒絕。
+- 追加：回讀不能只驗 payload hash，必須核對實際格線與格式；merge 非錨點的 note 也不得隱藏。結構不同或移除 view 必須走明確 migration，不可一般回寫暗中採用。
+- 此批仍是本地 JSON workbook 的 enforcement，沒有宣稱遠端 Google protection／交易已完成。後續補 migration preview／確認與 archive。詳見 docs/spec/70-mock-physical-grid.md。

@@ -78,6 +78,7 @@
 - [67：控制請求容量與 nonce 保留](67-local-control-capacity.md)
 - [68：本地核心 profile 與 reader 修正](68-local-core-profile.md)
 - [69：同源健檢工作簿視圖](69-generated-workbook-views.md)
+- [70：Mock 實體格線與保護](70-mock-physical-grid.md)
 
 ## 撰寫規則
 

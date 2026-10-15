@@ -60,7 +60,7 @@ class ViewTab:
             if not (0 <= r0 < r1 <= len(rows) and 0 <= c0 < c1 <= len(columns)) or (r1-r0)*(c1-c0) <= 1:
                 raise ValueError("merge is outside view")
             positions = {(r, c) for r in range(r0, r1) for c in range(c0, c1)}
-            if positions & occupied or any(rows[r][c].value is not None for r, c in positions - {(r0, c0)}):
+            if positions & occupied or any(rows[r][c].value is not None or rows[r][c].note for r, c in positions - {(r0, c0)}):
                 raise ValueError("merge overlaps or hides nonempty data")
             occupied.update(positions)
         for name, value in (("column_ids", columns), ("row_ids", identities), ("rows", rows), ("merges", merges), ("hidden_columns", hidden)):

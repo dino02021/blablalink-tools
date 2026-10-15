@@ -9,8 +9,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from application.tasks import StateConflict
+from adapters.mock_grid import is_same_grid_layout, materialize_generated_grid
 from domain.snapshots import canonical_json
-from domain.layout import Column, Layout, LayoutPlan, confirm_layout
+from domain.layout import Column, Layout, LayoutPlan, confirm_layout, encode_cell_value
 
 
 class MockSheets:
@@ -34,6 +35,32 @@ class MockSheets:
     def edit_inputs(self, resource: str, inputs: dict) -> None:
         book = self.read(resource)
         book["inputs"] = copy.deepcopy(inputs)
+        self._save(resource, book)
+
+    def set_manual_tab(self, resource: str, tab_key: str, title: str, rows: list) -> None:
+        book = self.read(resource)
+        generated_tabs = (book.get("generated_grid") or {}).get("tabs", {})
+        manual = book.setdefault("manual_tabs", {})
+        if (not isinstance(tab_key, str) or not tab_key.strip() or not isinstance(title, str) or not title.strip()
+                or tab_key in generated_tabs or any(tab["title"].casefold() == title.casefold() for tab in generated_tabs.values())
+                or any(key != tab_key and tab["title"].casefold() == title.casefold() for key, tab in manual.items())):
+            raise StateConflict("manual tab ownership or title conflicts")
+        if (not isinstance(rows, list) or not 1 <= len(rows) <= 10000 or not isinstance(rows[0], list)
+                or not 1 <= len(rows[0]) <= 10000 or len(rows)*len(rows[0]) > 500000
+                or any(not isinstance(row, list) or len(row) != len(rows[0]) for row in rows)):
+            raise ValueError("invalid bounded manual grid")
+        manual[tab_key] = {"title": title, "cells": [[{"value": encode_cell_value(cell)} for cell in row] for row in rows]}
+        self._save(resource, book)
+
+    def edit_cell(self, resource: str, tab_key: str, row: int, column: int, value: object) -> None:
+        book = self.read(resource)
+        if tab_key in (book.get("generated_grid") or {}).get("tabs", {}):
+            raise StateConflict("generated tab is protected")
+        tab = book.get("manual_tabs", {}).get(tab_key)
+        if (tab is None or type(row) is not int or type(column) is not int
+                or not 0 <= row < len(tab["cells"]) or not 0 <= column < len(tab["cells"][row])):
+            raise ValueError("manual cell is outside grid")
+        tab["cells"][row][column] = {"value": encode_cell_value(value)}
         self._save(resource, book)
 
     def initialize_layout(self, layout: Layout) -> None:
@@ -67,13 +94,25 @@ class MockSheets:
         if book["layout_revision"] != revision:
             raise StateConflict("workbook layout changed")
         payload_hash = _hash(generated)
+        grid = materialize_generated_grid(generated)
         if book["commit_id"] == commit_id:
-            if book["payload_hash"] != payload_hash or _hash(book["generated"]) != payload_hash:
+            if (book["payload_hash"] != payload_hash or _hash(book["generated"]) != payload_hash
+                    or canonical_json(book.get("generated_grid")) != canonical_json(grid)):
                 raise StateConflict("commit content differs")
             return
+        previous = book.get("generated_grid")
+        if previous is not None and (grid is None or not is_same_grid_layout(previous, grid)):
+            raise StateConflict("generated grid layout migration required")
+        if grid is not None:
+            manual = book.get("manual_tabs", {})
+            if (set(manual) & set(grid["tabs"]) or {tab["title"].casefold() for tab in manual.values()}
+                    & {tab["title"].casefold() for tab in grid["tabs"].values()}):
+                raise StateConflict("generated grid conflicts with manual tab")
         if fault == "before":
             raise TimeoutError("mock request outcome unknown before application")
         book.update(generated=copy.deepcopy(generated), commit_id=commit_id, payload_hash=payload_hash)
+        if grid is not None:
+            book["generated_grid"] = grid
         self._save(resource, book)
         self.write_count += 1
         if fault == "after":
@@ -83,7 +122,8 @@ class MockSheets:
         book = self.read(resource)
         expected = _hash(generated)
         if (book["commit_id"] == commit_id and book["payload_hash"] == expected
-                and _hash(book["generated"]) == expected):
+                and _hash(book["generated"]) == expected
+                and canonical_json(book.get("generated_grid")) == canonical_json(materialize_generated_grid(generated))):
             return commit_id
         return None
 
