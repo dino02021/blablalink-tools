@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 867,
+  "observed_test_cases": 878,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -249,13 +249,20 @@
         "local_tests/test_raid_sources.py::test_settings_or_fixed_inputs_adoption_stales_old_confirmed_plan_immediately",
         "local_tests/test_raid_sources.py::test_route_only_adoption_keeps_plan_current_but_rejects_old_publication",
         "local_tests/test_raid_sources.py::test_candidates_from_same_base_cannot_both_be_adopted",
-        "local_tests/test_raid_sources.py::test_adopted_settings_change_fences_existing_draft_jobs"
+        "local_tests/test_raid_sources.py::test_adopted_settings_change_fences_existing_draft_jobs",
+        "local_tests/test_raid_source_followups.py::test_adoption_and_draft_enqueue_are_atomic_and_receipt_replays",
+        "local_tests/test_raid_source_followups.py::test_actual_worker_computes_draft_without_confirming_or_publishing",
+        "local_tests/test_raid_source_followups.py::test_aba_source_creates_new_job_even_when_problem_returns_to_old_id",
+        "local_tests/test_raid_source_followups.py::test_enqueue_failure_rolls_back_source_problem_head_and_receipt",
+        "local_tests/test_raid_source_followups.py::test_route_only_adoption_keeps_existing_confirmation_but_fences_old_followup",
+        "local_tests/test_raid_source_followups.py::test_native_child_runs_adopted_followup_without_any_sheet_publication",
+        "local_tests/test_raid_source_followups.py::test_budget_interruption_after_source_head_write_rolls_back_whole_action"
       ],
       "remaining": [
         "真實 Sheets adapter／公開發布路由、GS 人工來源擷取與 adopted 來源後調度"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 22
+      "observed_cases": 29
     },
     {
       "id": "A17",

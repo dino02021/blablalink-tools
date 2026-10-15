@@ -1330,3 +1330,10 @@ blablalink-tools/
 - 七項案例核對名單／屬性／縮寫字典、十二欄 metric 身分、標準表群組與 merge，含未知詞條與 literal 名稱。
 - 發現差異：Python 練度表採逐項 header，舊 GS 採群組合併；非標準化詞條顯示字典亦有 trim／縮寫差異。已明確分類，不藉此改原 label 或宣稱可原格覆蓋。
 - 完整評分表頭／nickname cache、舊人工區與正式盤點仍未完成，保留驗收缺口。詳見 docs/spec/96-frozen-gs-header-contract.md。
+
+### 17.62 第五十八批：原子排刀採用與草稿排程（2026-10-16）
+
+- 明確 is_generate_draft 意圖把來源採用、problem head、desired draft 與 0018 followup 對應放進同一 transaction；預設只採用保持相容。
+- 追加：來源採用後另排工作存在 crash window；A→B→A 也不能讓舊 A 工作重獲 current。新 task 綁此次 bundle，重播只回原 followup。
+- 既有 observe_problem 共用內部驗證／CAS body，SQL／採用後 budget 中斷整筆回滾；不自動確認或發布，實際 worker 開 publish 也只產生 draft。
+- 十一項新案例與三十六項相關舊案例通過，含 native child、route-only 保留確認、restart／retention／backup。健檢更新後 rebase policy、GS 人工格線與正式入口仍待完成。詳見 docs/spec/97-atomic-raid-source-draft-followup.md。

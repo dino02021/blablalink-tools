@@ -117,6 +117,7 @@
 - [94：共享狀態表本地發布](94-shared-status-mock-publication.md)
 - [95：已終止發布的暫存傳輸副本清理](95-terminal-staging-retention.md)
 - [96：凍結 GS 模板表頭對照與差異](96-frozen-gs-header-contract.md)
+- [97：排刀來源採用與草稿排程的原子動作](97-atomic-raid-source-draft-followup.md)
 
 ## 撰寫規則
 

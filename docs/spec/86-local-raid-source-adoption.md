@@ -31,3 +31,6 @@ head、候選、receipt 及其 problem／settings／member inputs／route 均保
 local_tests/test_raid_sources.py 的 16 項案例涵蓋預覽與採用分離、舊 receipt 不倒回、設定／指定刀立即 stale、route-only 保留計算但擋舊發布、雙連線競爭、來源健檢過期、固定確認／code／request、unknown publisher、交易回滾、legacy bypass、重啟／retention 與三階段工作 fence。
 
 尚缺 GS 人工範圍擷取／穩定 ID 對照、候選後自動排程協作、跨 runtime／D1 採用契約及正式服務 principal。正式試算表與外部環境未接線。
+## 後續擴充
+
+97 已新增明確 is_generate_draft 的原子採用／input head／desired draft 排程；預設只採用仍保持原契約，健檢更新後自動重編譯 policy 與 GS 人工擷取尚未接線。

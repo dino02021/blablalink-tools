@@ -931,6 +931,10 @@ class LocalStateStore:
                 and is_raid_dependency_current(self, spec.scope_id, problem)):
             return False
         if spec.command == "generate_raid_draft":
+            if "raid_source_bundle" in versions:
+                source_head = self.raid_source_version(spec.scope_id)
+                if source_head is None or versions['raid_source_bundle'] != source_head['bundle_id']:
+                    return False
             return True
         source_head = self.raid_source_version(spec.scope_id)
         if source_head is not None and versions.get("raid_route") != source_head["route_id"]:

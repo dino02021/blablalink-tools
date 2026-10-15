@@ -39,24 +39,7 @@ class LocalRaidPlans(LocalStateStore):
         if type(expected_revision) is not int or expected_revision < 0:
             raise ValueError("nonnegative input revision required")
         with _transaction(self._connection):
-            if not is_raid_dependency_current(self, scope_id, problem):
-                raise StateConflict("raid source dependencies are stale")
-            versions = dict(problem.input_versions)
-            if "raid_compiler" in versions:
-                rebuilt = compile_raid_problem(self, versions["healthcheck_job"], versions["raid_settings"], versions["raid_member_inputs"], problem.code_sha)
-                if rebuilt != problem:
-                    raise StateConflict("compiled raid problem differs from source artifacts")
-            head = self.input_head(scope_id)
-            revision = head["revision"] if head else 0
-            if revision != expected_revision:
-                raise StateConflict("raid input revision changed")
-            if head and head["problem_id"] == problem.problem_id:
-                return revision
-            self._require_no_publisher()
-            object_id = self._put_object(canonical_json(asdict(problem)))
-            self._connection.execute("INSERT INTO raid_input_heads VALUES(?,?,?) ON CONFLICT(scope_id) DO UPDATE SET problem_id=excluded.problem_id,revision=excluded.revision",
-                                     (scope_id, object_id, revision + 1))
-            return revision + 1
+            return self._observe_problem(scope_id, problem, expected_revision)
 
     def input_head(self, scope_id: str) -> dict | None:
         row = self._connection.execute("SELECT * FROM raid_input_heads WHERE scope_id=?", (scope_id,)).fetchone()
@@ -156,3 +139,23 @@ class LocalRaidPlans(LocalStateStore):
         if workbook.raid_view_id != hashlib.sha256(canonical_json(record["view"]).encode()).hexdigest():
             raise StateConflict("confirmed workbook view source differs")
         return {**self.confirmation_status(confirmation_id), "workbook_view": asdict(workbook), "workbook_view_id": workbook.view_id}
+
+    def _observe_problem(self, scope_id, problem, expected_revision):
+        if not is_raid_dependency_current(self, scope_id, problem):
+            raise StateConflict("raid source dependencies are stale")
+        versions = dict(problem.input_versions)
+        if "raid_compiler" in versions:
+            rebuilt = compile_raid_problem(self, versions["healthcheck_job"], versions["raid_settings"], versions["raid_member_inputs"], problem.code_sha)
+            if rebuilt != problem:
+                raise StateConflict("compiled raid problem differs from source artifacts")
+        head = self.input_head(scope_id)
+        revision = head["revision"] if head else 0
+        if revision != expected_revision:
+            raise StateConflict("raid input revision changed")
+        if head and head["problem_id"] == problem.problem_id:
+            return revision
+        self._require_no_publisher()
+        object_id = self._put_object(canonical_json(asdict(problem)))
+        self._connection.execute("INSERT INTO raid_input_heads VALUES(?,?,?) ON CONFLICT(scope_id) DO UPDATE SET problem_id=excluded.problem_id,revision=excluded.revision",
+                                 (scope_id, object_id, revision + 1))
+        return revision + 1
