@@ -75,17 +75,33 @@ class LocalStateStore:
         read_config(document)
         scope = document.envelope["scope_id"]
         candidate_id = _digest({"document": document.snapshot_id, "base": base_config_id})
+        semantic_id = _candidate_semantic(document, base_config_id)
         with _transaction(self._connection):
-            if self._connection.execute("SELECT 1 FROM config_candidates WHERE candidate_id=?", (candidate_id,)).fetchone():
-                return candidate_id
+            existing = self._connection.execute("SELECT candidate_id FROM config_candidates WHERE candidate_id=? OR semantic_id=?",
+                                                (candidate_id, semantic_id)).fetchone()
+            if existing:
+                return existing[0]
+            legacy = self._connection.execute("SELECT candidate_id,document_id FROM config_candidates "
+                "WHERE semantic_id IS NULL AND config_type='healthcheck' AND scope_id=? AND base_config_id IS ?",
+                (scope, base_config_id)).fetchall()
+            for row in legacy:
+                if _candidate_semantic(self.get_document(row["document_id"]), base_config_id) == semantic_id:
+                    self._connection.execute("UPDATE config_candidates SET semantic_id=? WHERE candidate_id=?", (semantic_id, row["candidate_id"]))
+                    return row["candidate_id"]
             if self.config_head("healthcheck", scope) != base_config_id:
                 raise StateConflict("candidate base is not the current configuration")
             self._put_object(document.serialized)
             self._connection.execute(
-                "INSERT OR IGNORE INTO config_candidates(candidate_id,config_type,scope_id,document_id,base_config_id,created_at) "
-                "VALUES(?,?,?,?,?,?)", (candidate_id, "healthcheck", scope, document.snapshot_id, base_config_id, self._now()),
+                "INSERT OR IGNORE INTO config_candidates(candidate_id,config_type,scope_id,document_id,base_config_id,created_at,semantic_id) "
+                "VALUES(?,?,?,?,?,?,?)", (candidate_id, "healthcheck", scope, document.snapshot_id, base_config_id, self._now(), semantic_id),
             )
         return candidate_id
+
+    def candidate_document(self, candidate_id: str) -> Document:
+        row = self._connection.execute("SELECT document_id FROM config_candidates WHERE candidate_id=?", (candidate_id,)).fetchone()
+        if not row:
+            raise StateConflict("unknown candidate")
+        return self.get_document(row[0])
 
     def config_head(self, config_type: str, scope_id: str) -> str | None:
         row = self._connection.execute(
@@ -800,6 +816,11 @@ class LocalStateStore:
         )
         self._transition(row["job_id"], "running")
         return ComputeLease(row["job_id"], worker_id, code_sha, row["generation"] + 1)
+
+
+def _candidate_semantic(document: Document, base_config_id: str | None) -> str:
+    return _digest({"payload": document.payload, "reference": document.envelope["reference_version"],
+                    "schema": document.envelope["schema_version"], "scope": document.envelope["scope_id"], "base": base_config_id})
 
 
 def _job(row: sqlite3.Row) -> Job:

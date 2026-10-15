@@ -858,7 +858,7 @@ blablalink-tools/
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、本地確認／輸出、合作式預算及階段 checkpoint 完成；仍需工作簿呈現、實際 runtime 用量 adapter、擴充邊界與完整效能驗收。
-6. mock Discord outbox 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定及本地 CLI。
+6. mock Discord outbox 與離線整合 demo CLI 已完成；仍需完整報告／路由編譯、collector 介面、executor 協定與通用本地 worker CLI。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. 將第 14 節逐項對應可執行測試與驗收證據，再列出真正需要使用者的外部依賴。
 
@@ -1003,3 +1003,13 @@ blablalink-tools/
 - Vercel 類型本地契約要求時間 <=240 秒與明確 memory reader／<=1500000000 byte 上限；沒有建立或呼叫任何 Vercel 服務。
 - 全套 264 項本地 mock 測試及 Python 語法檢查通過，涵蓋假時鐘中途停止、記憶體未知、容量中止、heartbeat 間隔及重啟跳過選刀。
 - 實際 RSS／平台剩餘期限 adapter、遠端 checkpoint transport、CLI／雲端入口及最差情境 SLA 仍待完成。
+
+### 17.17 第十四批：同源設定與離線 CLI 整合（2026-10-15）
+
+- 新增 structured mock 標準表 reader、reconcile_standard 與 run_healthcheck_job，串接候選、固定快照、名單／修正、計算與 mock publisher。
+- 回寫的 standards 直接來自計算採用的同一 config snapshot；測試門檻 5 候選後草稿改 9，原確認內容仍固定，另行發布 9 可重用原 training snapshot。
+- 追加：候選業務身份需排除純觀測時間，含 scope／base／schema／reference／payload；0004 migration 加入 semantic_id，並在建立時沿用相符舊候選，避免 reconcile 反覆產生同內容候選。
+- 追加：空白列可略過，空表不能當有效設定清空發布；未知字典身份／欄位及無效 metric 阻擋。此批 structured mock 格式尚未對應正式 GS 橫向標準格。
+- 新增 python -m executors.local demo／status，只使用明確 mock 目錄。demo 拒絕覆寫非空資料夾，status 需 mock marker 與既存本地 DB，不載入正式設定／憑證。
+- 全套 275 項本地 mock 測試通過，包含實際 CLI、候選固定、門檻重算不重抓、同名成員、漏事件 reconcile 與缺資料保留舊結果。
+- 正式表格 reader、一般 worker CLI、路由／actor 授權、collector／遠端協定及精確格子發布仍待完成；A01／A02／A06／A11 僅新增相應本地證據，不宣稱正式環境驗收。

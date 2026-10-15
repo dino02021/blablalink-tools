@@ -47,6 +47,8 @@
     不可變排刀草稿、輸入與確認 CAS、過期提示及成員 ID 檢視。
 18. [52-local-compute-budget-and-resume.md](./52-local-compute-budget-and-resume.md)
     合作式執行預算、heartbeat、排刀階段 checkpoint 與本地續跑。
+19. [53-offline-sheet-workflow-and-cli.md](./53-offline-sheet-workflow-and-cli.md)
+    同源標準、候選 reconcile、健檢回寫與完整離線 demo CLI。
 
 ## 涵蓋範圍
 
