@@ -853,12 +853,12 @@ blablalink-tools/
 
 ### 17.4 仍可獨立完成的待辦
 
-1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer 及 mock collector 分頁證據契約已完成；仍需真實來源完整性對應、分頁 durable checkpoint、保留清理與遠端 transport 契約。
+1. 快照模型、本地物件持久化、分片續傳、封存、raw normalizer、mock collector 分頁證據／durable progress／觀測封存完成；仍需真實來源完整性／穩定 revision 對應、history／staging 清理與遠端 transport 契約。
 2. 結構化健檢報告與快照差異已完成；數值 helper 及全員評分／加權總分／排名迴圈已做 GS 固定案例對照，仍需完整 header 映射與表格 mock 對照。
 3. 本地持久任務、候選、依賴、預算、資源鎖與簽章／nonce 授權 gate 已完成；實際 D1／HTTP runtime／key registry 與遠端執行介面仍待離線契約驗證。
 4. mock publisher、欄位 planner、十二欄 decoder、分片 staging、八 tab typed 格線與保護、版面遷移確認／archive、已知十一欄草稿遷移完成；遠端格式／維度／metadata adapter 與完整舊表格對照仍待完成。
 5. 排刀核心、60 組 GS 對照、確認／輸出、合作式預算／checkpoint、本機 RSS reader 與五 tab 工作簿視圖完成；仍需 confirmed publisher eligibility、hosted 用量／deadline adapter、擴充邊界與完整效能驗收。
-6. mock outbox、固定報告／路由編譯、路由／sender grant CAS、受授權 outbox 與 start permit、本地計算 worker 及 mock collector 契約已完成；仍需真實 principal／provider 接線、collector durable checkpoint、遠端 executor 協定及其他命令 handler。
+6. mock outbox、固定報告／路由編譯、路由／sender grant CAS、受授權 outbox／start permit、本地計算 worker 與 collector durable pages 完成；仍需真實 principal／provider 接線、遠端 executor 協定及其他命令 handler。
 7. 本地 Worker／D1 契約與薄 GS／Vercel／Actions 入口的離線驗證，全部預設關閉外部整合。
 8. A01–A22 已對應真實 JUnit 與逐項缺口（docs/spec/64-local-acceptance-evidence.md）；繼續補其本地未完成範圍，不以 local evidence passed 視為正式驗收。
 
@@ -1209,3 +1209,10 @@ blablalink-tools/
 - 追加：新 intent 不得繞過相同報告的 unresolved 舊 delivery；route 改版與 claim 必須互斥，unknown 不能按時間解鎖。receipt 保存後清理中斷只可憑精確正面狀態修復。
 - 14 項 registry 與 20 項多段 mock sender 案例通過，包含原子 fanout、撤權、跨 intent、舊 generation、重啟、路由競爭與 stale cleanup；status 只讀出 head／hold metadata。
 - 未啟用真實 principal、Discord transport 或 production sender；原低階 LocalOutbox 不自動採用新權限流程。詳見 docs/spec/79-local-routing-and-authorized-outbox.md。
+
+### 17.45 第四十一批：collector 持久分頁與原子觀測（2026-10-15）
+
+- 每頁驗證／白名單後保存 immutable fragment，0011 以 hash／lease-fenced mutable progress 更新進度，本輪結束原子封存完整 manifest 與 raw／training／generation observation。
+- 追加：不可每頁留下整份成長 manifest，避免平方級 blob；較早 partial 觀測與其 fragment 也必須有 retention root，不能在 retry 後當孤兒刪除。
+- opaque cursor／revision 不落地。partial 重走首頁取得新 cursor；完成 source 只在明確穩定 revision 契約與 fresh head 驗證後沿用，預設全部重抓，不用 auth fallback 舊資料。
+- 二十項 mock 案例驗證重啟、revision／scope／短頁、取消、容量、hash／脫敏、歷史保留及 DB 故障原子性；正式 provider 的 revision／resume 語意仍未接線。詳見 docs/spec/80-durable-collection-pages.md。

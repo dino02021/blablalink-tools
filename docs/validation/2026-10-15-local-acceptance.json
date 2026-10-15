@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 579,
+  "observed_test_cases": 599,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -178,13 +178,14 @@
       "id": "A14",
       "tests": [
         "local_tests/test_collection.py::test_auth_error_stops_member_source_requests_and_preserves_explicit_state",
-        "local_tests/test_collection.py::test_collection_task_seals_only_complete_observation"
+        "local_tests/test_collection.py::test_collection_task_seals_only_complete_observation",
+        "local_tests/test_collection_checkpoint.py::test_auth_failure_never_falls_back_to_previously_complete_source"
       ],
       "remaining": [
-        "真實 Session 狀態與 provider 完整性證據對應"
+        "真實 Session／provider 完整性與穩定 revision 語意對應"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 4
+      "observed_cases": 5
     },
     {
       "id": "A15",
@@ -257,13 +258,15 @@
         "local_tests/test_process_memory.py::test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types",
         "local_tests/test_process_guard.py::test_noncooperative_loop_is_stopped_by_parent_wall_clock",
         "local_tests/test_process_guard.py::test_native_memory_limit_stops_single_large_allocation_without_checkpoints",
-        "local_tests/test_process_guard.py::test_killed_compute_does_not_mark_job_successful_or_force_release_its_lease"
+        "local_tests/test_process_guard.py::test_killed_compute_does_not_mark_job_successful_or_force_release_its_lease",
+        "local_tests/test_collection_checkpoint.py::test_interruption_keeps_last_valid_page_and_resume_reacquires_opaque_cursor",
+        "local_tests/test_collection_checkpoint.py::test_cancelled_collector_cannot_advance_page_checkpoint_or_finish"
       ],
       "remaining": [
         "hosted deadline／memory profile、Linux native 實測與 dispatcher 採用"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 9
+      "observed_cases": 11
     },
     {
       "id": "A21",

@@ -88,6 +88,7 @@
 - [77：本地計算子程序限制](77-local-process-isolation.md)
 - [78：全聯盟唯讀狀態](78-read-only-system-status.md)
 - [79：路由與授權 outbox](79-local-routing-and-authorized-outbox.md)
+- [80：Collector 持久分頁與觀測](80-durable-collection-pages.md)
 
 ## 撰寫規則
 

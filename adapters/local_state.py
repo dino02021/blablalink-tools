@@ -300,7 +300,118 @@ class LocalStateStore:
     def load_checkpoint(self, job_id: str) -> dict | None:
         self._job_row(job_id)
         row = self._connection.execute("SELECT object_id FROM job_checkpoints WHERE job_id=?", (job_id,)).fetchone()
-        return self.get_result(row["object_id"]) if row else None
+        if row is None:
+            return None
+        result = self.get_result(row["object_id"])
+        if result.get("checkpoint_kind") in ("training_collection", "training_collection_pointer"):
+            progress = self.load_collection_progress(job_id)
+            if progress is None:
+                raise StateConflict("collection progress is missing")
+            if result["checkpoint_kind"] == "training_collection_pointer":
+                expected = {"schema_version": 1, "checkpoint_kind": "training_collection_pointer", "progress_job_id": job_id,
+                    "collection_inputs_id": progress["collection_inputs_id"], "code_sha": progress["code_sha"]}
+                if canonical_json(expected) != canonical_json(result):
+                    raise StateConflict("collection progress pointer differs")
+                return progress
+            if canonical_json(progress) != canonical_json(result):
+                raise StateConflict("collection sealed progress differs")
+        return result
+
+    def save_collection_progress(self, lease: ComputeLease, metadata: dict, source_key: str | None = None, source_state: dict | None = None) -> str:
+        if (not isinstance(metadata, dict) or "sources" in metadata or metadata.get("checkpoint_kind") != "training_collection"
+                or (source_key is None) != (source_state is None)
+                or source_key is not None and (not isinstance(source_key, str) or len(source_key) > 4096 or not isinstance(source_state, dict))):
+            raise ValueError("explicit collection progress fields required")
+        serialized = canonical_json(metadata)
+        state_json = canonical_json(source_state) if source_state is not None else None
+        if len(serialized.encode()) > 4096 or state_json is not None and len(state_json.encode()) > 32768:
+            raise ValueError("collection progress metadata exceeds bound")
+        with _transaction(self._connection):
+            row = self._require_lease(lease)
+            if (row["command"] != "refresh_roster_and_training" or metadata.get("code_sha") != row["code_sha"]
+                    or metadata.get("collection_inputs_id") != _job(row).spec.version_map.get("collection_inputs")):
+                raise StateConflict("collection progress job dependency differs")
+            self._connection.execute("INSERT INTO collection_progress VALUES(?,?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET "
+                "metadata_json=excluded.metadata_json,metadata_hash=excluded.metadata_hash,generation=excluded.generation,updated_at=excluded.updated_at",
+                (lease.job_id, serialized, _digest({"job_id": lease.job_id, "metadata": metadata}), lease.generation, self._now()))
+            if source_key is not None:
+                self._connection.execute("INSERT INTO collection_source_progress VALUES(?,?,?,?) ON CONFLICT(job_id,source_key) DO UPDATE SET state_json=excluded.state_json,state_hash=excluded.state_hash",
+                    (lease.job_id, source_key, state_json, _digest({"job_id": lease.job_id, "source_key": source_key, "state": source_state})))
+            pointer = {"schema_version": 1, "checkpoint_kind": "training_collection_pointer", "progress_job_id": lease.job_id,
+                "collection_inputs_id": metadata["collection_inputs_id"], "code_sha": metadata["code_sha"]}
+            object_id = self._put_object(canonical_json(pointer))
+            self._connection.execute("INSERT INTO job_checkpoints VALUES(?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET object_id=excluded.object_id,generation=excluded.generation,updated_at=excluded.updated_at",
+                (lease.job_id, object_id, lease.generation, self._now()))
+            return object_id
+
+    def save_collection_observation(self, lease: ComputeLease, checkpoint: dict) -> str:
+        if (not isinstance(checkpoint, dict) or checkpoint.get("checkpoint_kind") != "training_collection"
+                or not isinstance(checkpoint.get("last_observation"), dict)
+                or set(checkpoint["last_observation"]) != {"raw_snapshot_id", "training_snapshot_id", "captured_at"}):
+            raise ValueError("fixed collection observation required")
+        serialized = canonical_json(checkpoint)
+        if len(serialized.encode()) > 8*1024*1024:
+            raise ValueError("collection observation manifest exceeds bound")
+        with _transaction(self._connection):
+            row = self._require_lease(lease)
+            current = self.load_collection_progress(lease.job_id)
+            if (row["command"] != "refresh_roster_and_training" or current is None
+                    or current.get("code_sha") != row["code_sha"]
+                    or current.get("collection_inputs_id") != _job(row).spec.version_map.get("collection_inputs")
+                    or canonical_json({key: value for key, value in current.items() if key != "last_observation"})
+                    != canonical_json({key: value for key, value in checkpoint.items() if key != "last_observation"})):
+                raise StateConflict("collection observation does not match current progress")
+            observation = checkpoint["last_observation"]
+            raw = self.get_document(observation["raw_snapshot_id"])
+            training = self.get_document(observation["training_snapshot_id"])
+            inputs = self.get_document(current["collection_inputs_id"])
+            if (raw.envelope["kind"] != "raw" or training.envelope["kind"] != "training"
+                    or raw.envelope["scope_id"] != row["scope_id"] or training.envelope["scope_id"] != row["scope_id"]
+                    or training.payload.get("raw_snapshot_id") != raw.snapshot_id
+                    or raw.envelope["reference_version"] != training.envelope["reference_version"]
+                    or raw.envelope["reference_version"] != inputs.envelope["reference_version"]
+                    or raw.payload.get("reference_role_ids") != inputs.payload.get("role_ids")
+                    or raw.envelope["captured_at"] != observation["captured_at"] or training.envelope["captured_at"] != observation["captured_at"]):
+                raise StateConflict("collection observation snapshot lineage differs")
+            object_id = self._put_object(serialized)
+            prior = self._connection.execute("SELECT raw_snapshot_id,training_snapshot_id,checkpoint_id,captured_at FROM collection_observations WHERE job_id=? AND generation=?",
+                (lease.job_id, lease.generation)).fetchone()
+            values = (raw.snapshot_id, training.snapshot_id, object_id, observation["captured_at"])
+            if prior is not None and tuple(prior) != values:
+                raise StateConflict("collection generation already captured another observation")
+            metadata = {key: value for key, value in checkpoint.items() if key != "sources"}
+            self._connection.execute("UPDATE collection_progress SET metadata_json=?,metadata_hash=?,generation=?,updated_at=? WHERE job_id=?",
+                (canonical_json(metadata), _digest({"job_id": lease.job_id, "metadata": metadata}), lease.generation, self._now(), lease.job_id))
+            self._connection.execute("INSERT OR IGNORE INTO collection_observations VALUES(?,?,?,?,?,?)", (lease.job_id, lease.generation, *values))
+            self._connection.execute("INSERT INTO job_checkpoints VALUES(?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET object_id=excluded.object_id,generation=excluded.generation,updated_at=excluded.updated_at",
+                (lease.job_id, object_id, lease.generation, self._now()))
+            return object_id
+
+    def load_collection_progress(self, job_id: str) -> dict | None:
+        self._job_row(job_id)
+        row = self._connection.execute("SELECT * FROM collection_progress WHERE job_id=?", (job_id,)).fetchone()
+        if row is None:
+            return None
+        metadata = json.loads(row["metadata_json"])
+        if not isinstance(metadata, dict) or "sources" in metadata or row["metadata_hash"] != _digest({"job_id": job_id, "metadata": metadata}):
+            raise StateConflict("collection progress metadata integrity differs")
+        sources = self._connection.execute("SELECT * FROM collection_source_progress WHERE job_id=? ORDER BY source_key LIMIT 901", (job_id,)).fetchall()
+        if len(sources) > 900 or sum(len(source["state_json"].encode()) for source in sources) > 8*1024*1024:
+            raise StateConflict("collection progress inventory exceeds bound")
+        result = {**metadata, "sources": {}}
+        for source in sources:
+            state = json.loads(source["state_json"])
+            if not isinstance(state, dict) or source["state_hash"] != _digest({"job_id": job_id, "source_key": source["source_key"], "state": state}):
+                raise StateConflict("collection source progress integrity differs")
+            result["sources"][source["source_key"]] = state
+        return result
+
+    def collection_observations(self, job_id: str) -> tuple[dict, ...]:
+        self._job_row(job_id)
+        rows = self._connection.execute("SELECT * FROM collection_observations WHERE job_id=? ORDER BY generation LIMIT 101", (job_id,)).fetchall()
+        if len(rows) > 100:
+            raise StateConflict("collection observation history requires pagination")
+        return tuple(dict(row) for row in rows)
 
     def defer(self, lease: ComputeLease, state: str, error_code: str, delay_seconds: float = 0) -> Job:
         if state not in ("retry_wait", "auth_required", "capacity_blocked", "waiting_for_data", "failed"):

@@ -5,6 +5,7 @@ import hashlib
 from typing import Protocol
 
 from application.compute_budget import ComputeExecutionCheck, ComputeLimit
+from application.collection_checkpoint import CollectionCheckpoint
 from application.tasks import StateConflict
 from domain.execution import check_execution, execution_checks
 from domain.normalization import capture_raw_training, normalize_training
@@ -30,11 +31,12 @@ class SourceCollection:
     rows: tuple[dict, ...]
     evidence: tuple[dict, ...]
     is_options_complete: bool = False
+    cache_validation: dict | None = None
 
 
 def collect_training(port: CollectionPort, scope_id: str, captured_at: str, reference_version: str,
                      roster: tuple[MemberKey, ...], role_ids: tuple[str, ...],
-                     max_pages: int = 100, max_rows: int = 10000):
+                     max_pages: int = 100, max_rows: int = 10000, checkpoint=None):
     if (not roster or len(roster) > 300 or len(set(roster)) != len(roster) or any(not isinstance(m, MemberKey) for m in roster)
             or not role_ids or len(role_ids) > 1000 or len(set(role_ids)) != len(role_ids)
             or any(not isinstance(r, str) or not r.strip() for r in role_ids)):
@@ -45,16 +47,16 @@ def collect_training(port: CollectionPort, scope_id: str, captured_at: str, refe
     for member in roster:
         check_execution()
         ownership = _collect_source(port, member, "ownership", (), reference_version, scope_id,
-                                    role_ids, captured_at, max_pages, max_rows)
+                                    role_ids, captured_at, max_pages, max_rows, checkpoint)
         owned_ids = tuple(row["name_code"] for row in ownership.rows)
         details = (SourceCollection("auth_required", (), ()) if ownership.status == "auth_required" else
             _collect_source(port, member, "details", owned_ids, reference_version, scope_id,
-                            role_ids, captured_at, max_pages, max_rows))
+                            role_ids, captured_at, max_pages, max_rows, checkpoint))
         option_ids = tuple(sorted({str(value) for row in details.rows for key, value in row.items()
                                   if key.startswith("equip_option") and value not in (None, "", 0, "0")}))
         effects = (SourceCollection("auth_required", (), ()) if details.status == "auth_required" else
             _collect_source(port, member, "effects", option_ids, reference_version, scope_id,
-                            role_ids, captured_at, max_pages, max_rows))
+                            role_ids, captured_at, max_pages, max_rows, checkpoint))
         detail_status = "auth_required" if "auth_required" in (details.status, effects.status) else details.status
         members.append({"area_id": member.area_id, "member_id": member.member_id,
             "ownership": {"status": ownership.status, "characters": list(ownership.rows)},
@@ -63,7 +65,8 @@ def collect_training(port: CollectionPort, scope_id: str, captured_at: str, refe
                 "is_options_complete": details.is_options_complete and effects.status == "complete",
                 "state_effects": list(effects.rows)}})
         proof.append({"member": {"area_id": member.area_id, "member_id": member.member_id},
-            "sources": {name: {"status": result.status, "pages": list(result.evidence)}
+            "sources": {name: {"status": result.status, "pages": list(result.evidence),
+                **({"cache_validation": result.cache_validation} if result.cache_validation is not None else {})}
                         for name, result in zip(SOURCES, (ownership, details, effects))}})
     raw = capture_raw_training(scope_id, captured_at, reference_version, tuple(members), role_ids)
     return capture_document("raw", scope_id, captured_at, reference_version,
@@ -82,12 +85,14 @@ def run_collection_job(store, lease, port: CollectionPort, captured_at: str, bud
                     or inputs.payload.get("collection_kind") != "training_inputs"):
                 raise StateConflict("collection inputs differ from job scope")
             payload = inputs.payload
+            checkpoint = CollectionCheckpoint(store, lease, inputs, job.spec.code_sha)
             raw = collect_training(port, job.spec.scope_id, captured_at, inputs.envelope["reference_version"],
-                tuple(MemberKey(**member) for member in payload["members"]), tuple(payload["role_ids"]))
+                tuple(MemberKey(**member) for member in payload["members"]), tuple(payload["role_ids"]), checkpoint=checkpoint)
             normalized = normalize_training(raw, tuple(payload["role_ids"]), payload["function_prefixes"])
             check_execution()
             raw_id = store.put_document(raw)
             training_id = store.put_document(normalized.training)
+            checkpoint.record_observation(raw, normalized.training)
             if normalized.is_auth_required:
                 return store.defer(lease, "auth_required", "collection_auth_required")
             statuses = [source["status"] for member in raw.payload["collection_proof"] for source in member["sources"].values()]
@@ -95,12 +100,14 @@ def run_collection_job(store, lease, port: CollectionPort, captured_at: str, bud
                 return store.defer(lease, "retry_wait", "collection_incomplete", delay_seconds=5)
             check_execution()
             return store.complete_compute(lease, {"raw_snapshot_id": raw_id, "training_snapshot_id": training_id,
-                "collection_inputs_id": inputs.snapshot_id, "collection_protocol_version": 1}, is_publication_required=False)
+                "collection_inputs_id": inputs.snapshot_id, "collection_protocol_version": 1,
+                "collection_checkpoint_id": checkpoint.latest_id}, is_publication_required=False)
     except ComputeLimit as error:
         return store.defer(lease, "capacity_blocked", error.code)
 
 
-def _collect_source(port, member, source, requested, reference, scope, roles, captured_at, max_pages, max_rows):
+def _collect_source(port, member, source, requested, reference, scope, roles, captured_at, max_pages, max_rows, checkpoint=None):
+    observer = checkpoint.source(member, source, requested, reference, scope, roles, captured_at, max_rows) if checkpoint is not None else None
     rows, evidence, seen_ids, seen_cursors = [], [], set(), {None}
     cursor, revision, total = None, None, None
     is_options_complete = True
@@ -137,21 +144,33 @@ def _collect_source(port, member, source, requested, reference, scope, roles, ca
             evidence.append({"revision_hash": _digest(revision), "request_cursor_hash": _digest(cursor),
                 "next_cursor_hash": _digest(next_cursor), "total": total, "row_count": len(cleaned),
                 "rows_hash": _digest(cleaned)})
+            if next_cursor is not None and (next_cursor in seen_cursors or not cleaned):
+                raise ValueError("pagination cycle or empty nonterminal page")
+            is_complete = next_cursor is None and len(rows) == total and (source == "ownership" or seen_ids == set(requested))
+            if observer is not None:
+                if len(evidence) == 1 and getattr(port, "is_stable_snapshot_revision", False) is True:
+                    reused = observer.reuse_complete(evidence[0], page.get("is_options_complete") is True)
+                    if reused is not None:
+                        return SourceCollection(**reused)
+                observer.record_page(cleaned, evidence[-1], next_cursor is None, page.get("is_options_complete") is True, is_complete)
             if next_cursor is None:
-                is_complete = len(rows) == total and (source == "ownership" or seen_ids == set(requested))
                 return SourceCollection("complete" if is_complete else "partial", tuple(rows), tuple(evidence),
                                         is_options_complete and is_complete)
-            if next_cursor in seen_cursors or not cleaned:
-                raise ValueError("pagination cycle or empty nonterminal page")
             seen_cursors.add(next_cursor)
             cursor = next_cursor
     except CollectionSourceError as error:
         if error.is_auth_required:
+            if observer is not None:
+                observer.finish("auth_required")
             return SourceCollection("auth_required", (), tuple(evidence))
     except (TimeoutError, OSError):
         pass
     except (ValueError, KeyError, TypeError):
+        if observer is not None:
+            observer.finish("failed")
         return SourceCollection("failed", (), tuple(evidence))
+    if observer is not None:
+        observer.finish("partial" if rows else "failed")
     return SourceCollection("partial" if rows else "failed", tuple(rows), tuple(evidence))
 
 
