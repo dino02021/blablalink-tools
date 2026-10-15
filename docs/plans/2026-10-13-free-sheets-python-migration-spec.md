@@ -1180,3 +1180,10 @@ blablalink-tools/
 - 0009 migration 與 LocalReferences 保存固定候選、validation code、明確確認、head CAS、receipt 與 request 去重；兩連線只允許一個版本跨越相同 base。
 - 追加：重播舊 reference 發布只能取回 receipt，不得把新 head 倒回；reference 發布不能連帶重標 raw 或發布 config。舊候選／publication 均須留在 retention roots。
 - 13 項新 mock 案例及既有 retention／backup 驗證通過；provider 字典擷取、reference transition 衍生投影、補抓 executor 與外部 endpoint 仍未接線。詳見 docs/spec/75-local-reference-registry.md。
+
+### 17.41 第三十七批：Reference 相容變更的衍生投影（2026-10-15）
+
+- source／target reference 經內容驗證後，別名更新、重排或移除既有角色／prefix 可從原 raw 產生 target-version training；raw 完全不改，衍生物固定完整 lineage。
+- 追加：reference 相容不代表資料完整，unknown 仍由同一計算核心阻擋；新角色或改動 prefix 定義不可沿用舊 absence／數值，auth 也不能因投影被升級。
+- 十項本地 mock 案例驗證固定 plan、衍生計算、unknown／auth、拒絕來源置換及原 raw／雙 reference 的 retention；normalizer 加入逐 member／role 合作式預算檢查。
+- 尚不自動排補抓、合併 provider 資料或發布。詳見 docs/spec/76-reference-projection.md。

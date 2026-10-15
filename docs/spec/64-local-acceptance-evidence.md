@@ -1,6 +1,6 @@
 # A01–A22 本地證據與缺口
 
-機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，510 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
+機器可讀映射：local_tests/acceptance_matrix.json。最近證據：[2026-10-15-local-acceptance.json](../validation/2026-10-15-local-acceptance.json)，520 項本地 mock 測試通過，22 項都有指定本地案例通過；is_production_accepted 固定 false。這不代表 22 項完整需求已驗收。
 
 | 需求 | 本地證據範圍 | 尚未完成範圍 |
 | --- | --- | --- |
@@ -8,7 +8,7 @@
 | A02 | 同源設定重算、不重抓、八個 typed workbook 格線、清尾與人工 tab 保護 | 遠端 grid／protection 與舊 header 相容 |
 | A03 | 全員分數／總分／排名與 GS 50 組對照 | header／nickname／cache |
 | A04 | 門檻、浮點與排名邊界 | 正式自訂儲存格型別 |
-| A05 | 缺 detail 不當零、function ID 投影、coverage universe／補抓 planner、reference CAS 發布 | reference transition／補抓 executor／provider 真實完整性 |
+| A05 | 缺 detail 不當零、function ID 投影、coverage／補抓 planner、reference CAS 與相容衍生投影 | 補抓 executor／跨 reference provider 相容性／真實完整性 |
 | A06 | composite identity 與人工欄位置保護 | roster 生命週期與搬移 |
 | A07 | request／dispatch 持久去重 | D1／平台 callback |
 | A08 | 兩連線 publisher 競爭與舊 claim 拒絕 | 跨 runtime 競爭 |

@@ -84,6 +84,7 @@
 - [73：排刀工作簿視圖](73-raid-workbook-view.md)
 - [74：養成快照沿用與補抓規劃](74-training-reuse-planner.md)
 - [75：本地 reference 候選與發布](75-local-reference-registry.md)
+- [76：Reference 衍生養成投影](76-reference-projection.md)
 
 ## 撰寫規則
 

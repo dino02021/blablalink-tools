@@ -1,6 +1,6 @@
 # Mock 格線遷移預覽、確認與封存
 
-MockSheets.plan_grid_migration 只讀取現有 mock 工作簿與目標 sealed generated payload，回傳 GridMigrationPlan。適用於已存在的 typed generated_grid；舊十一欄工作簿的首次轉換仍需獨立 decoder／遷移規格，不能假裝已有可信身分。
+MockSheets.plan_grid_migration 只讀取現有 mock 工作簿與目標 sealed generated payload，回傳 GridMigrationPlan。適用於已存在的 typed generated_grid；舊十一欄草稿走 [72 的獨立遷移](72-legacy-standard-migration.md)，需要明確 ID／merge／note 證據，不能假裝已有可信身分。
 
 ## 固定計畫
 

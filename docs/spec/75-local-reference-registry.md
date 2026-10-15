@@ -20,7 +20,7 @@ publish_reference 要求明確 confirmed candidate、expected base、actor 與�
 
 ## 其他版本不會被偷偷替換
 
-發布 reference 不發布 healthcheck config、不重新標記 raw、不排 collection／compute job、不寫試算表。舊 config／raw 仍固定舊 reference_version；新 config 與舊 raw 不符時，reuse planner 回 reference_reconciliation_required。即使僅 alias 改動，目前也採這個保守邊界；後續可用明確相容性證據建立衍生投影，不能直接改原 raw。
+發布 reference 不發布 healthcheck config、不重新標記 raw、不排 collection／compute job、不寫試算表。舊 config／raw 仍固定舊 reference_version；新 config 與舊 raw 不符時，reuse planner 回 reference_reconciliation_required。相容 metadata 變更可另經 [76 的明確衍生投影](76-reference-projection.md)，不能直接改原 raw。
 
 候選、head、舊 publication 都是 retention 根；原掃描所有非 objects table 的保留策略會保護這些 reference documents。備份依既有 SQLite backup 與 migration manifest 一起保存，不另外建立資料庫或服務。
 

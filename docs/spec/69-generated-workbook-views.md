@@ -15,4 +15,4 @@ domain/view_grid.py 定義有界 ViewCell／ViewTab／WorkbookView；application
 
 local_tests/test_workbook_views.py 驗證八 tab、source 綁定、重名／公式樣式名稱、缺項顏色、not_owned 空白、標準回讀、錯 names／override 拒絕、套用同 override 不改 raw training、資料變更不改 layout revision、合併與 ownership 防呆，以及實際 mock 發布後重新還原 view。
 
-尚未產生真實 Sheets batchUpdate、套用遠端 protection／merge、清除遠端舊尾列或完成所有舊版 header 相容；新 view 的 training／score header 有自己的 schema。下一步需 mock grid materialization 與明確 layout 遷移，不能直接將 raw view.value 以 USER_ENTERED 寫入正式表。
+尚未產生真實 Sheets batchUpdate、套用遠端 protection／merge、清除遠端舊尾列或完成所有舊版 header 相容；新 view 的 training／score header 有自己的 schema。mock grid materialization 見 [70](70-mock-physical-grid.md)，明確 layout 遷移見 [71](71-mock-grid-migration.md)；不能直接將 raw view.value 以 USER_ENTERED 寫入正式表。

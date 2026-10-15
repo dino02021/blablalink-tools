@@ -53,10 +53,12 @@
         "local_tests/test_training_reuse.py::test_missing_role_universe_cannot_prove_new_role_absence",
         "local_tests/test_training_reuse.py::test_missing_effect_targets_matching_option_identity",
         "local_tests/test_local_references.py::test_new_reference_never_relabels_old_raw_or_advances_config",
-        "local_tests/test_local_references.py::test_two_connections_cannot_publish_different_catalogs_over_same_base"
+        "local_tests/test_local_references.py::test_two_connections_cannot_publish_different_catalogs_over_same_base",
+        "local_tests/test_reference_projection.py::test_alias_only_transition_reuses_values_without_relabeling_raw",
+        "local_tests/test_reference_projection.py::test_added_roles_or_changed_function_semantics_cannot_reuse_absence"
       ],
       "remaining": [
-        "reference transition 衍生投影、補抓 executor 與 provider 真實完整性對應"
+        "補抓 executor、跨 reference provider 相容性與真實完整性對應"
       ]
     },
     {

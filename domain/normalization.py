@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass
 
 from domain.snapshots import Document, MemberKey, TrainingRecord, capture_document, capture_training
+from domain.execution import check_execution
 
 OUTCOMES = frozenset({"complete", "partial", "failed", "auth_required"})
 DETAIL_FIELDS = ("name_code", "skill1_lv", "skill2_lv", "ulti_skill_lv", "favorite_item_tid", "favorite_item_lv",
@@ -92,6 +93,7 @@ def normalize_training(raw: Document, role_ids: tuple[str, ...], function_prefix
     records, issues, missing, identities = [], [], [], set()
     is_auth_required = False
     for member in _rows(payload.get("members")):
+        check_execution()
         identity = MemberKey(member["area_id"], member["member_id"])
         if identity.key in identities:
             raise ValueError("duplicate raw member")
@@ -111,6 +113,7 @@ def normalize_training(raw: Document, role_ids: tuple[str, ...], function_prefix
         if details["status"] in ("failed", "auth_required") and detailed:
             raise ValueError("failed detail source cannot assert metrics")
         for role in role_ids:
+            check_execution()
             source = owned.get(role)
             status = "owned" if source else "not_owned" if ownership["status"] == "complete" else "unknown"
             detail = detailed.get(role)
