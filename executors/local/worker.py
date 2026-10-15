@@ -1,5 +1,7 @@
 """Bounded offline worker. All effects target an explicitly marked mock workspace."""
 
+from pathlib import Path
+
 from adapters.local_raid_plans import LocalRaidPlans
 from adapters.mock_sheets import MockSheets
 from adapters.process_memory import local_compute_budget
@@ -17,11 +19,14 @@ SUPPORTED_COMMANDS = ("recompute_healthcheck", "generate_raid_draft")
 
 def run_worker(directory, code_sha: str, worker_id: str = "offline-worker", max_jobs: int = 10,
                is_publish_enabled: bool = False, budget_factory=local_compute_budget) -> dict:
+    directory = Path(directory).resolve()
     validate_identifier(code_sha)
     validate_identifier(worker_id)
     if type(max_jobs) is not int or not 1 <= max_jobs <= 100 or type(is_publish_enabled) is not bool:
         raise ValueError("bounded worker invocation required")
     workspace_status(directory)  # refuse unmarked paths before opening a writer adapter
+    if (directory / "restore-lock.json").exists():
+        raise ValueError("restored workspace is fenced read-only")
     store = LocalRaidPlans(directory / "state.sqlite")
     sheets = MockSheets(directory / "workbooks") if is_publish_enabled else None
     staging = LocalWorkbookStaging(directory / "staging.sqlite") if is_publish_enabled else None

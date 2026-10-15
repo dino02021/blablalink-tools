@@ -1077,3 +1077,10 @@ blablalink-tools/
 - 凍結本地 GS 實際角色計算、屬性／輔助加權總分與 competition rank 函式，保留來源 head／檔案／fixture hash；沒有執行 GS 服務或讀取正式試算表。
 - 50 組固定合成 cohort 精確比對 Python 每成員／角色分數、群組分數與排名；包含空洞列的超高無關值、同分、零值、多屬性／類型、浮點權重與負係數。
 - A03／A04 增加完整計算迴圈證據；header config／nickname 與 sheet range 仍為 mock 邊界，不代表完整工作簿結構相容。詳細界線見 docs/spec/61-gs-cohort-scoring-parity.md。
+
+### 17.26 第二十三批：本地備份與還原 fence（2026-10-15）
+
+- 新增 bounded mock workspace backup／restore CLI，SQLite backup API 保存一致 DB，manifest 固定檔案 hash／大小／release label／migration map，拒絕 active／unknown writer 與 sender。
+- 追加：還原不能等同接手 writer。副本預設 restored_read_only，worker 一律拒絕執行，status 可讀；本地不提供自動移除 fence。
+- 還原僅新目錄，驗證後才寫資料，禁止越界 ZIP 路徑與既有檔案覆寫；保留已送 outbox／message ID，不重新排入已完成發送。
+- 新增 8 項 mock 驗收及實際 scrubbed-env CLI；A22 增加本地資料還原證據，尚非正式 release binary／跨平台 fencing／降版 migration 驗收。詳見 docs/spec/62-local-backup-restore.md。

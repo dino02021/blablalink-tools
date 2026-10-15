@@ -4,6 +4,7 @@
 
 - 僅接受已初始化的 mock marker 與既存 DB；不載入正式設定、憑證、provider 或 URL。預設只計算，`--publish-mock` 才啟用 MockSheets。
 - 一次處理 1..100 個工作，預設 10，不自建背景輪詢。worker ID 與 code SHA 明確固定；只領 local／同 code 的 recompute_healthcheck、generate_raid_draft。
+- [還原副本](62-local-backup-restore.md) 若存在 restore-lock.json，一律拒絕領取或發布，避免自行成為第二 writer。
 - LocalStateStore.claim 的可選 commands 白名單在 SQL LIMIT 前套用，避免大量不支援任務使可處理工作飢餓；其他 caller 未指定時保留原行為，hosted claim 不接受此本地篩選。
 - 啟用 mock 發布時先處理同版本 computed 健檢，再領計算工作。發布採 persisted manifest 與原有全域／工作簿鎖，不從草稿或目前標準重新算。
 - mock 發布經 [workbook staging](60-local-workbook-staging.md) 驗分片、sealed 與 base commit 後啟用；未知啟用不自動續寫。

@@ -70,6 +70,7 @@
 - [59：本地控制請求驗證](59-local-control-request-gate.md)
 - [60：本地 workbook staging](60-local-workbook-staging.md)
 - [61：GS 全員評分迴圈對照](61-gs-cohort-scoring-parity.md)
+- [62：本地備份與還原](62-local-backup-restore.md)
 
 ## 撰寫規則
 
