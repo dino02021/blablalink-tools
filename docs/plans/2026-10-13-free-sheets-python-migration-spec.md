@@ -1302,3 +1302,10 @@ blablalink-tools/
 - 取消決定以 immutable plan／receipt／request 與 effective-state view 保存，不冒充成功；原子 fence 舊 generation、job 記失敗、釋放自己的鎖。重播不碰新 publisher，已套用回應遺失仍走成功恢復。
 - 十八項 mock 案例含實際八 tab 格線、人工編輯、rollback／鎖／phase／generation、partial、重啟／retention／備份還原。正式 provider 停止證據與自動 rollback 仍未接線。
 - 發現待補：MockSheets 的整份 JSON read／modify／save 缺跨程序人工／生成區互斥，須另以並行測試補齊。詳見 docs/spec/92-publication-no-write-abort.md。
+
+### 17.58 第五十四批：Mock 工作簿跨程序互斥（2026-10-16）
+
+- 修正整份 JSON read／modify／save 的人工／生成區競爭，以同程序可重入鎖加 Windows OS byte lock 包住所有公開讀取／修改流程；POSIX 分支尚未實測。
+- 追加：atomic replace 不能取代完整 read-modify-write 互斥；sidecar 存在也不能當 writer 存活或停止證據。等待有界，持鎖不因 TTL 過期，程序退出由 OS 釋放。
+- 備份 bytes 擷取共用鎖並保留前後一致性檢查，sidecar 不備份；恢復副本原 fence 不變。整份 inputs replacement 不假裝自動合併 stale client snapshots。
+- 十四項實際 thread／子程序案例涵蓋雙向人工與發布、不同 cell、累計更新、重入／退出、timeout／budget、備份還原及錯 bounds。正式遠端 adapter／POSIX／rollback 等仍待完成。詳見 docs/spec/93-mock-workbook-process-locks.md。

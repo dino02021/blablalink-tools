@@ -38,3 +38,5 @@ publication 原表的 CHECK 與歷史 storage state 不改、不冒充 succeeded
 local_tests/test_publication_safety.py 的 18 項案例涵蓋未開始／全基準、停止事實／時間、人工編輯保留、partial／response loss、舊 phase 不推論、缺基準不補造、generation／確認、偽造模式、DB rollback、鎖損壞、重播與新 owner、marker 不足、基準不可改、重啟／retention／backup／restore，以及實際八 tab 健檢格線完整復原後取消。
 
 本批未實作自動 rollback、遠端 principal 或 Google 停止／回讀證據。另發現 MockSheets 的人工編輯與生成區更新仍使用整份 JSON read／modify／save；跨程序同時編輯需要加入互斥，避免覆蓋彼此已更新的欄位。這項本地模擬器遺漏將另補實作與並行驗證；不能以目前循序人工保留測試推定多人並行已完成。
+
+93 已補上公開 MockSheets read／modify／save 的 thread／process 互斥與實際並行驗證；私有低階直接寫檔不在此契約內，正式 Google partial range／CAS 仍未接線。

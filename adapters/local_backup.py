@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 
 from application.tasks import StateConflict, validate_identifier
+from adapters.mock_workbook_lock import workbook_file_lock
 from domain.snapshots import canonical_json
 from executors.local.demo import MARKER
 
@@ -38,7 +39,7 @@ def create_backup(directory: Path, archive: Path, code_sha: str) -> dict:
         for path in books:
             if path.resolve().parent != directory / "workbooks" or not _allowed_file("workbooks/" + path.name):
                 raise ValueError("unexpected mock workbook path")
-            _add_file(files, "workbooks/" + path.name, _bounded_read(path))
+            _add_file(files, "workbooks/" + path.name, _bounded_workbook_read(path))
         for name in DATABASES:
             path = directory / name
             if path.exists():
@@ -46,7 +47,7 @@ def create_backup(directory: Path, archive: Path, code_sha: str) -> dict:
                     raise ValueError("database path escapes mock workspace")
                 _add_file(files, name, _database_bytes(path))
         if books != sorted((directory / "workbooks").glob("*.json")) or any(
-                files["workbooks/" + path.name] != _bounded_read(path) for path in books):
+                files["workbooks/" + path.name] != _bounded_workbook_read(path) for path in books):
             raise StateConflict("workbooks changed during backup capture")
         if sum(map(len, files.values())) > MAX_BACKUP_BYTES:
             raise ValueError("backup exceeds local size limit")
@@ -150,6 +151,11 @@ def _bounded_read(path):
     if len(value) > MAX_BACKUP_BYTES:
         raise ValueError("backup file exceeds local size limit")
     return value
+
+
+def _bounded_workbook_read(path):
+    with workbook_file_lock(path):
+        return _bounded_read(path)
 
 
 def _add_file(files, name, content):

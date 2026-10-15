@@ -113,6 +113,8 @@
 
 - [92：發布安全取消與原始基準](92-publication-no-write-abort.md)
 
+- [93：Mock 工作簿跨程序互斥](93-mock-workbook-process-locks.md)
+
 ## 撰寫規則
 
 後續更新 spec 時，維持以下原則：

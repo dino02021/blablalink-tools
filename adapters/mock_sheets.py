@@ -8,6 +8,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from adapters.mock_workbook_lock import locked_workbook_access
 from application.tasks import StateConflict
 from application.publication_safety import capture_publication_state
 from adapters.mock_grid import GridMigrationPlan, is_same_grid_layout, materialize_generated_grid, prepare_grid_migration
@@ -20,10 +21,11 @@ class MockSheets:
     """One atomic generated-area replacement per workbook; human inputs are separate."""
 
     def __init__(self, directory: Path) -> None:
-        self.directory = Path(directory)
+        self.directory = Path(directory).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self.write_count = 0
 
+    @locked_workbook_access
     def create(self, resource: str, layout_revision: str, inputs: dict) -> None:
         path = self._path(resource)
         if path.exists():
@@ -31,6 +33,7 @@ class MockSheets:
         self._save(resource, {"layout_revision": layout_revision, "inputs": inputs,
                               "generated": {}, "commit_id": None, "payload_hash": None})
 
+    @locked_workbook_access
     def read(self, resource: str) -> dict:
         return json.loads(self._path(resource).read_text(encoding="utf-8"))
 
@@ -50,11 +53,13 @@ class MockSheets:
                 "layout_hash":_hash(book.get("layout"))}
         return capture_publication_state(resource,publication_id,commit_id,result_id,code_sha,owned)
 
+    @locked_workbook_access
     def edit_inputs(self, resource: str, inputs: dict) -> None:
         book = self.read(resource)
         book["inputs"] = copy.deepcopy(inputs)
         self._save(resource, book)
 
+    @locked_workbook_access
     def set_manual_tab(self, resource: str, tab_key: str, title: str, rows: list) -> None:
         book = self.read(resource)
         generated_tabs = (book.get("generated_grid") or {}).get("tabs", {})
@@ -70,6 +75,7 @@ class MockSheets:
         manual[tab_key] = {"title": title, "cells": [[{"value": encode_cell_value(cell)} for cell in row] for row in rows]}
         self._save(resource, book)
 
+    @locked_workbook_access
     def edit_cell(self, resource: str, tab_key: str, row: int, column: int, value: object) -> None:
         book = self.read(resource)
         if tab_key in (book.get("generated_grid") or {}).get("tabs", {}):
@@ -84,6 +90,7 @@ class MockSheets:
     def plan_grid_migration(self, resource: str, generated: dict) -> GridMigrationPlan:
         return prepare_grid_migration(resource, self.read(resource), generated)
 
+    @locked_workbook_access
     def approve_grid_migration(self, plan: GridMigrationPlan, generated: dict, confirmed_plan_id: str,
                                config_id: str, code_sha: str) -> None:
         book = self.read(plan.resource)
@@ -96,6 +103,7 @@ class MockSheets:
         book["grid_migration_approval"] = {"plan_id": plan.plan_id, "plan": asdict(plan)}
         self._save(plan.resource, book)
 
+    @locked_workbook_access
     def apply_legacy_migration(self, plan: LegacyMigrationPlan, catalog, confirmed_plan_id: str,
                                 config_id: str, code_sha: str) -> str:
         book = self.read(plan.resource)
@@ -119,6 +127,7 @@ class MockSheets:
         self._save(plan.resource, book)
         return book["layout_revision"]
 
+    @locked_workbook_access
     def initialize_layout(self, layout: Layout) -> None:
         book = self.read(layout.resource)
         if "layout" in book:
@@ -132,6 +141,7 @@ class MockSheets:
         data = self.read(resource)["layout"]
         return Layout(data["resource"], data["tab_id"], tuple(Column(**c) for c in data["columns"]), data["schema_version"])
 
+    @locked_workbook_access
     def apply_layout(self, plan: LayoutPlan, confirmed_plan_id: str, config_id: str, code_sha: str) -> None:
         current = self.read_layout(plan.before.resource)
         updated = confirm_layout(plan, current, confirmed_plan_id, config_id, code_sha)
@@ -142,6 +152,7 @@ class MockSheets:
         book["layout_revision"] = updated.revision
         self._save(current.resource, book)
 
+    @locked_workbook_access
     def apply(self, resource: str, revision: str, generated: dict, commit_id: str,
               fault: str | None = None) -> None:
         if fault not in (None, "before", "after"):
