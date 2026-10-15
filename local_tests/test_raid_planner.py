@@ -90,7 +90,7 @@ def test_same_display_name_does_not_merge_members():
 
 def test_auto_selection_never_introduces_phase_three_overflow():
     problem = _problem()
-    problem = replace(problem, hp=(("0",) * 5, ("0",) * 5, ("1",) * 5))
+    problem = replace(problem, hp=(("0",) * 5, ("0",) * 5, ("1",) * 5), overflow_policy="raw_damage")
     result = select_rounds(problem)
     assert result.selected == ()
     assert Decimal(result.simulation.phase_three_overflow_true) == 0

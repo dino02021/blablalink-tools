@@ -27,6 +27,7 @@ class RaidProblem:
     code_sha: str
     # Explicit cross-runtime tie contract; legacy localeCompare is a migration comparison item.
     element_tie_order: tuple[str, ...] = ELEMENTS
+    overflow_policy: str = "legacy_effective"
 
     def __post_init__(self):
         for field in ("members", "boss_elements", "base_damage_yi", "history", "input_versions", "element_tie_order"):
@@ -43,6 +44,8 @@ class RaidProblem:
             raise ValueError("complete deterministic element tie order required")
         if len(self.base_damage_yi) != 5:
             raise ValueError("five base damages required")
+        if self.overflow_policy not in ("legacy_effective", "raw_damage"):
+            raise ValueError("unsupported phase-three overflow policy")
         for damage in self.base_damage_yi:
             estimate_damage_yi(self.members[0].sync, self.base_sync, damage)
         identities = {m.member for m in self.members}
@@ -122,7 +125,7 @@ def build_source_pool(problem: RaidProblem) -> tuple[SourceToken, ...]:
                 for group_rank, group in enumerate(groups):
                     for boss in range(1, 6):
                         element = problem.boss_elements[boss - 1]
-                        if element not in group or not _legal_boss(problem, member.member, boss, chosen, fixed, allow_conflict, True):
+                        if element not in group or not _is_legal_boss(problem, member.member, boss, chosen, fixed, allow_conflict, True):
                             continue
                         damage = estimate_damage_yi(member.sync, problem.base_sync, problem.base_damage_yi[boss - 1])
                         if damage > 0:
@@ -213,7 +216,7 @@ def _choose(problem, member, selected, remaining, fixed, round_index, sequence, 
                         continue
                     if boss not in current.deficit_bosses and not (boss == 5 and not current.deficit_bosses):
                         continue
-                    if not _legal_boss(problem, member.member, boss, own, fixed, allow_conflict, not current.deficit_bosses):
+                    if not _is_legal_boss(problem, member.member, boss, own, fixed, allow_conflict, not current.deficit_bosses):
                         continue
                     damage = estimate_damage_yi(member.sync, problem.base_sync, problem.base_damage_yi[boss - 1])
                     if damage <= 0:
@@ -222,7 +225,7 @@ def _choose(problem, member, selected, remaining, fixed, round_index, sequence, 
                     knife = RaidKnife(token.knife.knife_id, member.member, boss, str(damage * 100000000),
                         "auto", 4 if is_repeat else 0, is_repeat, round=round_index, sequence=sequence)
                     rerun = simulate_stages(problem.members, problem.hp, problem.history, tuple((*selected, knife)))
-                    if not _is_front_no_worse(current, rerun) or Decimal(rerun.phase_three_overflow_true) > 0:
+                    if not _is_front_no_worse(current, rerun) or overflow_for_policy(problem, rerun) > 0:
                         continue
                     is_deficit = boss in current.deficit_bosses
                     if strict and not is_deficit:
@@ -237,8 +240,11 @@ def _choose(problem, member, selected, remaining, fixed, round_index, sequence, 
     return None
 
 
-def _legal_boss(problem, member, boss, chosen, fixed, allow_conflict, allow_tail_repeat):
+def _is_legal_boss(problem, member, boss, chosen, fixed, allow_conflict, allow_tail_repeat):
     if boss in fixed.blocked_bosses:
+        return False
+    profile = next(m for m in problem.members if m.member == member)
+    if estimate_damage_yi(profile.sync, problem.base_sync, problem.base_damage_yi[boss - 1]) <= 0:
         return False
     # All accepted fixed knives reserve their target even before their selection round.
     committed = [k for k in problem.history if k.member == member] + list(fixed.knives) + list(chosen)
@@ -265,3 +271,8 @@ def _is_front_no_worse(before, after):
 
 def _remaining_total(simulation):
     return sum((Decimal(value) for row in simulation.remaining_hp for value in row), Decimal(0))
+
+
+def overflow_for_policy(problem: RaidProblem, simulation: RaidSimulation) -> Decimal:
+    # Legacy GS sums already capped effectiveTrue, so its phase-three overflow gate is zero.
+    return Decimal(simulation.phase_three_overflow_true) if problem.overflow_policy == "raw_damage" else Decimal(0)

@@ -41,6 +41,8 @@
     排刀輸入、指定／歷史刀與精確階段扣血模擬。
 15. [49-local-raid-round-selection.md](./49-local-raid-round-selection.md)
     不可變排刀輸入、候選來源池、前三輪與剩餘刀補洞。
+16. [50-local-raid-finalization.md](./50-local-raid-finalization.md)
+    改派、指定保留、元素交換、最終補刀與 GS 全流程對照。
 
 ## 涵蓋範圍
 

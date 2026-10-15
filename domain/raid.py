@@ -194,11 +194,17 @@ def _simulate_stages(members, hp, history, planned):
         new = sum(k.member == member.member for k in planned)
         if new > max(0, 3 - previous):
             raise ValueError("planned knives exceed available member slots")
-        seen = {k.boss for k in history if k.member == member.member}
-        for knife in (k for k in planned if k.member == member.member):
-            if knife.boss in seen and not (knife.boss == 5 and knife.is_locked and knife.source_locked_stage == 4):
-                raise ValueError("same member cannot repeat finite boss")
-            seen.add(knife.boss)
+        historical_bosses = {k.boss for k in history if k.member == member.member}
+        own = [k for k in planned if k.member == member.member]
+        for boss in range(1, 6):
+            matching = [k for k in own if k.boss == boss]
+            if boss != 5:
+                if len(matching) > 1 or matching and boss in historical_bosses:
+                    raise ValueError("same member cannot repeat finite boss")
+            else:
+                finite = [k for k in matching if not (k.is_locked and k.source_locked_stage == 4)]
+                if len(finite) > (0 if boss in historical_bosses else 1):
+                    raise ValueError("same member cannot repeat finite boss")
     effective, assigned, tails = {}, {}, []
     for knife in history:
         damage = Decimal(knife.damage_true)
