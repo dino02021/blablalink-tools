@@ -853,7 +853,7 @@ blablalink-tools/
 
 ### 17.4 仍可獨立完成的待辦
 
-1. 快照模型、本地物件持久化、分片續傳與封存已完成；仍需原始 API mock normalizer、完整來源 coverage、保留清理與遠端 transport 契約。
+1. 快照模型、本地物件持久化、分片續傳、封存與原始 API mock normalizer 已完成；仍需 collector 端完整來源證明、保留清理與遠端 transport 契約。
 2. 結構化健檢報告與資料快照差異已完成；數值 helper 已做 GS 對照，仍需完整評分／表格 mock 對照。
 3. 本地持久任務資料庫、候選發布、依賴、重試、預算與資源鎖已完成；實際 D1 與遠端授權／執行介面仍待離線契約驗證。
 4. mock 生成區 publisher、未知發布、舊權限、穩定欄位 planner 與基本型別化格子請求已完成；舊 GS 模板轉換、完整格式／維度、分片 staging 與完整表格對照仍待完成。
@@ -932,3 +932,14 @@ blablalink-tools/
 - 追加：既有實體欄保持位置，desired 順序只決定新欄附加順序。屬性分組重排需另有可確認的遷移計畫，不能假稱目前已支援。
 - 目前是單列標題的新模型，尚需舊 GS 多列／12 欄模板轉換、隱藏／維度請求、格子級 mock 與中央 layout publisher 串接；不以純模型測試宣稱完整表格相容。
 - 全套 167 項本地 mock 測試及新增／變更模組的 Python 語法檢查通過。
+
+### 17.10 第七批：原始來源與訓練正規化（2026-10-15）
+
+- domain/normalization.py 定義原始欄位白名單與來源 outcome／request／options coverage；不匯入舊網路／登入模組。
+- 本地合成資料驗證完整／部分／失敗／auth_required，區分 unknown、not_owned 與 owned 缺 detail；成員依 area／member ID，角色依 name_code。
+- 全部取得詞條保留為 function ID 映射，計分／門檻更換追蹤可重用快照；訓練快照綁定 raw_snapshot_id 與 normalizer_version。
+- 追加：突破缺 grade／core 不再補 0；部分裝備覆蓋不把觀測總和或不存在詞條當完整 0。未知 state effect 保留未知。
+- 追加：參照角色字典必須完整且釘版本，不可只用當下追蹤角色清單驗證整份 ownership 回應；重複來源身份與互相矛盾資料阻擋正規化。
+- 追加：裝備與收藏品轉換沿用已讀本地來源；五位詞條前綴、首個 function_details、百分比取絕對值累加與兩位小數為 normalizer v1 相容契約。尚未驗證未來 API 變種。
+- 尚無線上 collector、分頁／完整來源證明、參照資料發布與歷史刀轉換；trusted coverage flag 不代表已驗證遠端完整性。
+- 全套 193 項本地 mock 測試及新增模組 Python 語法檢查通過。

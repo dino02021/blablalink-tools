@@ -33,6 +33,8 @@
     大型快照分片、續傳、完整性與封存閘門。
 11. [45-local-layout-planning.md](./45-local-layout-planning.md)
     穩定欄位、確認計畫、封存與型別化儲存格請求。
+12. [46-local-training-normalization.md](./46-local-training-normalization.md)
+    原始欄位白名單、來源完整性、持有判斷與全部詞條投影。
 
 ## 涵蓋範圍
 
