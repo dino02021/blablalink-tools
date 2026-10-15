@@ -179,7 +179,8 @@
         "local_tests/test_system_status_publication.py::test_hundred_scopes_stable_two_pages",
         "local_tests/test_system_status_publication.py::test_unknown_publisher_blocks_new_observation_and_route_change",
         "local_tests/test_system_status_publication.py::test_corrupt_watched_scope_does_not_hide_other_scopes",
-        "local_tests/test_system_status_publication.py::test_backup_retains_status_versions_and_fences_new_capture"
+        "local_tests/test_system_status_publication.py::test_backup_retains_status_versions_and_fences_new_capture",
+        "local_tests/test_connected_raid_scenario.py::test_whole_raid_flow_preserves_pending_edits_and_adopted_publications"
       ],
       "remaining": [
         "真實共享狀態表 adapter、完整歷史分頁與遠端 scope 授權"
@@ -239,7 +240,8 @@
         "local_tests/test_legacy_raid_grid.py::test_missing_or_ambiguous_identity_metadata_is_not_guessed",
         "local_tests/test_legacy_raid_grid.py::test_existing_stable_input_and_changed_target_are_never_replaced",
         "local_tests/test_legacy_raid_grid.py::test_concurrent_human_edit_and_migration_share_one_read_modify_write_lock",
-        "local_tests/test_legacy_raid_grid.py::test_modified_archive_receipt_is_not_used_as_replay_authority"
+        "local_tests/test_legacy_raid_grid.py::test_modified_archive_receipt_is_not_used_as_replay_authority",
+        "local_tests/test_connected_raid_scenario.py::test_whole_raid_flow_preserves_pending_edits_and_adopted_publications"
       ],
       "remaining": [
         "真實 Sheets adapter／公開發布路由、GS 人工來源擷取與 adopted 來源後調度"
@@ -309,7 +311,8 @@
         "local_tests/test_staging_retention.py::test_delete_failure_rolls_back_stages_chunks_and_receipt",
         "local_tests/test_staging_retention.py::test_budget_failure_after_first_delete_rolls_back_everything",
         "local_tests/test_staging_retention.py::test_backup_keeps_cleanup_receipt_and_restore_cannot_initialize_writer",
-        "local_tests/test_staging_retention.py::test_actual_cli_plan_confirm_replay_and_no_workbook_change"
+        "local_tests/test_staging_retention.py::test_actual_cli_plan_confirm_replay_and_no_workbook_change",
+        "local_tests/test_connected_raid_scenario.py::test_whole_raid_flow_preserves_pending_edits_and_adopted_publications"
       ],
       "remaining": [
         "真實 staging tab 啟用／取消與完整 merge／format／protection"
@@ -326,7 +329,8 @@
         "local_tests/test_publication_safety.py::test_abort_replay_does_not_release_a_new_publishers_locks_or_reactivate_old_writer",
         "local_tests/test_publication_safety.py::test_abort_history_and_baselines_survive_retention_backup_and_restore",
         "local_tests/test_mock_workbook_lock.py::test_process_termination_releases_kernel_lock_without_deleting_sidecar",
-        "local_tests/test_mock_workbook_lock.py::test_lock_sidecars_are_not_backed_up_and_restore_builds_fresh_locks"
+        "local_tests/test_mock_workbook_lock.py::test_lock_sidecars_are_not_backed_up_and_restore_builds_fresh_locks",
+        "local_tests/test_connected_raid_scenario.py::test_whole_raid_flow_preserves_pending_edits_and_adopted_publications"
       ],
       "remaining": [
         "正式 release binary／降版 migration／跨 runtime 單一 ownership"

@@ -1360,3 +1360,10 @@ blablalink-tools/
 - 二十九項實際 SQLite batch／競爭測試，僅作 SQL 契約證據；D1 binding／emulator／完整任務、chunks／publisher／quota／auth 仍未完成。本機未取得 Linux runtime，POSIX 仍未實測。詳見 docs/spec/100-d1-atomic-cas-offline-contract.md。
 
 - 同批追加驗收工具遺漏：證據 regex 不接受 d1 檔名，完整回歸因此誠實失敗；已支援數字 node 並新增五項正反測試，失敗 suite 不生成通過證據。
+
+### 17.66 第六十二批：人工來源到排刀發布整合情境（2026-10-16）
+
+- 單一 synthetic CLI 連接舊人工遷移→raw grid→原子採用／draft→native 計算→明確確認／mock 發布→共享狀態→終止 transport 清理→backup／fenced restore。
+- 實際二個 bounded child、五張排刀與三張狀態 tab，保留三種工作簿人工資料與既有成功。另次獨立執行保存 actual receipts 至 docs/validation/2026-10-16-connected-raid-scenario.json。
+- 追加：已採用工作完成不等於所有人工草稿已同步。證據明列 has_unadopted_human_edit，pending grid 與原 raw ID 分開，後續編輯不被偷偷採用或覆蓋。
+- 五項整合案例含實際 CLI、拒絕既有 workspace 與兩階段 child failure；不偽造完成、不抹除前次發布。正式與 hosted／D1 接線、rebase policy 等缺口保留。詳見 docs/spec/101-connected-raid-mock-scenario.md。

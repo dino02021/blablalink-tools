@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "is_mock": true,
+  "is_production_accepted": false,
+  "network_providers": [],
+  "code_sha": "mock-release-v1",
+  "scope_id": "union_demo",
+  "is_adopted_work_settled": true,
+  "has_unadopted_human_edit": true,
+  "is_human_data_preserved": true,
+  "pending_member_grid_id": "0938800582f7adb8ef399fd7aae731a93d0cc0c884ef93bf8cd3da06218c39a8",
+  "legacy_migration_plan_id": "135bd701f3835d83c6fca9da55b2c878789a846e8ed0bbd21f16b0805487c345",
+  "member_grid_id": "844d7a6461b68749be65474144a935ec4914f61192b70d1708bc5e00dfc4c900",
+  "source_candidate_id": "c48adcf329d9c9b197a17eb2d2f707110ba99370e58af48eaabb54ddebdef80f",
+  "draft_job_id": "e9daf5f770c1232a72d165eddcc84dd3ef3b60aa274db10e972e1a75e931bb56",
+  "draft_plan_id": "1a716eaeb446e61369a383303dc6b722990d435c2c4ea0a9dcea08b22d7f8224",
+  "confirmation_id": "9d36b92b992fdd581c7c8238177da673609bc992ac01bc2f98246aaad07f1c53",
+  "raid_publication_job_id": "a79a7e3eff2ad6f378331c8f02fc92b63e375e6e6418b0a10aca28fbc25f8c3c",
+  "raid_commit_id": "785e64b16adf93bc0469630308ae99319f28db56c868d373c00706b0f4710451",
+  "status_job_id": "413563deb72c38052ded95d41399349cef6e6e82565e373a222feb756b9a50cf",
+  "status_commit_id": "81220c49fd28636a9ae499dd237f835c2ffeefaff1ca50d589584c4c54680dc3",
+  "status_hash": "5d0d4267a59a2ea4fa72dfb4c683a4377cb72a3c625f514d68403be271f75c36",
+  "published_families": [
+    "healthcheck",
+    "raid_publication"
+  ],
+  "raid_tab_count": 5,
+  "status_tab_count": 3,
+  "native_executions": [
+    {
+      "is_mock": true,
+      "is_isolated": true,
+      "outcome": "completed",
+      "exit_code": 0,
+      "is_child_stopped": true,
+      "seconds": 0.37299379997421056,
+      "memory_limit_bytes": 536870912,
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "is_stderr_truncated": false,
+      "child_result": {
+        "is_mock": true,
+        "processed": [
+          {
+            "job_id": "e9daf5f770c1232a72d165eddcc84dd3ef3b60aa274db10e972e1a75e931bb56",
+            "command": "generate_raid_draft",
+            "state": "succeeded",
+            "error_code": null
+          }
+        ],
+        "workflow_ticks": [],
+        "workflow_scopes_selected": 0,
+        "is_workflow_budget_limited": false,
+        "workflow_error_code": null,
+        "system_status_capture": null,
+        "network_providers": []
+      },
+      "network_providers": []
+    },
+    {
+      "is_mock": true,
+      "is_isolated": true,
+      "outcome": "completed",
+      "exit_code": 0,
+      "is_child_stopped": true,
+      "seconds": 0.3656814999994822,
+      "memory_limit_bytes": 536870912,
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "is_stderr_truncated": false,
+      "child_result": {
+        "is_mock": true,
+        "processed": [
+          {
+            "job_id": "413563deb72c38052ded95d41399349cef6e6e82565e373a222feb756b9a50cf",
+            "command": "publish_system_status",
+            "state": "computed",
+            "error_code": null
+          }
+        ],
+        "workflow_ticks": [],
+        "workflow_scopes_selected": 0,
+        "is_workflow_budget_limited": false,
+        "workflow_error_code": null,
+        "system_status_capture": {
+          "job_id": "413563deb72c38052ded95d41399349cef6e6e82565e373a222feb756b9a50cf",
+          "command": "publish_system_status",
+          "state": "computed",
+          "error_code": null
+        },
+        "network_providers": []
+      },
+      "network_providers": []
+    }
+  ],
+  "cleanup_receipt": {
+    "plan_id": "e463069e1ae01a1b888379a849adc554a7dd6415c1da54defd5dec46fa3cb9eb",
+    "stage_ids": [
+      "605a3040a518630179e40323322e436a8b44df063fd00fe7d3b42a62233a0370",
+      "b18cf07db93c0aabe5ed27d1a720af463387358ec67248a6c3f370b77ceed832"
+    ],
+    "object_ids": [
+      "288ff01a3aab34847c846e4f2177b63cac0358afc8d9fbaa9d9973a763aae854",
+      "971c13a9a9b1f3c8a72540f394f3ac502bc8c19e671a65a547a6dc5d7cff18e7"
+    ],
+    "deleted_chunk_bytes": 3518,
+    "is_mock": true,
+    "receipt_id": "c6e61c0129c95c5aeef5bdf57eaf4aa8536c51dff687ffd682cae1a33575c1e0"
+  },
+  "backup_id": "1c53f45bd6044c3de77be15088f8bbc0a4c4dff68416bc556ebc83384b0b443e",
+  "is_restore_fenced": true
+}
