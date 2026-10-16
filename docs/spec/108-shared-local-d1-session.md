@@ -19,3 +19,5 @@ LocalD1Objects.with_session 明確接收擁有完整 object schema 的 session�
 這是固定 SQL 的本地 adapter，沒有把 SQL 當公開 API。完整 enqueue／claim／lease／publisher／auth／admission、schema 版本 migration readiness 與全部情境 backend parity 仍未完成。
 
 最新完整回歸：1,096 項通過，22 項本地證據通過，is_production_accepted=false。包含最大 inventory、16 MiB 合法物件、同 DB 共用 session 與原成本比較；先前失敗仍保留上述紀錄，不以重試自動掩蓋。完整 D1 業務 coordinator 尚未完成。
+
+追加整合界限：schema guard 的 DDL binding 與 binary chunk 共用 64 KiB frame；日後完整 schema 增長時須驗證組合大小，不能放寬 control body 來掩蓋。必要時依 checksum/readiness migration 契約設計分層 guard；目前超限先拒絕，不宣稱任意完整 schema 都能傳最大 chunk。

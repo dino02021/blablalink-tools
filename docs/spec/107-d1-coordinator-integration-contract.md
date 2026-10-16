@@ -34,3 +34,13 @@
 2026-10-16 重新核對 [D1 官方 limits](https://developers.cloudflare.com/d1/platform/limits/)：Free 每 Worker invocation 最多 50 queries；batch 內個別 statement 也受相關界限約束。完整 schema 不能把現有多次 migrations 全部拼成一個無界 bootstrap。
 
 後續 migration runner 必須逐版本、限制每批 statements，保存 checksum／revision 與 readiness barrier；未完成 schema 驗證前禁止 claim／publish。各批原子 rollback 並不等於跨批原子完成，不可用本地 marker 或 process flag 宣告 ready。D1 batch 的交易行為依 [官方 binding 文件](https://developers.cloudflare.com/d1/worker-api/d1-database/) 驗證，仍需本地 interruption／replay 矩陣。
+
+## 追加：checkpoint、回收與本地多 client 驗證
+
+已讀目前 Root save_checkpoint／load_checkpoint／_recover 當前 source；graph search 無截斷，metadata_changed 採 source fallback。既有通用 checkpoint 使用同租約 UPSERT；D1 跨 request 需新增 checkpoint revision CAS，exact replay 回舊 receipt 不倒退較新進度，更新仍綁 generation／sealed object。Training collection 的專用 progress pointer／觀察驗證也須另做 parity，不能以通用 checkpoint 冒充完整 collector 恢復。
+
+Compute expiry 可依 attempt limit 轉 retry_wait／failed；依賴失敗須傳播。D1 回收每輪限制筆數，不能照搬無界 while；分批傳播期間不得錯誤領取依賴未成功的工作。Publisher／外部結果不明的鎖仍不屬於 compute TTL 回收。
+
+目前 D1 並行證據使用同一 Miniflare binding 的 concurrent batches；尚未覆蓋兩個 owned SDK instances 同時開啟同一 persist directory。本地 session 的跨 client 行為需另測並決定是否採 cooperative workspace lock；不將現有並行證據擴稱為多 SDK 程序驗收。
+
+實作進度：frozen enqueue／原子 claim 核心見 [109](109-d1-frozen-compute-claims.md)，heartbeat／sealed completion 見 [110](110-d1-heartbeat-sealed-completion.md)。域別 freshness compiler、完整 Root parity 與其餘整合仍待完成。

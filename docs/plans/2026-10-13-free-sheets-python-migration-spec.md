@@ -1409,3 +1409,15 @@ blablalink-tools/
 - 同一實際本地 D1 串接 sealed object 與 receipt-driven head CAS；partial schema 先拒絕，不自動補建遺失表。十四項 focused tests 通過，完整回歸待重跑；不宣稱完整 coordinator 已完成。詳見 docs/spec/108-shared-local-d1-session.md。
 
 - 第六十六至六十八批完整回歸已通過：1,096 項、22 項本地證據，正式驗收維持 false。保存先前 SDK memory failure 與單次比較器失敗的診斷限制；下一步為同一 D1 的原子任務／lease 契約。
+
+### 17.73 第六十九批：D1 frozen enqueue 與原子 compute claim
+
+- 封存 TaskSpec、原子 enqueue receipt、source revision pins 與 dependencies，成功 claim receipt 固定原 lease，重播不領第二個工作。
+- 十四項首輪 focused tests 通過，包含真實 SDK 並行與回覆遺失；過期 receipt 不授權。AUTO／publication／hosted dispatch 等未完能力明確拒絕，不假稱完整 coordinator。詳見 docs/spec/109-d1-frozen-compute-claims.md。
+
+### 17.74 第七十批：D1 heartbeat 與 sealed result 完成（驗證中）
+
+- 固定 action receipts，續約重播不延長、completion 只引用同 DB sealed result，source pins 改變則 superseded；零列更新須有寫後證明。
+- 追加修正：合法 heartbeat 之後，舊 claim receipt 仍識別同 generation，不能錯用 expiry 完全相等來拒絕；歷史 receipt 本身不延長租約。詳見 docs/spec/110-d1-heartbeat-sealed-completion.md。
+
+- 第六十九至七十批完整回歸：1,124 項通過，22 項本地證據通過，正式驗收維持 false；續做 checkpoint／bounded recovery，不視為完整 D1 adapter 已完成。

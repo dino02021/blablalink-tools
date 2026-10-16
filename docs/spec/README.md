@@ -129,6 +129,8 @@
 - [106：本地 D1 大物件有界會話](106-bounded-d1-object-sessions.md)
 - [107：D1 coordinator 後續整合契約（尚未實作）](107-d1-coordinator-integration-contract.md)
 - [108：共用本地 D1 schema／session](108-shared-local-d1-session.md)
+- [109：D1 frozen enqueue 與原子 compute claim](109-d1-frozen-compute-claims.md)
+- [110：D1 heartbeat 與 sealed result 完成](110-d1-heartbeat-sealed-completion.md)
 
 ## 撰寫規則
 

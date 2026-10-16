@@ -129,7 +129,13 @@
         "local_tests/test_d1_objects.py::test_stored_chunk_corruption_cannot_be_promoted_to_sealed_input",
         "local_tests/test_d1_objects.py::test_alternative_valid_encodings_share_object_identity_and_admission_is_bounded",
         "local_tests/test_d1_shared_session.py::test_actual_shared_database_keeps_sealed_objects_and_atomic_heads_together",
-        "local_tests/test_d1_shared_session.py::test_existing_partial_schema_is_rejected_without_silently_recreating_missing_table"
+        "local_tests/test_d1_shared_session.py::test_existing_partial_schema_is_rejected_without_silently_recreating_missing_table",
+        "local_tests/test_d1_compute_queue_runtime.py::test_actual_frozen_enqueue_and_lost_claim_response_replay_keep_one_lease",
+        "local_tests/test_d1_compute_queue_runtime.py::test_actual_parallel_d1_claims_do_not_duplicate_a_job_generation",
+        "local_tests/test_d1_compute_queue.py::test_source_head_aba_blocks_fresh_work_but_exact_enqueue_replay_stays_read_only",
+        "local_tests/test_d1_lease_actions_runtime.py::test_actual_heartbeat_and_completion_preserve_receipts_across_expiry_and_restart",
+        "local_tests/test_d1_lease_actions.py::test_source_changes_quarantine_the_sealed_result_as_superseded",
+        "local_tests/test_d1_lease_actions.py::test_silently_ignored_job_update_does_not_get_a_success_receipt"
       ],
       "remaining": [
         "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
@@ -290,7 +296,9 @@
         "local_tests/test_d1_runtime.py::test_always_running_the_batch_on_replay_has_real_guard_write_cost",
         "local_tests/test_d1_runtime.py::test_verified_receipt_lookup_avoids_guard_writes_on_normal_replay",
         "local_tests/test_receipt_d1_runtime.py::test_actual_receipt_trigger_cas_writes_two_rows_and_replay_writes_zero",
-        "local_tests/test_receipt_d1_runtime.py::test_same_fixture_comparison_keeps_semantics_with_lower_write_cost"
+        "local_tests/test_receipt_d1_runtime.py::test_same_fixture_comparison_keeps_semantics_with_lower_write_cost",
+        "local_tests/test_d1_compute_queue.py::test_empty_claim_has_no_persistent_write_and_can_later_find_new_work",
+        "local_tests/test_d1_compute_queue_runtime.py::test_actual_frozen_enqueue_and_lost_claim_response_replay_keep_one_lease"
       ],
       "remaining": [
         "共用帳戶實際用量／降頻、完整 D1 admission／schema／物件成本"
