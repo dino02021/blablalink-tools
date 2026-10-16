@@ -1421,3 +1421,25 @@ blablalink-tools/
 - 追加修正：合法 heartbeat 之後，舊 claim receipt 仍識別同 generation，不能錯用 expiry 完全相等來拒絕；歷史 receipt 本身不延長租約。詳見 docs/spec/110-d1-heartbeat-sealed-completion.md。
 
 - 第六十九至七十批完整回歸：1,124 項通過，22 項本地證據通過，正式驗收維持 false；續做 checkpoint／bounded recovery，不視為完整 D1 adapter 已完成。
+
+### 17.75 第七十一批：D1 checkpoint revision CAS（驗證中）
+
+- 獨立 checkpoint schema、generation／sealed object／base revision 守衛，舊 request 回舊 receipt 不倒退 head；版本物件固定 payload identity。
+- Generic cursor 限 32 KiB，專用 training progress 另需完整 parity，先明確拒絕；七項 SQLite 契約通過，實際 SDK 案例進行中。詳見 docs/spec/111-d1-checkpoint-revision-cas.md。
+
+### 17.76 第七十二批：D1 本地 compute 有界回收
+
+- 每輪最多 100 筆，固定 recovery receipts，generation outcome 與 dependency 分輪傳播；不因 local TTL 釋放 hosted／publisher 的未知狀態。
+- 六項 focused tests 通過，實際 recovery 接續 checkpoint 並驗證 32 KiB chunk 與完整組合 schema 同 frame；詳見 docs/spec/112-bounded-d1-compute-recovery.md。
+
+### 17.77 第七十三批：多 SDK client 的持久路徑競爭（驗證中）
+
+- 兩個 owned SDK roots 同時存活後競爭同一持久 D1 工作；unknown response 僅重播原 request，最後核對唯一 lease／generation／receipt 與 TaskSpec。
+- SDK storage 的備份／fenced restore 尚需獨立接線，不以既有 state.sqlite 證據代替。詳見 docs/spec/113-multiple-owned-d1-clients.md。
+
+### 17.78 第七十四批：本地 D1 fetch 端口穩定化（回歸中）
+
+- 完整 suite 的三個 fetch failed 已以實際前序重現，cause=bad port；本機動態端口範圍含 Fetch 禁用端口，不能假設 port0 一定可用。
+- 在 D1 binding／SQL 前有界配置安全 loopback 端口；不自動重播業務請求、不改 OS 設定。實際 red→green 與耗盡無 SQL／子程序清理三項通過；詳見 docs/spec/114-fetch-compatible-local-d1-ports.md。
+
+- 第七十一至七十四批完整回歸：1,142 項通過、22 項本地證據通過，正式驗收仍 false。已清理臨時診斷 probes，保留 deterministic blocked-port regression 與 bounded SDK diagnostics；下一階段繼續 schema／backup 一致性，未完成完整 D1 adapter。

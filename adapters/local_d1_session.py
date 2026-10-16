@@ -69,7 +69,9 @@ class LocalD1Session:
             raise ValueError('shared D1 native outcome unproven')
         result = receipt['object_reply'] if is_object_session else json.loads(receipt['stdout'])
         if result.get('outcome') == 'emulator_failed':
-            raise ValueError('shared D1 emulator failed: ' + str(result.get('error_message', ''))[:1000])
+            diagnostic={key:result.get(key) for key in ('error_message','error_phase','error_cause','error_children','sdk_child_results')}
+            diagnostic['resources']=receipt.get('sdk_resource_usage')
+            raise ValueError('shared D1 emulator failed: '+json.dumps(diagnostic,ensure_ascii=True)[:3500])
         if (result.get('is_mock') is not True or result.get('network_providers') != []
                 or result.get('are_sdk_children_closed') is not True or result.get('is_environment_sanitized') is not True):
             raise ValueError('shared D1 runtime envelope differs')

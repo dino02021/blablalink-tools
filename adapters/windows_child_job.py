@@ -33,6 +33,16 @@ class WindowsChildJob:
         if not self.kernel.AssignProcessToJobObject(self.handle, int(process._handle)):
             raise OSError(ctypes.get_last_error(), "cannot attach owned child job")
 
+    def usage(self):
+        import ctypes
+        if self.handle is None:
+            raise ValueError('owned child job is already closed')
+        _, limit_type = _api()
+        limits = limit_type()
+        if not self.kernel.QueryInformationJobObject(self.handle, 9, ctypes.byref(limits), ctypes.sizeof(limits), None):
+            raise OSError(ctypes.get_last_error(), 'cannot query owned child resource usage')
+        return {'peak_process_memory_bytes': limits.PeakProcessMemoryUsed, 'peak_job_memory_bytes': limits.PeakJobMemoryUsed}
+
     def close(self):
         if self.handle is not None:
             self.kernel.CloseHandle(self.handle)
@@ -61,6 +71,8 @@ def _api():
     kernel.CreateJobObjectW.restype = wintypes.HANDLE
     kernel.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD)
     kernel.SetInformationJobObject.restype = wintypes.BOOL
+    kernel.QueryInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p)
+    kernel.QueryInformationJobObject.restype = wintypes.BOOL
     kernel.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
     kernel.AssignProcessToJobObject.restype = wintypes.BOOL
     kernel.CloseHandle.argtypes = (wintypes.HANDLE,)

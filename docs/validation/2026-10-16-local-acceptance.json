@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 1124,
+  "observed_test_cases": 1142,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -152,13 +152,20 @@
         "local_tests/test_d1_compute_queue.py::test_source_head_aba_blocks_fresh_work_but_exact_enqueue_replay_stays_read_only",
         "local_tests/test_d1_lease_actions_runtime.py::test_actual_heartbeat_and_completion_preserve_receipts_across_expiry_and_restart",
         "local_tests/test_d1_lease_actions.py::test_source_changes_quarantine_the_sealed_result_as_superseded",
-        "local_tests/test_d1_lease_actions.py::test_silently_ignored_job_update_does_not_get_a_success_receipt"
+        "local_tests/test_d1_lease_actions.py::test_silently_ignored_job_update_does_not_get_a_success_receipt",
+        "local_tests/test_d1_checkpoints.py::test_checkpoint_revision_cas_and_old_request_replay_do_not_rewind_newer_head",
+        "local_tests/test_d1_checkpoints_runtime.py::test_actual_checkpoint_cas_replay_and_generation_handoff_preserve_latest_progress",
+        "local_tests/test_d1_recovery.py::test_attempt_limit_and_dependency_failure_propagate_in_bounded_ticks",
+        "local_tests/test_d1_recovery_runtime.py::test_actual_recovery_resumes_checkpoint_and_preserves_claim_and_recovery_receipts",
+        "local_tests/test_d1_persistent_concurrency.py::test_two_owned_sdk_instances_on_one_persist_directory_keep_one_claim",
+        "local_tests/test_d1_safe_loopback.py::test_forbidden_os_port_is_reallocated_before_any_d1_mutation",
+        "local_tests/test_d1_safe_loopback.py::test_port_exhaustion_never_runs_schema_or_task_sql_and_reaps_every_sdk_child"
       ],
       "remaining": [
         "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 49
+      "observed_cases": 56
     },
     {
       "id": "A08",
@@ -337,13 +344,14 @@
         "local_tests/test_receipt_d1_runtime.py::test_actual_receipt_trigger_cas_writes_two_rows_and_replay_writes_zero",
         "local_tests/test_receipt_d1_runtime.py::test_same_fixture_comparison_keeps_semantics_with_lower_write_cost",
         "local_tests/test_d1_compute_queue.py::test_empty_claim_has_no_persistent_write_and_can_later_find_new_work",
-        "local_tests/test_d1_compute_queue_runtime.py::test_actual_frozen_enqueue_and_lost_claim_response_replay_keep_one_lease"
+        "local_tests/test_d1_compute_queue_runtime.py::test_actual_frozen_enqueue_and_lost_claim_response_replay_keep_one_lease",
+        "local_tests/test_d1_recovery_runtime.py::test_actual_recovery_resumes_checkpoint_and_preserves_claim_and_recovery_receipts"
       ],
       "remaining": [
         "共用帳戶實際用量／降頻、完整 D1 admission／schema／物件成本"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 8
+      "observed_cases": 9
     },
     {
       "id": "A19",

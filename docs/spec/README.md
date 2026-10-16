@@ -131,6 +131,10 @@
 - [108：共用本地 D1 schema／session](108-shared-local-d1-session.md)
 - [109：D1 frozen enqueue 與原子 compute claim](109-d1-frozen-compute-claims.md)
 - [110：D1 heartbeat 與 sealed result 完成](110-d1-heartbeat-sealed-completion.md)
+- [111：D1 checkpoint revision CAS](111-d1-checkpoint-revision-cas.md)
+- [112：D1 本地 compute 有界回收](112-bounded-d1-compute-recovery.md)
+- [113：多 SDK client 的持久路徑競爭](113-multiple-owned-d1-clients.md)
+- [114：本地 D1 fetch-compatible 端口配置](114-fetch-compatible-local-d1-ports.md)
 
 ## 撰寫規則
 

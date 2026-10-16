@@ -12,6 +12,9 @@ from coordination.d1_schema import D1Schema
 from coordination.d1_statement import D1Statement
 from coordination.receipt_d1_contract import SCHEMA_STATEMENTS as HEAD_SCHEMA
 from coordination.d1_lease_actions import ComputeActionIntent, active_lease, build_action, read_action, verify_action
+from coordination.d1_checkpoints import (SCHEMA_STATEMENTS as CHECKPOINT_SCHEMA, CheckpointIntent, CheckpointVersion,
+    build_checkpoint, checkpoint_object_size, read_checkpoint, read_receipt, verify_checkpoint_receipt)
+from coordination.d1_recovery import SCHEMA_STATEMENTS as RECOVERY_SCHEMA, RecoveryIntent, build_recovery, read_recovery, verify_recovery
 from domain.snapshots import canonical_json
 
 
@@ -73,9 +76,66 @@ class LocalD1ComputeQueue:
         self._apply_action(intent)
         return self.get_job(lease.job_id)
 
+    def save_checkpoint(self, request_id, lease, object_id, *, base_revision):
+        self._require_checkpoint_schema()
+        intent = CheckpointIntent(request_id, lease, object_id, base_revision)
+        existing = self._run((read_receipt(request_id),))[0]['results']
+        if existing:
+            try:
+                return verify_checkpoint_receipt(intent, existing)
+            except ValueError as error:
+                raise StateConflict('checkpoint request replay differs') from error
+        self._require_active(lease)
+        self._read_checkpoint_object(object_id)
+        results = self._run(build_checkpoint(intent, self._now()))
+        try:
+            return verify_checkpoint_receipt(intent, results[-1]['results'])
+        except ValueError as error:
+            raise StateConflict('checkpoint receipt unproven') from error
+
+    def load_checkpoint_version(self, job_id):
+        self._require_checkpoint_schema()
+        rows = self._run((read_checkpoint(job_id),))[0]['results']
+        if not rows:
+            raise KeyError('unknown D1 compute job')
+        if len(rows) != 1:
+            raise StateConflict('checkpoint metadata cardinality differs')
+        row = rows[0]
+        if row['object_id'] is None:
+            if any(row[key] is not None for key in ('code_sha','generation','revision','updated_at_ms')):
+                raise StateConflict('partial checkpoint metadata')
+            return None
+        if (row['code_sha'] != row['job_code_sha'] or type(row['generation']) is not int
+                or type(row['job_generation']) is not int or row['generation'] > row['job_generation']):
+            raise StateConflict('checkpoint code or generation differs from immutable job')
+        timestamp(row['updated_at_ms'])
+        value = self._read_checkpoint_object(row['object_id'])
+        try:
+            return CheckpointVersion(job_id, row['object_id'], row['code_sha'], row['generation'], row['revision'], canonical_json(value))
+        except ValueError as error:
+            raise StateConflict('checkpoint content metadata differs') from error
+
+    def recover(self, request_id, *, limit=100, scope_id=None):
+        if not self._owns_schema(RECOVERY_SCHEMA):
+            raise ValueError('recovery schema capability is not installed')
+        intent = RecoveryIntent(request_id, limit, scope_id)
+        prior = self._run(read_recovery(request_id))
+        if prior[0]['results'] or prior[1]['results']:
+            try:
+                return verify_recovery(intent, prior[0]['results'], prior[1]['results'])
+            except ValueError as error:
+                raise StateConflict('recovery request replay differs') from error
+        result = self._run(build_recovery(intent, self._now()))
+        try:
+            return verify_recovery(intent, result[-2]['results'], result[-1]['results'])
+        except ValueError as error:
+            raise StateConflict('recovery receipt unproven') from error
+
     def get_job(self, job_id):
         digest(job_id)
-        rows = self._run((D1Statement('SELECT * FROM compute_jobs WHERE job_id=?', (job_id,)),))[0]['results']
+        sql = ('SELECT j.*,o.error_code AS queue_error_code FROM compute_jobs j LEFT JOIN compute_outcomes o ON o.job_id=j.job_id AND o.generation=j.generation WHERE j.job_id=?'
+               if self._owns_schema(RECOVERY_SCHEMA) else 'SELECT j.*,NULL AS queue_error_code FROM compute_jobs j WHERE j.job_id=?')
+        rows = self._run((D1Statement(sql, (job_id,)),))[0]['results']
         if len(rows) != 1:
             raise KeyError('unknown D1 compute job')
         row = rows[0]
@@ -88,7 +148,7 @@ class LocalD1ComputeQueue:
             raise StateConflict('D1 job metadata differs from frozen TaskSpec')
         return Job(job_id, spec, row['state'], row['attempt'], row['generation'], row['owner'],
                    row['expires_at_ms'] / 1000 if row['expires_at_ms'] is not None else None,
-                   row['result_id'], None, row['next_attempt_at_ms'] / 1000)
+                   row['result_id'], row['queue_error_code'], row['next_attempt_at_ms'] / 1000)
 
     def _now(self):
         value = self._clock()
@@ -113,6 +173,22 @@ class LocalD1ComputeQueue:
         rows = self._run((active_lease(lease, self._now()),))[0]['results']
         if rows != [{'job_id': lease.job_id}]:
             raise LeaseLost('compute lease is no longer active')
+
+    def _require_checkpoint_schema(self):
+        if not self._owns_schema(CHECKPOINT_SCHEMA):
+            raise ValueError('checkpoint schema capability is not installed')
+
+    def _owns_schema(self, statements):
+        return set(D1Schema(statements).objects).issubset(set(self.session.schema.objects))
+
+    def _read_checkpoint_object(self, object_id):
+        rows = self._run((checkpoint_object_size(object_id),))[0]['results']
+        if len(rows) != 1 or type(rows[0].get('size')) is not int or not 1 <= rows[0]['size'] <= 32768:
+            raise StateConflict('bounded sealed checkpoint object required')
+        value = self.objects.read(object_id)
+        if type(value) is not dict or value.get('checkpoint_kind') in ('training_collection','training_collection_pointer'):
+            raise StateConflict('generic checkpoint cannot replace specialized collection progress validation')
+        return value
 
     def _run(self, statements):
         try:

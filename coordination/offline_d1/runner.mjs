@@ -2,6 +2,7 @@ import fs from "node:fs";
 import childProcess from "node:child_process";
 import {createHash} from "node:crypto";
 import { syncBuiltinESMExports } from "node:module";
+import {createLoopbackRuntime} from "./loopback_runtime.mjs";
 
 // The parent attaches its Job Object before opening this one-use start gate.
 const gate=fs.readFileSync(0,"utf8");
@@ -43,8 +44,23 @@ const manifest=JSON.parse(fs.readFileSync(new URL("node_modules/miniflare/packag
 let emulator;
 let blocked=0;
 let result;
+let loopbackAllocation;
+let errorPhase="construct";
+function describeError(error,depth=0){
+  if(!error||depth>2)return null;
+  const value={};
+  for(const key of ["name","code","message","syscall","address","port"]){
+    if(typeof error[key]==="string")value[key]=error[key].slice(0,500);
+    else if(typeof error[key]==="number")value[key]=error[key];
+  }
+  if(error.cause)value.cause=describeError(error.cause,depth+1);
+  if(Array.isArray(error.errors))value.errors=error.errors.slice(0,2).map(child=>describeError(child,depth+1));
+  return value;
+}
 try{
-  emulator=new Miniflare({
+  const portCandidates=input.mock_entry_ports??[0];
+  if(!Array.isArray(portCandidates)||portCandidates.length<1||portCandidates.length>8||portCandidates.some(port=>!Number.isInteger(port)||(port!==0&&(port<1024||port>65535))))throw new Error("invalid bounded mock entry ports");
+  const runtime=await createLoopbackRuntime(Miniflare,{
     modules:true,
     script:`export default {async fetch(request){
       if(new URL(request.url).pathname==='/blocked-probe'){
@@ -58,19 +74,24 @@ try{
     d1Databases:["DB"],d1Persist:process.argv[3]??false,
     outboundService(){blocked++;return new Response("local-network-denied",{status:403});},
     log:new Log(LogLevel.NONE),
-  });
+  },portCandidates);
+  emulator=runtime.emulator;
+  loopbackAllocation=runtime.allocation;
+  errorPhase="get_d1_binding";
   const db=await emulator.getD1Database("DB");
   if(input.hold_after_ready===true){
-    process.stdout.write(JSON.stringify({is_runtime_ready:true,child_pids:children.map(child=>child.pid)})+"\n");
+    process.stdout.write(JSON.stringify({is_runtime_ready:true,child_pids:children.filter(child=>child.exitCode===null&&child.signalCode===null).map(child=>child.pid)})+"\n");
     await new Promise(()=>{});
   }
   // D1 exec() parses lines differently from SQLite executescript(). Import only
   // these trusted, semicolon-delimited fixture statements via prepare().run().
+  errorPhase="schema_bootstrap";
   const schemaStatements=Array.isArray(input.schema_statements)?input.schema_statements:
     input.schema.replace(/^\s*--.*$/gm,"").split(";").map(statement=>statement.trim()).filter(Boolean);
   if(schemaStatements.length)await db.batch(schemaStatements.map(statement=>typeof statement==="string"?
     db.prepare(statement):db.prepare(statement.sql).bind(...statement.parameters.map(bindValue))));
   const operations=[];
+  errorPhase="operations";
   const collect=operation=>{
     const encoded=encodeBinaryResults(operation);
     if(objectSession&&Buffer.byteLength(JSON.stringify(encoded))>65536)throw new Error("object reply frame exceeds 64 KiB");
@@ -104,6 +125,7 @@ try{
     }catch(error){operations.push({outcome:"rejected",error_name:error.name,error_message:String(error.message).slice(0,1000)});}
   }
   let isNetworkBlocked=true;
+  errorPhase="network_probe";
   if(input.probe_network===true){
     const response=await emulator.dispatchFetch("http://local-fixture.invalid/blocked-probe");
     isNetworkBlocked=response.status===200&&(await response.text())==="blocked"&&blocked===1;
@@ -112,7 +134,9 @@ try{
     compatibility_date:compatibilityDate,operations,blocked_outbound_attempts:blocked,is_network_blocked:isNetworkBlocked,
     is_environment_sanitized:["CLOUDFLARE_API_TOKEN","DISCORD_TOKEN","GOOGLE_APPLICATION_CREDENTIALS","NODE_OPTIONS"].every(key=>!(key in process.env)),
     sdk_child_count:children.length};
-}catch(error){result={is_mock:true,outcome:"emulator_failed",error_name:error.name,error_message:String(error.message).slice(0,1000)};}
+}catch(error){result={is_mock:true,outcome:"emulator_failed",error_name:error.name,error_message:String(error.message).slice(0,1000),
+  error_phase:errorPhase,error_cause:describeError(error),
+  error_children:children.map(child=>({pid:child.pid,exit_code:child.exitCode,signal:child.signalCode}))};}
 finally{if(emulator)await emulator.dispose();}
 // dispose() must reap workerd before successful evidence leaves this process.
 for(const child of children){
@@ -122,6 +146,8 @@ for(const child of children){
   });
 }
 result.are_sdk_children_closed=children.every(child=>child.exitCode!==null||child.signalCode!==null);
+result.sdk_child_results=children.map(child=>({pid:child.pid,exit_code:child.exitCode,signal:child.signalCode}));
+result.loopback_allocation=loopbackAllocation;
 const serialized=JSON.stringify(encodeBinaryResults(result));
 if(objectSession){
   if(Buffer.byteLength(serialized)>32*1024*1024)throw new Error("object session reply exceeds bound");

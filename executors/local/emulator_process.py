@@ -86,6 +86,8 @@ def _run_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
                     break
                 try:process.wait(timeout=.05)
                 except subprocess.TimeoutExpired:pass
+            try:resource_usage=fence.usage()
+            except OSError as error:resource_usage={'query_error_code':error.errno}
             _stop(process,fence)
             output.seek(0)
             errors.seek(0)
@@ -94,6 +96,7 @@ def _run_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
             receipt={'is_mock':True,'outcome':outcome,'exit_code':process.returncode,'is_child_stopped':process.poll() is not None,
                 'max_processes':4,'job_memory_limit_bytes':512*1024*1024,'seconds':time.monotonic()-started,
                 'stdout':stdout,'stderr_hash':hashlib.sha256(stderr).hexdigest(),'is_stderr_truncated':len(stderr)>65536}
+            receipt['sdk_resource_usage']=resource_usage
             if is_object_session and outcome!='completed':
                 receipt['sdk_diagnostic']=stderr[-2000:].decode('utf-8',errors='replace')
             if is_object_session and outcome=='completed':
