@@ -1499,3 +1499,21 @@ blablalink-tools/
 - AUTO freshness／desired atomic enqueue、D1 waiting states、長分片 heartbeat、完整 composed frame 與 native 大資料記憶體仍需接線，先保持 unsupported，不把 frozen manual core 誤當完整 worker。詳見 spec 124，先做可獨立開發的 pure builder／frozen child parity。
 
 - 第七十九至八十一批完整回歸：1,252 項通過（774.22 秒），22 項本地證據通過，正式驗收 false。下一段繼續 spec 124 的 pure builder／frozen child，沒有標記完整 D1 backend 或目標完成。
+
+### 17.89 第八十二批：共用 pure 健檢 artifact
+
+- 既有 Root wrapper 與新計算入口共用同一 builder，保留 scope／epoch／route／缺資料 reasons，standards 與評分 config 同源；74 項相關回歸通過。首輪 epoch fixture 型別錯誤已修正，未放寬 validator。
+- 完整 28 declarations／readiness／32 KiB binary 的實際 SDK round-trip 通過，延續 57,201-byte frame 量測，詳見 spec 125。
+
+### 17.90 第八十三批：Frozen bundle／native child／D1 object 串接
+
+- Canonical 三份 documents 與原 SHA、scope、reference 固定；一個 512 MiB native process 只計算，結果 sidecar 最多 16 MiB、stdout 小型 header。Parent 核對 bundle／code／source standards／route／typed view／hash；pending、deadline、tamper 皆無可提升結果。
+- Artifact／bundle／native 共 35 項 focused 通過，另實際 sealed D1 inputs→pure child→same-hash sealed output 案例通過（31.15 秒），確認四個 object heads、零 compute jobs，沒有冒充已完成 AUTO worker。
+- Parent heartbeat 不可阻塞 hard-deadline watchdog；D1 defer／trusted compiler／desired atomic adoption／lease pulse／publisher 仍列 spec 124 待辦。詳見 spec 126；完整 suite 待回歸。
+
+### 17.91 追加遺漏：持久 compute defer／resume
+
+- 已讀 Root source 比對三種等待與 retry／attempt 行為；waiting_for_data 需新 immutable task，auth／capacity 才可恢復。D1 將以 additive deferral metadata／receipts、claim SQL eligibility＋DB trigger 防止誤領與優先序飢餓，不能只在 Python 投影狀態。
+- 拒絕半套 module／錯 request／舊 generation；bounded recovery 不應被舊 deferral 蓋掉，delay 對齊 Root 一天上限。正式 auth／admission 仍未接線，可信本地 resume 不是 provider 授權證據。詳見 spec 127，待本輪完整回歸後接續實作。
+
+- 第八十二至八十三批完整回歸：1,289 項通過（817.46 秒），22 項本地證據通過，正式驗收 false。接續 spec 127 的持久 defer／resume 與後續 trusted compiler／parent pulse，未將整體目標標為完成。

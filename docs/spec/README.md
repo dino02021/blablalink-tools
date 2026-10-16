@@ -145,6 +145,9 @@
 - [122：Mock D1 限定範圍的維護授權](122-mock-d1-maintenance-capability.md)
 - [123：Mock D1 可續跑升級與 marker commit](123-mock-d1-resumable-upgrade.md)
 - [124：D1 與 Python frozen 健檢計算橋接（待實作）](124-d1-frozen-healthcheck-bridge-contract.md)
+- [125：共用純健檢 artifact builder](125-shared-pure-healthcheck-artifact.md)
+- [126：固定快照與純計算 native child](126-frozen-native-healthcheck.md)
+- [127：D1 持久 defer／resume 契約（待實作）](127-d1-compute-deferral-contract.md)
 
 ## 撰寫規則
 

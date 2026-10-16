@@ -105,3 +105,19 @@ def test_actual_versioned_reopen_does_not_recreate_missing_business_table(tmp_pa
     result = json.loads(receipt['stdout'])
     assert result.get('outcome') != 'emulator_failed', result
     assert result['operations'][0]['result']['results'] == [{'count': 0}]
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='requires verified Windows SDK supervision')
+def test_actual_complete_composition_with_readiness_roundtrips_maximum_binary_chunk(tmp_path):
+    from coordination.d1_binary import D1Binary
+    from coordination.d1_checkpoints import SCHEMA_STATEMENTS as CHECKPOINTS
+    from coordination.d1_compute_queue import SCHEMA_STATEMENTS as COMPUTE
+    from coordination.d1_recovery import SCHEMA_STATEMENTS as RECOVERY
+    from coordination.receipt_d1_contract import SCHEMA_STATEMENTS as HEADS
+    initial = D1Schema((*OBJECTS, *HEADS, *COMPUTE, *CHECKPOINTS, *RECOVERY))
+    plan = AdditiveMigrationPlan((initial, D1Schema((*initial.statements, 'CREATE TABLE mock_future(id TEXT)'))))
+    session = LocalD1VersionedSession(tmp_path / 'd1', plan, 0, 1, is_create=True)
+    assert len(session.schema.statements) == 28
+    content = b'x' * 32768
+    result = session.execute((D1Statement('SELECT ? AS chunk_data', (D1Binary(content),)),))
+    assert D1Binary.from_wire(result[0]['results'][0]['chunk_data']).data == content

@@ -22,6 +22,7 @@ Graph 採 Verify，generation 2026-10-16T10:38:50Z；run_healthcheck_job outboun
 - 既有 D1 compute_jobs enum 尚無 waiting_for_data／capacity_blocked／auth_required。缺 training epoch 或 weighted metrics 時不能改判成功／零分，也不能一律改成 failed 或立即 retry 形成循環；需要明確持久 defer／resume 契約，或具驗收的 job schema migration，才能接上完整 worker。
 - 完整 composed schema＋readiness guard＋32 KiB binary chunk 需實際 SDK 封包邊界驗證；現有 object-only 16 MiB 與較小 versioned fixture 證據不能直接擴稱所有組合都可用。
 - Input bundle 的總上限不是 512 MiB 內一定可解析／計算的容量承諾。最大資料需獨立 memory／deadline 矩陣；超限不 seal／complete，也不保留有效完成授權。
+- Parent heartbeat 不得把有可能等待 D1 SDK 的阻塞呼叫放進 native watchdog 的 polling loop，否則會延後 hard deadline。後續須採不阻塞的取消／狀態訊號，或在 child 啟動前以剩餘租約與 reserve 明確限制整段執行；目前 frozen profile 不接租約 callback。
 - 先完成 pure builder／frozen child 與離線 parity，再實作 D1 defer、可信 compiler／atomic desired enqueue、parent heartbeat 與最後的 D1 計算情境。正式 publisher／Sheets、hosted dispatch、帳戶 admission 與大型分層 schema 另行驗收。
 
 所有 fixtures 都是新建 mock documents，不讀正式試算表。此文件是下一段實作契約，不代表橋接已完成。
@@ -29,3 +30,7 @@ Graph 採 Verify，generation 2026-10-16T10:38:50Z；run_healthcheck_job outboun
 ## 先期封包量測
 
 2026-10-16 純 frame 量測：object＋head＋compute＋checkpoint＋recovery 的 24 declarations，加 migration ledger 後共 28 declarations，帶 revision=0／epoch=1 readiness 及一個 32,768-byte D1Binary echo，使用 SDK helper 相同 JSON serializer 的完整 payload 為 57,201 bytes（上限 65,536）。這只證明此固定形狀的序列化界限；仍須實際 SDK round-trip，不擴稱任意未來 schema 或最大物件都已驗收。
+
+後續已追加實際 SDK case：相同 28 declarations／readiness 的最大單片 binary echo round-trip 通過。Pure builder 實作見 spec 125；其他橋接能力仍未完成。
+
+Pure builder、immutable bundle、owned sidecar 與 native 計算已完成於 spec 125／126；實際 sealed D1 documents → pure child → same-hash sealed result 案例通過（31.15 秒），沒有建立或完成 compute job。其餘 trusted compiler／desired adoption／defer／parent pulse／publisher 仍待接線。

@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 1252,
+  "observed_test_cases": 1289,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -21,6 +21,8 @@
     {
       "id": "A02",
       "tests": [
+        "local_tests/test_frozen_healthcheck_child.py::test_native_frozen_result_matches_root_and_returned_payload_is_detached",
+        "local_tests/test_frozen_healthcheck_child.py::test_large_native_result_uses_owned_sidecar_and_small_stdout_without_coordinator_files",
         "local_tests/test_sheet_workflow.py::test_reconcile_reuses_semantic_candidate_and_new_threshold_reuses_training",
         "local_tests/test_layout.py::test_literal_cells_status_formats_and_trailing_rows",
         "local_tests/test_workbook_views.py::test_mock_publication_includes_reconstructable_same_version_view",
@@ -39,11 +41,12 @@
         "舊版 header 對照與遠端 grid／protection adapter"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 17
+      "observed_cases": 19
     },
     {
       "id": "A03",
       "tests": [
+        "local_tests/test_healthcheck_artifact.py::test_pure_artifact_matches_existing_root_result_and_retains_exact_standards",
         "local_tests/test_healthcheck.py::test_highest_member_changes_everyone_and_ignores_outside_roster",
         "local_tests/test_gs_scoring.py::test_full_cohort_role_weighted_total_and_rank_match_frozen_gs"
       ],
@@ -51,7 +54,7 @@
         "正式 header／nickname／cache 映射驗證"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 2
+      "observed_cases": 3
     },
     {
       "id": "A04",
@@ -68,6 +71,7 @@
     {
       "id": "A05",
       "tests": [
+        "local_tests/test_frozen_healthcheck_child.py::test_native_pending_data_never_returns_a_result_or_zero_scores",
         "local_tests/test_normalization.py::test_missing_owned_detail_requests_refetch_without_erasing_ownership",
         "local_tests/test_snapshots.py::test_selected_traits_project_by_function_id_not_previous_slot",
         "local_tests/test_training_reuse.py::test_threshold_and_selected_trait_changes_reuse_same_raw_and_training",
@@ -91,7 +95,7 @@
         "role／option 粒度、hosted 與真實完整性"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 20
+      "observed_cases": 22
     },
     {
       "id": "A06",
@@ -116,6 +120,8 @@
     {
       "id": "A07",
       "tests": [
+        "local_tests/test_d1_frozen_healthcheck.py::test_sealed_d1_documents_compute_in_pure_child_and_seal_same_result_without_claiming_a_job",
+        "local_tests/test_d1_versioned_session.py::test_actual_complete_composition_with_readiness_roundtrips_maximum_binary_chunk",
         "local_tests/test_d1_versioned_session.py::test_actual_versioned_session_reopen_is_read_only_and_old_epoch_cannot_write",
         "local_tests/test_d1_versioned_session.py::test_actual_versioned_object_frames_share_schema_and_readiness_guards",
         "local_tests/test_d1_migrations.py::test_ready_pin_rejects_rearranged_checksum_chain_with_same_final_schema",
@@ -168,7 +174,7 @@
         "完整 D1 任務／租約／publisher adapter、正式主體與平台 callback"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 59
+      "observed_cases": 61
     },
     {
       "id": "A08",
@@ -373,6 +379,8 @@
     {
       "id": "A20",
       "tests": [
+        "local_tests/test_frozen_healthcheck_child.py::test_native_deadline_has_stopped_child_and_no_promotable_result",
+        "local_tests/test_frozen_healthcheck_child.py::test_native_tampered_input_or_result_is_never_accepted",
         "local_tests/test_raid_execution.py::test_operation_limit_preserves_checkpoint_and_local_retry_finishes",
         "local_tests/test_local_worker.py::test_healthcheck_budget_interrupts_without_partial_results",
         "local_tests/test_process_memory.py::test_repeated_local_memory_checks_do_not_allocate_unbounded_native_types",
@@ -389,7 +397,7 @@
         "hosted deadline／memory profile、Linux native 實測與 dispatcher 採用"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 15
+      "observed_cases": 18
     },
     {
       "id": "A21",
