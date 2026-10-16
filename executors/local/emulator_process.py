@@ -13,6 +13,7 @@ import time
 
 from adapters.windows_child_job import WindowsChildJob
 from adapters.mock_d1_workspace import require_mock_d1_workspace
+from adapters.mock_d1_lock import mock_d1_access
 from executors.local.process_guard import _stop
 
 
@@ -28,6 +29,13 @@ def run_d1_object_session(payload,*,mock_directory,schema_id,seconds=60):
 
 
 def _run_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
+    if mock_directory is not None:
+        with mock_d1_access(mock_directory, schema_id):
+            return _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session)
+    return _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session)
+
+
+def _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
     if sys.platform!='win32':raise ValueError('local emulator process tree requires verified Windows supervision')
     if type(seconds) not in (int,float) or not math.isfinite(seconds) or not .05<=seconds<=60:
         raise ValueError('bounded local emulator duration required')

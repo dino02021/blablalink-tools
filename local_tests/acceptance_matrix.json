@@ -366,6 +366,15 @@
     {
       "id": "A22",
       "tests": [
+        "local_tests/test_mock_d1_lock.py::test_shared_clients_overlap_and_maintenance_waits",
+        "local_tests/test_mock_d1_lock.py::test_lock_is_cross_process_and_os_releases_after_process_exit",
+        "local_tests/test_mock_d1_lock.py::test_fence_appearing_while_waiting_is_rechecked",
+        "local_tests/test_mock_d1_lock.py::test_persistent_sdk_invocation_holds_shared_lock_through_disposal",
+        "local_tests/test_mock_d1_backup.py::test_roundtrip_preserves_all_bytes_and_clone_is_fenced",
+        "local_tests/test_mock_d1_backup.py::test_capture_holds_exclusive_lock_until_archive_completed",
+        "local_tests/test_mock_d1_backup.py::test_corrupt_or_ambiguous_archives_rejected_before_destination_creation",
+        "local_tests/test_mock_d1_backup.py::test_interrupted_restore_leaves_fence_before_any_payload",
+        "local_tests/test_mock_d1_backup.py::test_real_sdk_storage_snapshot_contains_committed_rows_and_restore_refuses_sdk",
         "local_tests/test_local_backup.py::test_quiescent_backup_restores_exact_data_with_worker_fence",
         "local_tests/test_local_state.py::test_rollback_reuses_result_but_requires_a_new_publication",
         "local_tests/test_integrated_scenario.py::test_whole_scenario_preserves_sources_human_edits_and_fenced_recovery",

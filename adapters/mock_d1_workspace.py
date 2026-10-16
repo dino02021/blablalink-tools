@@ -25,7 +25,7 @@ def require_mock_d1_workspace(directory, schema_id):
     directory = Path(directory).absolute()
     if any(path.is_symlink() for path in (directory, *directory.parents)):
         raise ValueError('mock D1 symlink rejected')
-    if (directory / 'restore-lock.json').exists():
+    if (directory / 'restore-lock.json').exists() or (directory / 'restore-lock.json').is_symlink():
         raise ValueError('mock D1 restore is fenced')
     path = directory / 'mock-d1.json'
     storage = directory / 'storage'

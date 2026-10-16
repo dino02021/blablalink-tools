@@ -1443,3 +1443,19 @@ blablalink-tools/
 - 在 D1 binding／SQL 前有界配置安全 loopback 端口；不自動重播業務請求、不改 OS 設定。實際 red→green 與耗盡無 SQL／子程序清理三項通過；詳見 docs/spec/114-fetch-compatible-local-d1-ports.md。
 
 - 第七十一至七十四批完整回歸：1,142 項通過、22 項本地證據通過，正式驗收仍 false。已清理臨時診斷 probes，保留 deterministic blocked-port regression 與 bounded SDK diagnostics；下一階段繼續 schema／backup 一致性，未完成完整 D1 adapter。
+
+### 17.79 第七十五批：Mock D1 維護鎖
+
+- 共享 SDK 存取與獨占維護使用同一 OS byte-range lock，等待後重新檢查 restore fence；雙 client 不被序列化。11 項新案例加既有實際競爭共 12 項通過，詳見 spec 115。
+
+### 17.80 第七十六批：Mock D1 實體備份與 fenced restore
+
+- Miniflare storage 獨立備份，不混用既有 state.sqlite 的證據；在 SDK 全部停止的獨占區段產生 64 MiB 有界、逐檔雜湊的 snapshot。restore 先驗證再建立 clone，第一份檔案為 fence，沒有自動解除入口。
+- 12 項新增案例，包括實際 SDK row、clone 唯讀 quick_check 與拒絕 SDK 重啟；本批 focused 共 26 項通過。跨儲存區一致性、schema migration ledger／epoch 與完整 D1 adapter 繼續保留為待辦，詳見 spec 116。
+
+### 17.81 追加遺漏：D1 多版本 readiness 與恢復
+
+- 已將每版本 checksum／epoch／ready barrier、跨批中斷、舊 session、marker 與 D1 commit 不原子的處理列為 spec 117；這是待實作契約，不宣稱目前固定 schema session 已具有版本升級能力。
+- 優先實作 SQL ledger／step CAS，再接實際 SDK interruption 與 versioned session；restore clone 不得藉此解封。
+
+- 第七十五至七十六批完整回歸：1,165 項通過（627.72 秒），22 項本地證據通過，正式驗收 false。其後 marker 格式相容性已實際重現並修正，24 項 backup／lock focused cases 通過；新增 marker regression 尚不計入前一輪完整數字。
