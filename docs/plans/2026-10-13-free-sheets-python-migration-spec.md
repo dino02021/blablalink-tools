@@ -1459,3 +1459,21 @@ blablalink-tools/
 - 優先實作 SQL ledger／step CAS，再接實際 SDK interruption 與 versioned session；restore clone 不得藉此解封。
 
 - 第七十五至七十六批完整回歸：1,165 項通過（627.72 秒），22 項本地證據通過，正式驗收 false。其後 marker 格式相容性已實際重現並修正，24 項 backup／lock focused cases 通過；新增 marker regression 尚不計入前一輪完整數字。
+
+### 17.82 第七十七批：D1 additive migration ledger
+
+- 同 D1 authority／immutable history、逐版本 checksum／plan／epoch CAS，升級期間關閉 readiness，僅完整驗證後恢復 ready；跨 SDK 中斷以 positive receipt 續跑，不重播已提交 DDL。
+- 最多 16 個 additive revisions，第一階段不支援 ALTER／DROP／資料轉換；19 項 SQLite 契約與 3 項實際 SDK 案例通過。新增相同最終 schema、不同歷史 chain 不能通過 ready pin 的案例，詳見 spec 118。
+
+### 17.83 第七十八批：Versioned session 逐 batch readiness
+
+- 同一交易檢查完整 business／ledger schema、ready／revision／epoch／checksum prefix；最多 48 業務 SQL 加兩個 guards。Reopen 只查驗，不 seed／修復缺失結構。
+- 10 項 frame／實際 SDK 案例通過；與 migration、marker／backup／lock 共 56 項 focused cases 通過。首輪鑑識 fixture 漏空 schema 清單已修正並加強 SDK envelope 驗證，未將失敗輪當驗收。
+- 完整 orchestrator、active／unknown holds、maintenance capability／marker journal 與預設 backend 採用仍未完成；繼續以 spec 117 為整合驗收契約。詳見 spec 119。
+
+### 17.84 追加遺漏：升級協調與本地 marker commit
+
+- 已補 spec 120：獨占 lock、限定 lifetime／thread／frame 的 maintenance capability、journal、active／unknown holds、D1 回覆遺失與 marker 替換前後恢復；尚未實作，不將 SQL steps 視為協調器完成。
+- 明確核對 compute running 與 contract_barriers，未知 hold schema 必須先補 policy；完整 Root 超過 32 declarations 時仍需 module／owner 分層守衛，不能調高 control body 上限。
+
+- 第七十七至七十八批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，正式驗收 false。下一階段繼續 spec 120 的維護 capability／journal／中斷恢復，沒有將完整 D1 adapter 標為完成。

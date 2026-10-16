@@ -120,8 +120,10 @@ def test_persistent_sdk_invocation_holds_shared_lock_through_disposal(tmp_path, 
                         pytest.fail('SDK was not protected')
             executor.submit(maintenance).result()
     monkeypatch.setattr(WindowsChildJob, 'attach', attached)
-    receipt = run_d1_emulator({'operations': []}, mock_directory=directory, schema_id=SCHEMA)
+    receipt = run_d1_emulator({'schema_statements': [], 'operations': []}, mock_directory=directory, schema_id=SCHEMA)
     assert receipt['outcome'] == 'completed'
-    assert json.loads(receipt['stdout'])['are_sdk_children_closed'] is True
+    result = json.loads(receipt['stdout'])
+    assert result.get('outcome') != 'emulator_failed', result
+    assert result['are_sdk_children_closed'] is True
     with mock_d1_access(directory, SCHEMA, is_exclusive=True):
         pass

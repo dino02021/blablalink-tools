@@ -138,6 +138,9 @@
 - [115：Mock D1 共享存取與獨占維護鎖](115-mock-d1-maintenance-lock.md)
 - [116：Mock D1 實體備份與 fenced restore](116-mock-d1-physical-backup.md)
 - [117：D1 多版本升級與 readiness 契約（待實作）](117-d1-versioned-readiness-contract.md)
+- [118：D1 additive migration ledger 與逐版本 CAS](118-d1-additive-migration-ledger.md)
+- [119：本地 D1 versioned session 逐 batch readiness](119-d1-versioned-session-guards.md)
+- [120：Mock D1 升級協調與 marker 恢復（待實作）](120-mock-d1-upgrade-orchestration-contract.md)
 
 ## 撰寫規則
 

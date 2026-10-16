@@ -22,3 +22,9 @@
 測試至少包括：正常多版本保留資料、相同 plan 重啟、不重播已提交 step、checksum 修改與缺版本拒絕、step 內失敗全部 rollback、跨 step 中斷仍不能領工作、兩個 migrator 競爭、舊 epoch／舊 session 回覆不接受、marker 更新中斷與受保護 restore clone 不可升級。全部只用合成資料。
 
 依 [D1 binding 文件](https://developers.cloudflare.com/d1/worker-api/d1-database/) 驗證單 batch 的交易邊界，依 [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) 約束每輪；不把本地 Miniflare 測試擴稱為正式免費帳戶驗收。
+
+## 分階段進度
+
+結構 SQL／additive ledger 已實作並通過 21 項 SQLite／實際 SDK 案例，見 spec 118；每 batch readiness 接線見 spec 119。整體 upgrade orchestration、active／unresolved holds、跨 marker commit、maintenance capability 與 journal 仍未完成，故本文件的完整契約尚未驗收。
+
+完整 Root schema 若超過目前 32 declarations，不能硬塞成單一 D1Schema，也不能因此放寬 64 KiB control body。後續需以已登錄的 module／owner 分組配合 authoritative release checksum／epoch，驗證跨 module 操作所需守衛，並保留整體 migration readiness；目前超限先拒絕。這仍是 spec 108 列出的完整 backend 整合缺口，尚未有大型任意 schema 的支援宣稱。

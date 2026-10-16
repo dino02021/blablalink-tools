@@ -99,6 +99,9 @@
     {
       "id": "A07",
       "tests": [
+        "local_tests/test_d1_versioned_session.py::test_actual_versioned_session_reopen_is_read_only_and_old_epoch_cannot_write",
+        "local_tests/test_d1_versioned_session.py::test_actual_versioned_object_frames_share_schema_and_readiness_guards",
+        "local_tests/test_d1_migrations.py::test_ready_pin_rejects_rearranged_checksum_chain_with_same_final_schema",
         "local_tests/test_local_state.py::test_durable_request_and_immutable_object_roundtrip",
         "local_tests/test_local_state.py::test_hosted_claim_requires_reserved_dispatch_and_replay_is_run_scoped",
         "local_tests/test_d1_cas_contract.py::test_first_cas_and_exact_replay_have_one_immutable_receipt",
@@ -346,6 +349,10 @@
     {
       "id": "A21",
       "tests": [
+        "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_interrupted_upgrade_resumes_from_positive_receipt_and_rejects_old_epoch",
+        "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_parallel_migration_begin_owns_one_epoch_and_never_marks_ready_early",
+        "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_failed_revision_rolls_back_created_table_and_history",
+        "local_tests/test_d1_versioned_session.py::test_actual_versioned_reopen_does_not_recreate_missing_business_table",
         "local_tests/test_workbook_staging.py::test_incomplete_and_cancelled_stage_preserves_result_and_human_data",
         "local_tests/test_workbook_staging.py::test_layout_change_blocks_activation",
         "local_tests/test_grid_migration.py::test_confirmed_migration_still_requires_sealed_publication_and_reconciliation",
@@ -366,6 +373,7 @@
     {
       "id": "A22",
       "tests": [
+        "local_tests/test_mock_d1_backup.py::test_workspace_accepted_indented_marker_roundtrips_without_changing_bytes",
         "local_tests/test_mock_d1_lock.py::test_shared_clients_overlap_and_maintenance_waits",
         "local_tests/test_mock_d1_lock.py::test_lock_is_cross_process_and_os_releases_after_process_exit",
         "local_tests/test_mock_d1_lock.py::test_fence_appearing_while_waiting_is_rechecked",
