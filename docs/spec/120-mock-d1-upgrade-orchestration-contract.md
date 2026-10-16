@@ -1,8 +1,8 @@
-# 120：Mock D1 升級協調與 marker 恢復（待實作）
+# 120：Mock D1 升級協調與 marker 恢復
 
 ## 必須補齊的邊界
 
-Spec 118 的 SQL steps 與 spec 119 的逐 batch readiness 已有本地測試，但還不能由一般程式安全升級工作目錄。DB transaction、OS lock 與 JSON marker 不屬於同一交易；中斷時不能以任何一個片段單獨宣告完成。
+原本 spec 118 的 SQL steps 與 spec 119 的逐 batch readiness 沒有高階協調器。DB transaction、OS lock 與 JSON marker 不屬於同一交易；中斷時不能以任何一個片段單獨宣告完成。後續本地實作見 spec 121–123。
 
 ## 協調契約
 
@@ -20,10 +20,14 @@ Spec 118 的 SQL steps 與 spec 119 的逐 batch readiness 已有本地測試，
 
 多版本保留資料且新 versioned session 可重開、舊 session 在啟動 SDK 前因 marker 或同 batch epoch 拒絕；begin／中間 step／finish 回覆遺失後從 D1 續跑；marker 替換前後中斷恢復；兩個 migrator 排他；錯 plan／checksum 不改 marker／DB／journal；busy／unknown holds 不遷移；capability 過期／跨 thread／改 body 拒絕；restore clone 完全不能啟動 SDK。
 
-所有測試使用新建 temporary mock storage，維持不接正式環境。這份文件列出接下來的實作與遺漏，不代表協調器已存在。
+所有測試使用新建 temporary mock storage，維持不接正式環境。這份文件是本地 additive 協調器的驗收契約，不能擴稱正式切換或完整 Root backend 已完成。
 
 ## 已核對的 quiescence 差異
 
 目前 compute_jobs 的 running 是有效租約狀態；contract_barriers 的任何 is_blocked=1 代表 scope／global barrier，不能因 SDK 都停止就略過。兩者需在已排空 SDK 的獨占區段另外查驗。歷史 claim receipts 或 computed 結果本身不等同仍持有執行租約。
 
 協調器須登錄目前可識別的 object／head／compute／checkpoint／recovery table 契約與 hold policy；未知業務 hold schema 不猜測為 idle。合成 fixture 的 mock_* namespace 可有明確測試用 policy，不能將這份規則套到正式 provider 資料。未來新增 publisher／resource／outbox 模組時，必須同批追加 policy 與 active／unknown cases，不能只把表名加進 allowlist。
+
+## 本地實作進度
+
+Hold policy 與限定維護授權已見 spec 121／122；高階流程、逐版本續跑與 marker commit 見 spec 123。Journal 遺失時也以 D1 完整 proof 決定是否重建本輪相同 fence；錯 journal／restore clone 不解除。首輪 24 項 pure／實際 SDK 協調案例已通過，追加情境與完整回歸繼續驗證；未將本地 additive 證據擴稱正式整體切換。

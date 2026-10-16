@@ -3,7 +3,7 @@
   "scope": "local_mock_only",
   "is_production_accepted": false,
   "suite_status": "passed",
-  "observed_test_cases": 1198,
+  "observed_test_cases": 1252,
   "local_evidence_passed": 22,
   "requirements": [
     {
@@ -394,6 +394,13 @@
     {
       "id": "A21",
       "tests": [
+        "local_tests/test_mock_d1_upgrade.py::test_actual_upgrade_preserves_rows_reopens_new_session_and_replay_has_zero_writes",
+        "local_tests/test_mock_d1_upgrade.py::test_actual_interruption_resumes_committed_progress_without_replaying_ddl",
+        "local_tests/test_mock_d1_upgrade.py::test_actual_sdk_deadline_leaves_fence_and_resumes_from_d1",
+        "local_tests/test_mock_d1_upgrade.py::test_actual_busy_hosted_lease_and_scope_barrier_do_not_begin_or_create_journal",
+        "local_tests/test_mock_d1_upgrade.py::test_actual_competing_upgrade_calls_return_one_completed_epoch",
+        "local_tests/test_mock_d1_upgrade.py::test_actual_changed_history_plan_with_same_target_schema_is_rejected_before_journal",
+        "local_tests/test_mock_d1_maintenance.py::test_missing_capability_and_stale_scope_never_start_a_child",
         "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_interrupted_upgrade_resumes_from_positive_receipt_and_rejects_old_epoch",
         "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_parallel_migration_begin_owns_one_epoch_and_never_marks_ready_early",
         "local_tests/test_d1_migrations_runtime.py::test_actual_sdk_failed_revision_rolls_back_created_table_and_history",
@@ -415,11 +422,12 @@
         "真實 staging tab 啟用／取消與完整 merge／format／protection"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 17
+      "observed_cases": 29
     },
     {
       "id": "A22",
       "tests": [
+        "local_tests/test_mock_d1_upgrade.py::test_actual_restore_clone_cannot_use_upgrade_to_unfreeze_or_start_sdk",
         "local_tests/test_mock_d1_backup.py::test_workspace_accepted_indented_marker_roundtrips_without_changing_bytes",
         "local_tests/test_mock_d1_lock.py::test_shared_clients_overlap_and_maintenance_waits",
         "local_tests/test_mock_d1_lock.py::test_lock_is_cross_process_and_os_releases_after_process_exit",
@@ -445,7 +453,7 @@
         "正式 release binary／降版 migration／跨 runtime 單一 ownership"
       ],
       "evidence_status": "local_evidence_passed",
-      "observed_cases": 28
+      "observed_cases": 29
     }
   ]
 }

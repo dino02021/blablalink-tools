@@ -17,3 +17,5 @@ Windows 使用 [LockFileEx](https://learn.microsoft.com/en-us/windows/win32/api/
 ## 驗收
 
 11 項新增測試及既有實際雙 SDK claim 測試共 12 項通過。涵蓋共享重疊、獨占雙向排除、真實 subprocess 被 kill 後釋放、等待期間新增 fence、錯誤 timeout 不建立 lock、例外清理，以及 SDK attach 時獨占維護不能進入。這不代表完整 D1 migration／backup 已完成；後續須在獨占區段實作有界快照與 fenced restore。
+
+後續 spec 122 將底層 OS lock context 共用給限定的 maintenance capability；普通入口仍在鎖取得後重新檢查 restore／maintenance fences。沒有讓普通 callers 繞過 journal，原有 SDK 併行模式維持共享鎖。

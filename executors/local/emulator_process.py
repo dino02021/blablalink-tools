@@ -14,6 +14,7 @@ import time
 from adapters.windows_child_job import WindowsChildJob
 from adapters.mock_d1_workspace import require_mock_d1_workspace
 from adapters.mock_d1_lock import mock_d1_access
+from adapters.mock_d1_maintenance import maintenance_payload, maintenance_storage
 from executors.local.process_guard import _stop
 
 
@@ -28,6 +29,15 @@ def run_d1_object_session(payload,*,mock_directory,schema_id,seconds=60):
     return _run_emulator(payload,seconds,mock_directory,schema_id,True)
 
 
+def run_d1_maintenance_batch(statements, capability, *, seconds=30):
+    payload = maintenance_payload(statements)
+    # Validate the grant before accessing any attributes or starting a child.
+    maintenance_storage(capability, getattr(capability, 'directory', None),
+                        getattr(getattr(capability, 'intent', None), 'source_schema_id', None), payload)
+    return _run_owned_emulator(payload, seconds, capability.directory, capability.intent.source_schema_id,
+                               False, maintenance_capability=capability)
+
+
 def _run_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
     if mock_directory is not None:
         with mock_d1_access(mock_directory, schema_id):
@@ -35,7 +45,7 @@ def _run_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
     return _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session)
 
 
-def _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session):
+def _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_session,*,maintenance_capability=None):
     if sys.platform!='win32':raise ValueError('local emulator process tree requires verified Windows supervision')
     if type(seconds) not in (int,float) or not math.isfinite(seconds) or not .05<=seconds<=60:
         raise ValueError('bounded local emulator duration required')
@@ -55,7 +65,9 @@ def _run_owned_emulator(payload,seconds,mock_directory,schema_id,is_object_sessi
             if len(json.dumps(operation,ensure_ascii=False,allow_nan=False).encode())>65536:
                 raise ValueError('object control frame exceeds 64 KiB')
     storage=None
-    if mock_directory is not None:
+    if maintenance_capability is not None:
+        storage = maintenance_storage(maintenance_capability, mock_directory, schema_id, payload)
+    elif mock_directory is not None:
         storage=require_mock_d1_workspace(mock_directory,schema_id)/'storage'
     elif schema_id is not None:
         raise ValueError('mock D1 directory required for schema identity')

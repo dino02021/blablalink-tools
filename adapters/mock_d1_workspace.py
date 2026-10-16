@@ -21,17 +21,24 @@ def create_mock_d1_workspace(directory, schema_id):
 
 
 def require_mock_d1_workspace(directory, schema_id):
-    marker = _marker(schema_id)
+    return _inspect_mock_d1_workspace(directory, (_marker(schema_id),))
+
+
+def _inspect_mock_d1_workspace(directory, markers, maintenance_bytes=None):
     directory = Path(directory).absolute()
     if any(path.is_symlink() for path in (directory, *directory.parents)):
         raise ValueError('mock D1 symlink rejected')
     if (directory / 'restore-lock.json').exists() or (directory / 'restore-lock.json').is_symlink():
         raise ValueError('mock D1 restore is fenced')
+    journal = directory / 'maintenance-lock.json'
+    if journal.is_symlink() or (journal.exists() and (maintenance_bytes is None
+            or not journal.is_file() or journal.stat().st_size > 4096 or journal.read_bytes() != maintenance_bytes)):
+        raise ValueError('mock D1 maintenance is fenced')
     path = directory / 'mock-d1.json'
     storage = directory / 'storage'
     if path.is_symlink() or not path.is_file() or path.stat().st_size > 4096:
         raise ValueError('mock D1 marker required')
-    if canonical_json(json.loads(path.read_text(encoding='utf-8'))) != canonical_json(marker):
+    if canonical_json(json.loads(path.read_text(encoding='utf-8'))) not in {canonical_json(marker) for marker in markers}:
         raise ValueError('mock D1 schema marker differs')
     if storage.is_symlink() or not storage.is_dir():
         raise ValueError('mock D1 storage directory required')

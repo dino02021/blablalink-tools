@@ -16,8 +16,8 @@ session 固定可信 AdditiveMigrationPlan、revision 與 epoch；完整 busines
 
 新增缺表鑑識 probe 首輪因 fixture 漏傳 schema_statements 清單而失敗，未更新驗收報告。已核對 runner 的 schema_bootstrap 路徑，修正測試輸入並直接檢查 SDK envelope 成功；同時加強 spec 115 的 runtime fixture，避免只核對子程序停止而漏掉 SDK 初始化錯誤。
 
-business＋ledger 仍受 D1Schema 的 32 declarations 上限，超限會在建立工作目錄前拒絕。完整升級的 maintenance lock ownership、quiescence、marker 更新／中斷恢復尚未接線，因此 session 不提供 migrate／unfence API，也不允許繞過 restore fence。實際 SQL migration tests 的原始 fixture不代表正式 upgrade orchestration 已完成。
+business＋ledger 仍受 D1Schema 的 32 declarations 上限，超限會在建立工作目錄前拒絕。本 session 不提供 migrate／unfence API，也不允許繞過 restore fence；本地升級另由 spec 121–123 的協調器執行。實際 SQL migration tests 不代表正式帳戶或完整 Root backend 的 upgrade orchestration 已驗收。
 
 最新 focused：本模組 10 項，連同 migration／backup／lock 共 56 項通過；缺表回歸確認原表未重建。完整 suite 執行後才更新 spec 64 數字。
 
-本批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，is_production_accepted=false；包含 marker regression、ledger／session 及強化後的 SDK envelope fixture。升級協調契約見 spec 120，尚未實作。
+本批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，is_production_accepted=false；包含 marker regression、ledger／session 及強化後的 SDK envelope fixture。本地升級協調後續見 spec 120–123。

@@ -1477,3 +1477,25 @@ blablalink-tools/
 - 明確核對 compute running 與 contract_barriers，未知 hold schema 必須先補 policy；完整 Root 超過 32 declarations 時仍需 module／owner 分層守衛，不能調高 control body 上限。
 
 - 第七十七至七十八批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，正式驗收 false。下一階段繼續 spec 120 的維護 capability／journal／中斷恢復，沒有將完整 D1 adapter 標為完成。
+
+### 17.85 第七十九批：D1 升級工作狀態 policy
+
+- 已登錄完整 metadata DDL，running 不因 local／hosted 或 expiry 被當 idle；blocked scope／global barrier 同樣阻擋，未知 hold schema 拒絕。15 項 mock SQL 案例通過，詳見 spec 121。
+
+### 17.86 第八十批：Mock D1 維護 capability
+
+- 專用 intent／active lock lifetime／thread／fixed frame digest 授權，journal 前只允許固定 reads、mutating steps 需匹配 journal；普通 SDK 仍拒絕 restore／maintenance fences。
+- 九項維護案例及 policy 共 24 項通過，含實際 SDK read→fence→begin；高階 marker／receipt 協調仍待完成，詳見 spec 122。
+
+### 17.87 第八十一批：Mock D1 升級協調與恢復
+
+- 獨占維護範圍內核對 authoritative phase／完整 checksum／epoch／schema／holds，依 positive receipts 跳過已提交 DDL；final ready 後原子更新 marker，再核對並移除本輪 journal。
+- 六個 commit／marker／遺失 journal 情境、零寫入 completed replay（含升級後的新 running 工作）、migrators 競爭、未知歷史及 restore clone 拒絕，與 policy／cap 共 52 項 focused 通過。另補 epoch gap 與真實 SDK deadline 兩項通過；強制停止後 child 已停止且 fence 保留，可從 D1 續跑。
+- 本地 journal 只作恢復索引；遺失時僅在完整 D1 proof 後重建相同 fence，不覆寫錯 journal，也不解除 restore lock。實際 native serialization 仍限 64 KiB。詳見 spec 123，完整 suite 待回歸。
+
+### 17.88 追加遺漏與下一段：D1 frozen 健檢橋接
+
+- 已核對既有 Python 計算／render、native isolated worker 與 D1 object／queue ports；新 child 必須共用 pure artifact builder，parent 下載／pulse／上傳，不能在一個 process profile 中偷啟 SDK 或用臨時 SQLite 當 coordinator。
+- AUTO freshness／desired atomic enqueue、D1 waiting states、長分片 heartbeat、完整 composed frame 與 native 大資料記憶體仍需接線，先保持 unsupported，不把 frozen manual core 誤當完整 worker。詳見 spec 124，先做可獨立開發的 pure builder／frozen child parity。
+
+- 第七十九至八十一批完整回歸：1,252 項通過（774.22 秒），22 項本地證據通過，正式驗收 false。下一段繼續 spec 124 的 pure builder／frozen child，沒有標記完整 D1 backend 或目標完成。

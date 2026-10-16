@@ -137,10 +137,14 @@
 - [114：本地 D1 fetch-compatible 端口配置](114-fetch-compatible-local-d1-ports.md)
 - [115：Mock D1 共享存取與獨占維護鎖](115-mock-d1-maintenance-lock.md)
 - [116：Mock D1 實體備份與 fenced restore](116-mock-d1-physical-backup.md)
-- [117：D1 多版本升級與 readiness 契約（待實作）](117-d1-versioned-readiness-contract.md)
+- [117：D1 多版本升級與 readiness 契約](117-d1-versioned-readiness-contract.md)
 - [118：D1 additive migration ledger 與逐版本 CAS](118-d1-additive-migration-ledger.md)
 - [119：本地 D1 versioned session 逐 batch readiness](119-d1-versioned-session-guards.md)
-- [120：Mock D1 升級協調與 marker 恢復（待實作）](120-mock-d1-upgrade-orchestration-contract.md)
+- [120：Mock D1 升級協調與 marker 恢復](120-mock-d1-upgrade-orchestration-contract.md)
+- [121：D1 升級的工作狀態檢查](121-d1-migration-quiescence-policy.md)
+- [122：Mock D1 限定範圍的維護授權](122-mock-d1-maintenance-capability.md)
+- [123：Mock D1 可續跑升級與 marker commit](123-mock-d1-resumable-upgrade.md)
+- [124：D1 與 Python frozen 健檢計算橋接（待實作）](124-d1-frozen-healthcheck-bridge-contract.md)
 
 ## 撰寫規則
 

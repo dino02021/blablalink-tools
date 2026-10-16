@@ -22,8 +22,8 @@ begin 在核對 ready 與歷史後只增加一次 epoch 並轉 migrating；finis
 
 ## 還沒有完成
 
-這是 spec 117 的結構 SQL 階段，尚無完整升級 orchestrator、排空業務 active／unresolved holds 的 quiescence port、本地 maintenance capability／journal、marker commit 恢復或正式 Worker entry。一般 LocalD1Session 不會自動採用這份 ledger；不能以這份模組宣稱完整 Root migration 或任意大型 schema 都能升級。
+這是 spec 117 的結構 SQL 階段；後續本地 quiescence policy、maintenance capability／journal 與可續跑 marker commit 見 spec 121–123。一般 LocalD1Session 不會自動採用這份 ledger；正式 Worker entry、完整 Root migration 或任意大型 schema 升級仍未完成。
 
 正常 frame 的 ready／epoch 接線見 spec 119。Restore clone 的永久 fence 不提供解封；原有 schema cap、完整 D1 業務 adapter、publisher／hosted／admission 仍維持明列缺口。
 
-本批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，is_production_accepted=false；包含 marker regression、ledger／session 及強化後的 SDK envelope fixture。升級協調契約見 spec 120，尚未實作。
+本批完整回歸：1,198 項通過（620.94 秒），22 項本地證據通過，is_production_accepted=false；包含 marker regression、ledger／session 及強化後的 SDK envelope fixture。本地升級協調後續見 spec 120–123。

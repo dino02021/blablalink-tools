@@ -1,4 +1,4 @@
-# 117：D1 多版本升級與 readiness 契約（待實作）
+# 117：D1 多版本升級與 readiness 契約（分階段實作）
 
 ## 問題
 
@@ -25,6 +25,6 @@
 
 ## 分階段進度
 
-結構 SQL／additive ledger 已實作並通過 21 項 SQLite／實際 SDK 案例，見 spec 118；每 batch readiness 接線見 spec 119。整體 upgrade orchestration、active／unresolved holds、跨 marker commit、maintenance capability 與 journal 仍未完成，故本文件的完整契約尚未驗收。
+結構 SQL／additive ledger 見 spec 118；每 batch readiness 接線見 spec 119。後續本地 policy、maintenance capability 與可續跑 marker commit 已實作於 spec 121–123；完整 Root backend／正式 hosted／任意大型或非 additive schema 仍未驗收。
 
 完整 Root schema 若超過目前 32 declarations，不能硬塞成單一 D1Schema，也不能因此放寬 64 KiB control body。後續需以已登錄的 module／owner 分組配合 authoritative release checksum／epoch，驗證跨 module 操作所需守衛，並保留整體 migration readiness；目前超限先拒絕。這仍是 spec 108 列出的完整 backend 整合缺口，尚未有大型任意 schema 的支援宣稱。

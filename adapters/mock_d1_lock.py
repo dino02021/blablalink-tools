@@ -18,6 +18,16 @@ def mock_d1_access(directory, schema_id, *, is_exclusive=False, timeout=60):
     if type(is_exclusive) is not bool or type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 60:
         raise ValueError('bounded mock D1 lock mode and timeout required')
     directory = require_mock_d1_workspace(directory, schema_id)
+    with _workspace_os_lock(directory, is_exclusive=is_exclusive, timeout=timeout):
+        # A restore/maintenance fence may have appeared while waiting.
+        require_mock_d1_workspace(directory, schema_id)
+        yield directory
+
+
+@contextmanager
+def _workspace_os_lock(directory, *, is_exclusive, timeout):
+    if type(is_exclusive) is not bool or type(timeout) not in (int, float) or not math.isfinite(timeout) or not 0 < timeout <= 60:
+        raise ValueError('bounded mock D1 lock mode and timeout required')
     key = os.path.normcase(str(directory))
     held = getattr(_STATE, 'held', set())
     if key in held:
@@ -37,8 +47,6 @@ def mock_d1_access(directory, schema_id, *, is_exclusive=False, timeout=60):
                     raise TimeoutError('mock_d1_access_timeout')
                 time.sleep(min(.01, remaining))
         try:
-            # A restore/maintenance fence may have appeared while waiting.
-            require_mock_d1_workspace(directory, schema_id)
             held.add(key)
             _STATE.held = held
             try:
