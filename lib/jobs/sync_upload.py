@@ -138,39 +138,19 @@ def _plan_member_row_compaction(
     sheet: Any,
     start_row: int,
     source_last_row: int,
-    source_rows: List[Optional[int]],
+    source_rows: List[int],
     final_count: int,
 ) -> List[Dict[str, Any]]:
-    """Move complete rows, then clear departed members before adding anyone."""
+    """Compact complete member rows inside the existing grid only."""
+    if start_row + final_count - 1 > sheet.row_count:
+        raise ValueError(f"{sheet.title or '成員名單'} 現有資料列不足，停止同步；不會自動新增列")
+    source_last_row = min(source_last_row, sheet.row_count)
+    if any(row < start_row or row > source_last_row for row in source_rows):
+        raise ValueError("角色練度來源列無法對應，停止同步以保留原資料")
+
     requests: List[Dict[str, Any]] = []
-    required_rows = max(source_last_row, start_row + final_count - 1, start_row)
-    if required_rows > sheet.row_count:
-        requests.append(
-            {"appendDimension": {"sheetId": sheet.id, "dimension": "ROWS", "length": required_rows - sheet.row_count}}
-        )
-
-    row_order: List[Optional[int]] = list(range(start_row, source_last_row + 1))
-    inserted_count = 0
+    row_order = list(range(start_row, source_last_row + 1))
     for offset, source_row in enumerate(source_rows):
-        target_index = start_row - 1 + offset
-        if source_row is None:
-            requests.append(
-                {
-                    "insertDimension": {
-                        "range": {
-                            "sheetId": sheet.id,
-                            "dimension": "ROWS",
-                            "startIndex": target_index,
-                            "endIndex": target_index + 1,
-                        },
-                        "inheritFromBefore": True,
-                    }
-                }
-            )
-            row_order.insert(offset, None)
-            inserted_count += 1
-            continue
-
         source_offset = row_order.index(source_row)
         if source_offset == offset:
             continue
@@ -183,14 +163,14 @@ def _plan_member_row_compaction(
                         "startIndex": start_row - 1 + source_offset,
                         "endIndex": start_row + source_offset,
                     },
-                    "destinationIndex": target_index,
+                    "destinationIndex": start_row - 1 + offset,
                 }
             }
         )
         row_order.insert(offset, row_order.pop(source_offset))
 
     clear_start_row = start_row + len(source_rows)
-    clear_last_row = max(source_last_row + inserted_count, start_row + final_count - 1)
+    clear_last_row = max(source_last_row, start_row + final_count - 1)
     if clear_start_row <= clear_last_row:
         requests.append(
             {
@@ -208,45 +188,78 @@ def _plan_member_row_compaction(
     return requests
 
 
+def _is_training_row_empty(raw_values: List[List[Any]], row: int) -> bool:
+    if row > len(raw_values):
+        return True
+    return not any(str(value).strip() for value in raw_values[row - 1])
+
+
 def _character_source_rows(
     raw_values: List[List[Any]],
     member_entries: List[Tuple[Optional[int], Dict[str, Any]]],
     member_names: List[Any],
     start_row: int,
-) -> List[Optional[int]]:
+    row_count: int,
+) -> List[int]:
     name_to_rows: Dict[str, List[int]] = {}
     for row_idx, row in enumerate(raw_values, start=1):
         name = str(row[0]).strip() if row else ""
         if row_idx >= start_row and name:
             name_to_rows.setdefault(name, []).append(row_idx)
 
-    source_rows: List[Optional[int]] = []
+    retained_entries = [(row, member) for row, member in member_entries if row is not None]
+    source_rows: List[Optional[int]] = [None] * len(retained_entries)
     used_rows: set[int] = set()
-    for member_row, member in member_entries:
-        if member_row is None:
-            continue
+    for offset, (member_row, member) in enumerate(retained_entries):
         old_name = str(member_names[member_row - 1]).strip()
-        nickname = str(member["nickname"])
+        aliases = {old_name, str(member["nickname"])} - {""}
         aligned_row = start_row + member_row - 2
-        aligned_name = ""
-        if aligned_row <= len(raw_values) and raw_values[aligned_row - 1]:
-            aligned_name = str(raw_values[aligned_row - 1][0]).strip()
-
+        candidates = {row for name in aliases for row in name_to_rows.get(name, []) if row not in used_rows}
         source_row: Optional[int] = None
-        # Equal display names are disambiguated by their original member offset.
-        if aligned_row not in used_rows and aligned_name in {old_name, nickname}:
+        if aligned_row in candidates:
             source_row = aligned_row
-        else:
-            for name in (old_name, nickname):
-                source_row = next((row for row in name_to_rows.get(name, []) if row not in used_rows), None)
-                if source_row is not None:
-                    break
-        if source_row is None and not aligned_name and aligned_row not in used_rows:
-            source_row = aligned_row
+        elif len(candidates) == 1:
+            source_row = candidates.pop()
+        elif candidates:
+            raise ValueError("角色練度同名來源列不明確，停止同步以保留原資料")
         if source_row is not None:
+            source_rows[offset] = source_row
             used_rows.add(source_row)
-        source_rows.append(source_row)
-    return source_rows
+
+    # The member sheet can already contain a new name while training sheets
+    # still contain an older alias. Their original row offsets remain the
+    # identity link; a missing display-name match is not a missing member row.
+    original_names = {str(name).strip() for name in member_names[1:] if str(name).strip()}
+    for offset, (member_row, member) in enumerate(retained_entries):
+        if source_rows[offset] is not None:
+            continue
+        aligned_row = start_row + member_row - 2
+        if aligned_row > row_count or aligned_row in used_rows:
+            continue
+        aligned_name = str(raw_values[aligned_row - 1][0]).strip() if aligned_row <= len(raw_values) and raw_values[aligned_row - 1] else ""
+        if aligned_name and aligned_name in original_names:
+            raise ValueError("角色練度原列屬於其他成員，停止同步以保留原資料")
+        source_rows[offset] = aligned_row
+        used_rows.add(aligned_row)
+
+    for offset, source_row in enumerate(source_rows):
+        if source_row is not None:
+            continue
+        for row_idx in range(start_row, min(len(raw_values), row_count) + 1):
+            if row_idx in used_rows or _is_training_row_empty(raw_values, row_idx):
+                continue
+            name = str(raw_values[row_idx - 1][0]).strip() if raw_values[row_idx - 1] else ""
+            if name not in original_names:
+                raise ValueError("角色練度仍有無法辨識的原資料，停止同步以免清除")
+        empty_row = next(
+            (row for row in range(start_row, row_count + 1) if row not in used_rows and _is_training_row_empty(raw_values, row)),
+            None,
+        )
+        if empty_row is None:
+            raise ValueError("角色練度缺少可用的原資料列，停止同步；不會自動新增列")
+        source_rows[offset] = empty_row
+        used_rows.add(empty_row)
+    return [row for row in source_rows if row is not None]
 
 
 def _member_value_update(sheet: Any, row: int, column: int, values: List[Any]) -> Dict[str, Any]:
@@ -329,7 +342,8 @@ def _sync_member_levels_to_worksheet(
     for sheet, raw_values in character_values:
         start_row = _character_sheet_start_row(sheet)
         source_last_row = max(start_row + data_last_row - 2, len(raw_values))
-        character_rows = _character_source_rows(raw_values, member_entries, a_values, start_row)
+        character_rows = _character_source_rows(raw_values, member_entries, a_values, start_row, sheet.row_count)
+        source_last_row = max(source_last_row, max(character_rows, default=start_row - 1))
         requests.extend(_plan_member_row_compaction(sheet, start_row, source_last_row, character_rows, total_count))
         for offset, (source_row, member) in enumerate(member_entries):
             update = _member_value_update(sheet, start_row + offset, 1, [member["nickname"]])

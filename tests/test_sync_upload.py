@@ -113,6 +113,7 @@ def test_sync_member_levels_prefers_member_id_falls_back_to_name_and_appends():
             ["名稱", "同步", "member_id", "D", "E"],
             ["Old Alice", "1", "id-a", "keep-d2", "keep-e2"],
             ["Bob", "2", "", "keep-d3", "keep-e3"],
+            ["", "", "", "", ""],
         ]
     )
 
@@ -161,17 +162,20 @@ def test_sync_member_levels_removes_unmatched_rows_and_appends_at_bottom():
     ]
 
 
-def test_sync_member_levels_expands_grid_when_new_rows_exceed_capacity():
+def test_sync_member_levels_rejects_upload_when_existing_rows_are_insufficient():
     ws = FakeWorksheet([["名稱", "同步", "member_id"], ["Alice", "1", "id-a"]])
-    sync_upload._sync_member_levels_to_worksheet(
-        ws,
-        [
-            {"nickname": "New Alice", "member_id": "id-new-a", "synchro_level": 301},
-            {"nickname": "New Bob", "member_id": "id-new-b", "synchro_level": 302},
-        ],
-    )
-    assert ws.added_rows == 1
-    assert ws._values[1:] == [["New Alice", 301, "id-new-a"], ["New Bob", 302, "id-new-b"]]
+    before = deepcopy(ws._values)
+    with pytest.raises(ValueError, match="現有資料列不足"):
+        sync_upload._sync_member_levels_to_worksheet(
+            ws,
+            [
+                {"nickname": "New Alice", "member_id": "id-new-a", "synchro_level": 301},
+                {"nickname": "New Bob", "member_id": "id-new-b", "synchro_level": 302},
+            ],
+        )
+    assert ws.added_rows == 0
+    assert ws._values == before
+    assert ws.spreadsheet.batch_requests == []
 
 
 def test_sync_member_levels_shifts_character_sheets_with_their_own_start_rows():
@@ -393,7 +397,7 @@ def test_sync_member_levels_missing_training_row_does_not_borrow_another_member_
     member_ws = FakeWorksheet(
         [["名稱", "同步", "ID"], ["Alice", 300, "alice-id"], ["Bob", 301, "bob-id"]]
     )
-    sheet = FakeWorksheet([["成員", "角色"], ["", "欄位"], ["Bob", "bob-data"]], title="角色練度_電擊")
+    sheet = FakeWorksheet([["成員", "角色"], ["", "欄位"], ["Bob", "bob-data"], ["", ""]], title="角色練度_電擊")
     FakeSpreadsheet([member_ws, sheet])
     sync_upload._sync_member_levels_to_worksheet(
         member_ws,
@@ -420,6 +424,122 @@ def test_sync_member_levels_same_name_with_changed_id_keeps_existing_data():
     assert stats["appended_count"] == 0
     assert member_ws._values[1] == ["Alice", 400, "new-id", "discord-alice"]
     assert sheet._values[2] == ["Alice", "alice-data", ""]
+
+
+def test_sync_member_levels_keeps_training_when_display_name_lags_member_sheet():
+    member_ws = FakeWorksheet(
+        [["名稱", "同步", "ID"], ["Current Name", 300, "same-id"]]
+    )
+    sheet = FakeWorksheet(
+        [["成員", "角色"], ["", "欄位"], ["Previous Name", "existing-training"]],
+        title="角色練度_電擊",
+    )
+    FakeSpreadsheet([member_ws, sheet])
+
+    sync_upload._sync_member_levels_to_worksheet(
+        member_ws,
+        [{"nickname": "Current Name", "member_id": "same-id", "synchro_level": 400}],
+        [sheet],
+    )
+
+    assert (sheet._values[2][1], sheet.row_count) == ("existing-training", 3)
+
+
+def test_sync_member_levels_three_stale_renames_keep_all_training_without_new_rows():
+    member_ws = FakeWorksheet(
+        [
+            ["名稱", "同步", "ID"],
+            ["Departing", 300, "departing-id"],
+            ["Current One", 301, "one-id"],
+            ["Intermediate Two", 302, "two-id"],
+            ["Intermediate Three", 303, "three-id"],
+            ["Stable", 304, "stable-id"],
+        ],
+        title="成員名稱",
+    )
+    sheets = []
+    for element in ("電擊", "水冷", "燃燒", "風壓", "鐵甲", "變化"):
+        headers = [["成員", "角色", "公式"], ["", "欄位", "合計"]]
+        if element == "變化":
+            headers.append(["", "變化", "前值"])
+        sheets.append(FakeWorksheet(
+            headers + [
+                ["Departing", "departing-data", ""],
+                ["Old One", "one-data", "=1+2"],
+                ["Old Two", "two-data", "=2+3"],
+                ["Old Three", "three-data", "=3+4"],
+                ["Stable", "stable-data", ""],
+            ],
+            title=f"角色練度_{element}",
+        ))
+    workbook = FakeSpreadsheet([member_ws] + sheets)
+    row_counts = {sheet.id: sheet.row_count for sheet in workbook.sheets}
+    sync_upload._sync_member_levels_to_worksheet(
+        member_ws,
+        [
+            {"nickname": "Current One", "member_id": "one-id", "synchro_level": 401},
+            {"nickname": "Current Two", "member_id": "two-id", "synchro_level": 402},
+            {"nickname": "Current Three", "member_id": "three-id", "synchro_level": 403},
+            {"nickname": "Stable", "member_id": "stable-id", "synchro_level": 404},
+            {"nickname": "New", "member_id": "new-id", "synchro_level": 405},
+        ],
+        sheets,
+    )
+    assert {sheet.id: sheet.row_count for sheet in workbook.sheets} == row_counts
+    for sheet in sheets:
+        start = 3 if sheet.title.endswith("變化") else 2
+        assert sheet._values[start:] == [
+            ["Current One", "one-data", "=1+2"],
+            ["Current Two", "two-data", "=2+3"],
+            ["Current Three", "three-data", "=3+4"],
+            ["Stable", "stable-data", ""],
+            ["New", "", ""],
+        ]
+    assert all(
+        not set(request).intersection({"insertDimension", "appendDimension", "deleteDimension"})
+        for request in workbook.batch_requests[0]["requests"]
+    )
+
+
+def test_sync_member_levels_ambiguous_renamed_row_stops_before_clearing_data():
+    member_ws = FakeWorksheet(
+        [["名稱", "同步", "ID"], ["Current", 300, "current-id"], ["Bob", 301, "bob-id"]]
+    )
+    sheet = FakeWorksheet(
+        [["成員", "角色"], ["", "欄位"], ["Bob", "bob-data"], ["Unknown Alias", "valuable-data"]],
+        title="角色練度_電擊",
+    )
+    workbook = FakeSpreadsheet([member_ws, sheet])
+    before = {ws.id: deepcopy(ws._values) for ws in workbook.sheets}
+    with pytest.raises(ValueError, match="無法辨識的原資料"):
+        sync_upload._sync_member_levels_to_worksheet(
+            member_ws,
+            [
+                {"nickname": "Current", "member_id": "current-id", "synchro_level": 400},
+                {"nickname": "Bob", "member_id": "bob-id", "synchro_level": 401},
+            ],
+            [sheet],
+        )
+    assert workbook.batch_requests == []
+    assert {ws.id: ws._values for ws in workbook.sheets} == before
+
+
+def test_sync_member_levels_training_capacity_failure_does_not_change_main_sheet():
+    member_ws = FakeWorksheet([["名稱", "同步", "ID"], ["Old", 300, "old-id"], ["", "", ""]])
+    sheet = FakeWorksheet([["成員", "角色"], ["", "欄位"], ["Old", "old-data"]], title="角色練度_電擊")
+    workbook = FakeSpreadsheet([member_ws, sheet])
+    before = {ws.id: deepcopy(ws._values) for ws in workbook.sheets}
+    with pytest.raises(ValueError, match="現有資料列不足"):
+        sync_upload._sync_member_levels_to_worksheet(
+            member_ws,
+            [
+                {"nickname": "Old", "member_id": "old-id", "synchro_level": 400},
+                {"nickname": "New", "member_id": "new-id", "synchro_level": 401},
+            ],
+            [sheet],
+        )
+    assert workbook.batch_requests == []
+    assert {ws.id: ws._values for ws in workbook.sheets} == before
 
 
 def test_sync_member_levels_same_names_keep_distinct_ids_and_training_rows():
@@ -458,7 +578,7 @@ def test_sync_member_levels_duplicate_ids_do_not_change_existing_members():
 
 
 def test_sync_member_levels_writes_names_and_long_ids_as_literal_text():
-    member_ws = FakeWorksheet([["名稱", "同步", "ID"]])
+    member_ws = FakeWorksheet([["名稱", "同步", "ID"], ["", "", ""]])
     nickname = "=IMPORTDATA(\"literal nickname\")"
     member_id = "00012345678901234567890"
     sync_upload._sync_member_levels_to_worksheet(
