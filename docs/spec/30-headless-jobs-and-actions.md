@@ -88,7 +88,7 @@ CLI 入口點：
 - API 回傳角色集合必須與該成員持有且本輪選取的角色一致；缺少、多出或重複角色時下載失敗，不覆寫之前的檔案。
 - 成員缺名稱、缺 ID、重複 ID 或檔名碰撞時停止下載。持有角色查詢失敗、角色詳情下載失敗或檔案未產生，記錄於 `failed_members`，不可縮小總人數後回報全部成功。
 - 未持有本輪任何檢查角色屬正常略過，記錄於 `skipped_members`；`ok_count + skipped_count` 必須等於 `total_count`，且成功檔案數必須等於 `ok_count` 才可繼續上傳。
-- 下載回傳 `expected_members`（成員名稱、Blabla ID、預期角色代碼），由 GUI 與 pipeline 原樣交給上傳工作。部分下載失敗即停止該聯盟整批上傳；全部正常略過時無需上傳。
+- 下載回傳 `expected_members`（成員名稱、Blabla ID、預期角色代碼），由 GUI 與 pipeline 原樣交給上傳工作。部分下載失敗即停止該聯盟整批上傳；全部正常略過時無需上傳。GUI 單一模式只有全部成員確定未持有檢查角色時才以成功略過顯示，找不到目標試算表仍回報失敗。
 
 詞條規則：
 - `function_id_targets` 由共用 `健檢名單` 的詞條1/2/3 依序比對 `function_names.json.function_name`

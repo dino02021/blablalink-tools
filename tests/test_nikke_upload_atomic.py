@@ -331,6 +331,17 @@ def test_all_unowned_roles_need_no_upload(pipeline, monkeypatch):
     assert pipeline.bodies == []
 
 
+def test_missing_target_is_not_reported_as_a_successful_single_account_skip(pipeline, monkeypatch):
+    def missing_target(union):
+        raise ValueError("找不到目標試算表")
+
+    monkeypatch.setattr(download, "resolve_character_sheet_target", missing_target)
+    pipeline.run()
+    assert not pipeline.results["download"].ok
+    assert pipeline.statuses[-1][1] == "red"
+    assert "upload" not in pipeline.results
+
+
 @pytest.mark.parametrize("count", [0, 29])
 def test_missing_download_file_cannot_shrink_the_upload_denominator(pipeline, monkeypatch, count):
     original = gui.run_nikke_upload

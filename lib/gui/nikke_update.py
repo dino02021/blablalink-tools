@@ -55,7 +55,9 @@ def _process_single_account(app) -> None:
     snapshot = load_healthcheck_snapshot()
     download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
     if not download_result.ok:
-        is_skipped = bool(download_result.outputs.get("skip_reason"))
+        total_count = int(download_result.stats.get("total_count", 0) or 0)
+        is_skipped = (bool(download_result.outputs.get("skip_reason")) and total_count > 0
+                      and int(download_result.stats.get("skipped_count", 0) or 0) == total_count)
         app.root.after(0, functools.partial(_finish_update, app, is_skipped, download_result.message))
         return
 
