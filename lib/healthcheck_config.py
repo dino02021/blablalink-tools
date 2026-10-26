@@ -56,21 +56,29 @@ def ensure_healthcheck_snapshot_current(snapshot: HealthcheckSnapshot) -> None:
         raise ValueError("共用健檢名單已變更，請重新下載練度資料後再上傳")
 
 
-def validate_training_headers(spreadsheet, snapshot: HealthcheckSnapshot) -> str:
+def validate_training_headers(
+    spreadsheet, snapshot: HealthcheckSnapshot, *, worksheets=None, values_by_sheet=None,
+) -> str:
     """Read only header rows and reject missing, obsolete, or misplaced role/trait blocks."""
-    worksheets = [ws for ws in spreadsheet.worksheets() if ws.title.startswith(TRAINING_PREFIX)]
+    titles = {"角色練度_電擊", "角色練度_水冷", "角色練度_燃燒", "角色練度_風壓", "角色練度_鐵甲", CHANGE_WORKSHEET}
+    worksheets = [ws for ws in (worksheets if worksheets is not None else spreadsheet.worksheets()) if ws.title in titles]
     if not worksheets:
         raise ValueError("目標試算表缺少角色練度工作表，請先在試算表執行健檢嚴格同步")
     ranges = [f"'{ws.title}'!1:{3 if ws.title == CHANGE_WORKSHEET else 2}" for ws in worksheets]
-    response = spreadsheet.values_batch_get(ranges)
-    values_by_sheet = response.get("valueRanges", [])
-    if len(values_by_sheet) != len(worksheets):
+    if values_by_sheet is None:
+        response = spreadsheet.values_batch_get(ranges)
+        header_values = response.get("valueRanges", [])
+    else:
+        if any(ws.title not in values_by_sheet for ws in worksheets):
+            raise ValueError("無法完整讀取角色練度表頭")
+        header_values = [{"values": values_by_sheet[ws.title][:3 if ws.title == CHANGE_WORKSHEET else 2]} for ws in worksheets]
+    if len(header_values) != len(worksheets):
         raise ValueError("無法完整讀取角色練度表頭")
 
     members_by_name = {normalize_label(item["name"]): item for item in snapshot.members}
     found_elements = set()
     fingerprint_rows = []
-    for worksheet, result in zip(worksheets, values_by_sheet):
+    for worksheet, result in zip(worksheets, header_values):
         is_change = worksheet.title == CHANGE_WORKSHEET
         header_row = 1 if is_change else 0
         values = result.get("values", [])
@@ -129,6 +137,13 @@ def validate_download_context(
     details = document.get("character_details")
     if not isinstance(details, list) or not details:
         raise ValueError("練度檔缺少角色資料，請重新下載")
+    expected_codes = document.get("expected_name_codes")
+    actual_codes = [str(detail.get("name_code", "")) for detail in details if isinstance(detail, dict)]
+    if (not isinstance(expected_codes, list) or len(actual_codes) != len(details)
+            or len(actual_codes) != len(set(actual_codes))
+            or len(expected_codes) != len({str(code) for code in expected_codes})
+            or set(actual_codes) != {str(code) for code in expected_codes}):
+        raise ValueError("練度檔缺少角色完整性資訊或角色資料不齊全，請重新下載")
     for detail in details:
         code = str(detail.get("name_code", "")) if isinstance(detail, dict) else ""
         member = members_by_code.get(code)

@@ -129,6 +129,7 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     assert isinstance(content, dict) and "character_details" in content
     assert content.get("nickname") == "nick"
     assert content.get("member_id") == "intl1"
+    assert content["expected_name_codes"] == ["nc1"]
     assert content["healthcheck_context"] == {"source_fingerprint": "version", "target_spreadsheet_id": "union"}
     details = content["character_details"]
     assert isinstance(details, list) and details, "輸出內容應為非空 list"
@@ -143,3 +144,18 @@ async def test_fetch_user_character_details(tmp_path, monkeypatch):
     assert [item["function_value"] for item in entry["functions"]] == pytest.approx([8.0, 12.34, 7.0], rel=1e-3)
     assert entry["favorite_item_type"] == "SR"
     assert entry["favorite_item_lv"] == 15
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("returned_codes", [["one"], ["one", "one"], ["one", "two", "extra"], []])
+async def test_incomplete_character_response_cannot_replace_previous_file(tmp_path, monkeypatch, returned_codes):
+    monkeypatch.setattr(api, "CHAR_DETAILS_DIR", tmp_path)
+    old_file = api.build_character_details_path("nick")
+    old_file.write_text("previous data", encoding="utf-8")
+    payload = {"data": {"state_effects": [], "character_details": [{"name_code": code} for code in returned_codes]}}
+    context = FakeContext({api.CHAR_DETAILS_URL: FakeResponse(200, payload)})
+    is_ok = await api.fetch_user_character_details(
+        context, [("one", "One"), ("two", "Two")], "nick", intl_open_id="id", nikke_area_id="area", function_id_targets={},
+    )
+    assert not is_ok
+    assert old_file.read_text(encoding="utf-8") == "previous data"

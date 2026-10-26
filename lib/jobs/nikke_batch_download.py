@@ -96,15 +96,25 @@ async def _batch_download_with_ctx(
         return {"guild_id": "", "files": [], "ok_count": 0, "total_count": 0}
 
     created_files: List[str] = []
+    failed_members: List[Dict[str, str]] = []
+    skipped_members: List[Dict[str, str]] = []
+    expected_members: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_paths: set[str] = set()
     ok_count = 0
     total_count = 0
     for member in members:
         if not isinstance(member, dict):
-            continue
+            raise ValueError("聯盟成員名單格式不完整，停止下載")
         nickname = str(member.get("nickname", "") or "").strip()
         member_id = str(member.get("member_id", "") or "").strip()
         if not nickname or not member_id:
-            continue
+            raise ValueError("聯盟成員名單缺少名稱或 Blabla ID，停止下載")
+        output_key = str(build_character_details_path(nickname)).casefold()
+        if member_id in seen_ids or output_key in seen_paths:
+            raise ValueError("聯盟名單包含重複 ID 或資料檔名，停止下載")
+        seen_ids.add(member_id)
+        seen_paths.add(output_key)
 
         total_count += 1
         user_characters = await fetch_user_characters(
@@ -113,14 +123,16 @@ async def _batch_download_with_ctx(
             nikke_area_id=target_nikke_area_id,
         )
         if not user_characters:
+            failed_members.append({"nickname": nickname, "member_id": member_id, "message": "無法取得持有角色資料"})
             continue
         name_codes = [item.get("name_code") for item in user_characters if isinstance(item, dict)]
         filtered = _filter_checklist_items(checklist_items, name_codes)
         if not filtered:
+            skipped_members.append({"nickname": nickname, "member_id": member_id, "message": "未持有本次檢查角色"})
             continue
+        expected_members.append({"nickname": nickname, "member_id": member_id, "expected_name_codes": [str(code) for code, _ in filtered]})
         user_character_lookup = _build_user_character_lookup(user_characters)
 
-        before_exists = build_character_details_path(nickname).exists()
         ok = await fetch_user_character_details(
             ctx,
             filtered,
@@ -132,20 +144,23 @@ async def _batch_download_with_ctx(
             healthcheck_context=healthcheck_context,
         )
         if not ok:
+            failed_members.append({"nickname": nickname, "member_id": member_id, "message": "角色詳情下載失敗或不完整"})
             continue
-
-        ok_count += 1
         outfile = build_character_details_path(nickname)
-        if outfile.exists():
-            created_files.append(outfile.name)
-        elif before_exists:
-            created_files.append(outfile.name)
+        if not outfile.exists():
+            failed_members.append({"nickname": nickname, "member_id": member_id, "message": "下載完成後找不到資料檔"})
+            continue
+        ok_count += 1
+        created_files.append(outfile.name)
 
     return {
         "guild_id": guild_id,
         "files": created_files,
         "ok_count": ok_count,
         "total_count": total_count,
+        "failed_members": failed_members,
+        "skipped_members": skipped_members,
+        "expected_members": expected_members,
     }
 
 
@@ -186,6 +201,14 @@ def run_nikke_batch_download(
     files = [str(item).strip() for item in result.get("files", []) if str(item).strip()]
     ok_count = int(result.get("ok_count", 0) or 0)
     total_count = int(result.get("total_count", 0) or 0)
+    skipped_members = result.get("skipped_members", [])
+    failed_members = result.get("failed_members", [])
+    skipped_count = len(skipped_members)
+    outputs = {"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files,
+               "failed_members": failed_members, "skipped_members": skipped_members,
+               "expected_members": result.get("expected_members", [])}
+    stats = {"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count,
+             "skipped_count": skipped_count, "failed_count": max(len(failed_members), total_count - ok_count - skipped_count)}
     skip_reason = str(result.get("skip_reason", "") or "").strip()
     if skip_reason:
         return JobResult(ok=False, message=skip_reason, outputs={"guild_id": guild_id, "files": files, "skip_reason": skip_reason})
@@ -206,6 +229,17 @@ def run_nikke_batch_download(
             outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
         )
 
+    if stats["failed_count"] or len(files) != ok_count:
+        names = "、".join(str(item.get("nickname", "")) for item in failed_members)
+        return JobResult(
+            ok=False, message=f"批次下載不完整 ({ok_count}/{total_count}，略過 {skipped_count})，停止上傳" + (f"：{names}" if names else ""),
+            stats=stats, outputs=outputs,
+        )
+
+    if ok_count == 0 and skipped_count == total_count:
+        message = f"全部 {skipped_count} 名成員均未持有本次檢查角色，無需上傳"
+        return JobResult(ok=False, message=message, stats=stats, outputs={**outputs, "skip_reason": message})
+
     if ok_count <= 0:
         return JobResult(
             ok=False,
@@ -217,6 +251,6 @@ def run_nikke_batch_download(
     return JobResult(
         ok=True,
         message=f"批次下載妮姬資料成功 ({ok_count}/{total_count})",
-        stats={"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count},
-        outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
+        stats=stats,
+        outputs=outputs,
     )

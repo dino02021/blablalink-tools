@@ -42,6 +42,7 @@ class Spreadsheet:
 def document(snapshot, fingerprint):
     return {
         "healthcheck_context": config.build_download_context(snapshot, "union", fingerprint),
+        "expected_name_codes": ["1001"],
         "character_details": [{"name": "Alice", "name_code": 1001, "functions": [
             {"function_id": 70005}, {"function_id": 70008}, {"function_id": 70007},
         ]}],
@@ -57,6 +58,21 @@ def test_download_selection_and_trait_order_share_one_source_read(snapshot):
 def test_valid_headers_and_download_context(snapshot):
     fingerprint = config.validate_training_headers(Spreadsheet(), snapshot)
     config.validate_download_context(document(snapshot, fingerprint), snapshot, "union", fingerprint)
+
+
+def test_cached_headers_match_the_live_header_fingerprint(snapshot):
+    spreadsheet = Spreadsheet()
+    expected = config.validate_training_headers(spreadsheet, snapshot)
+    assert config.validate_training_headers(spreadsheet, snapshot, worksheets=[spreadsheet.sheet],
+        values_by_sheet={spreadsheet.sheet.title: spreadsheet.values + [["Member", 1]]}) == expected
+
+
+@pytest.mark.parametrize("codes", [None, [], ["1001", "1001"], ["1001", "1002"]])
+def test_missing_or_incomplete_role_manifest_requires_redownload(snapshot, codes):
+    payload = document(snapshot, "header")
+    payload["expected_name_codes"] = codes
+    with pytest.raises(ValueError, match="重新下載"):
+        config.validate_download_context(payload, snapshot, "union", "header")
 
 
 @pytest.mark.parametrize("position,value", [(1, "Bob"), (2, "Bob")])

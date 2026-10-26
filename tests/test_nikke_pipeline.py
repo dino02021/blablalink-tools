@@ -29,7 +29,7 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
             outputs={"guild_id": "3097", "files": ["member.json"]},
         )
 
-    def fake_upload(account=None, files=None, sheet_id=None, healthcheck_snapshot=None):
+    def fake_upload(account=None, files=None, sheet_id=None, healthcheck_snapshot=None, expected_members=None):
         assert healthcheck_snapshot is snapshot
         calls.append(("upload", account, list(files or []), sheet_id))
         return JobResult(

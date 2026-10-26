@@ -55,7 +55,8 @@ def _process_single_account(app) -> None:
     snapshot = load_healthcheck_snapshot()
     download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
     if not download_result.ok:
-        app.root.after(0, functools.partial(_finish_update, app, False, download_result.message))
+        is_skipped = bool(download_result.outputs.get("skip_reason"))
+        app.root.after(0, functools.partial(_finish_update, app, is_skipped, download_result.message))
         return
 
     # 取 guild_id
@@ -79,9 +80,13 @@ def _process_single_account(app) -> None:
         return
 
     # 上傳
-    upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
+    upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
+                                     expected_members=download_result.outputs.get("expected_members"))
     ok = upload_result.ok
     msg = upload_result.message
+    skipped_count = int(download_result.stats.get("skipped_count", 0) or 0)
+    if skipped_count:
+        msg += f"；正常略過 {skipped_count} 名未持有檢查角色的成員（共 {download_result.stats.get('total_count', 0)} 人）"
     
     app.root.after(0, functools.partial(_finish_update, app, ok, msg))
 
@@ -141,9 +146,10 @@ def _process_all_accounts(app) -> None:
             continue
 
         # 上傳
-        upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
+        upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
+                                         expected_members=download_result.outputs.get("expected_members"))
         if upload_result.ok:
-            messages.append(f"✅ {username}: 成功")
+            messages.append(f"✅ {username}: {upload_result.message}，下載 {download_result.stats.get('ok_count', 0)}/{download_result.stats.get('total_count', 0)}，正常略過 {download_result.stats.get('skipped_count', 0)}")
         else:
             messages.append(f"❌ {username}: 上傳失敗 - {upload_result.message}")
             all_ok = False

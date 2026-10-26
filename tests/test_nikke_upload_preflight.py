@@ -16,19 +16,25 @@ from lib.jobs import nikke_upload, nikke_batch_download
 def upload_environment(monkeypatch, tmp_path):
     member = {"name_code": 1001, "name": "Alice", "element": "燃燒", "type": "輸出"}
     snapshot = HealthcheckSnapshot("common", "version", [member], [(1001, "Alice")], {"1001": [70005, 70008, 70007]})
-    worksheet = type("Worksheet", (), {"title": "角色練度_燃燒"})()
-    worksheet.row_values = lambda row: ["成員", "Alice"]
-    worksheet.col_values = lambda col: ["", "", "Member"] if col == 1 else []
-    spreadsheet = SimpleNamespace(worksheets=lambda: [worksheet])
+    titles = ["成員名稱", "角色練度_電擊", "角色練度_水冷", "角色練度_燃燒", "角色練度_風壓", "角色練度_鐵甲", "角色練度_變化"]
+    worksheets = [type("Worksheet", (), {"title": title, "row_count": 4, "col_count": 13})() for title in titles]
+    values = {title: [["成員"], [], ["Member"]] for title in titles}
+    values["成員名稱"] = [["成員", "等級", "Blabla ID"], ["Member"]]
+    values["角色練度_燃燒"][0] = ["成員", "Alice"]
+    values["角色練度_變化"] = [[], ["成員", "Alice"], [], ["Member"]]
+    spreadsheet = SimpleNamespace(worksheets=lambda: worksheets, values_batch_get=lambda ranges, **kwargs: {
+        "valueRanges": [{"values": deepcopy(values[cell_range.split("!")[0].strip("'")])} for cell_range in ranges]
+    })
     monkeypatch.setattr(nikke_upload, "resolve_character_sheet_for_account", lambda *args, **kwargs: ("3097", "union", "Union"))
     monkeypatch.setattr(auth, "get_gspread_client", lambda: SimpleNamespace(open_by_key=lambda key: spreadsheet))
     monkeypatch.setattr(nikke_upload, "ensure_healthcheck_snapshot_current", lambda snapshot: None)
-    monkeypatch.setattr(nikke_upload, "validate_training_headers", lambda sheet, source: "header")
+    monkeypatch.setattr(nikke_upload, "validate_training_headers", lambda *args, **kwargs: "header")
     writes = []
     monkeypatch.setattr(helpers, "_apply_updates", lambda updates: writes.append(updates) or (True, []))
     payload = {
         "nickname": "Member", "member_id": "",
         "healthcheck_context": build_download_context(snapshot, "union", "header"),
+        "expected_name_codes": ["1001"],
         "character_details": [{"name": "Alice", "name_code": 1001, "functions": [
             {"function_id": 70005, "function_value": 10},
             {"function_id": 70008, "function_value": 20},
@@ -65,7 +71,7 @@ def test_failed_preflight_writes_no_member_data(upload_environment, monkeypatch,
         monkeypatch.setattr(nikke_upload, "ensure_healthcheck_snapshot_current", check_source)
     if failure == "headers_changed_before_write":
         headers = iter(["header", "changed-header"])
-        monkeypatch.setattr(nikke_upload, "validate_training_headers", lambda *args: next(headers))
+        monkeypatch.setattr(nikke_upload, "validate_training_headers", lambda *args, **kwargs: next(headers))
     (directory / "a-member.json").write_text(json.dumps(payload), encoding="utf-8")
     result = nikke_upload.run_nikke_upload(account="account", input_dir=directory, healthcheck_snapshot=snapshot)
     assert not result.ok

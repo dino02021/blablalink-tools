@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+
+import requests
 
 from ...jobs.nikke_upload import run_nikke_upload
 from ...constants import CHAR_DETAILS_DIR, CHAR_DETAILS_TYPE, WEB_APP_URL
@@ -54,14 +57,8 @@ def _finish_upload(app, ok: bool, ok_count: int, total_count: int, msg: str) -> 
 
 
 def _collect_character_sheets(worksheets) -> List[Any]:
-    main_sheets = []
-    for ws in worksheets:
-        title = ws.title
-        if title.startswith("角色練度_變化"):
-            continue
-        if title.startswith("角色練度"):
-            main_sheets.append(ws)
-    return main_sheets
+    titles = {"角色練度_電擊", "角色練度_水冷", "角色練度_燃燒", "角色練度_風壓", "角色練度_鐵甲"}
+    return [ws for ws in worksheets if ws.title in titles]
 
 
 def _find_change_sheet(worksheets) -> Any | None:
@@ -78,20 +75,12 @@ def _find_member_sheet(worksheets) -> Any | None:
     return None
 
 
-def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[int]]]:
+def _load_change_headers(change_sheet, values_by_ws=None) -> Tuple[Dict[str, int], Dict[str, List[int]]]:
     if change_sheet is None:
         return {}, {}
-    try:
-        nick_col = change_sheet.col_values(1)
-        nick_to_row = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        nick_to_row = {}
-    try:
-        hdrs = change_sheet.row_values(2)
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        hdrs = []
+    nick_col = _source_column(change_sheet, 1, values_by_ws)
+    nick_to_row = _unique_rows(nick_col, 4, change_sheet.title)
+    hdrs = _source_row(change_sheet, 2, values_by_ws)
     pos_map: Dict[str, List[int]] = {}
     for idx, h in enumerate(hdrs, start=1):
         name = normalize_label(h)
@@ -104,48 +93,32 @@ def _load_change_headers(change_sheet) -> Tuple[Dict[str, int], Dict[str, List[i
 def _load_sheet_headers(
     main_sheets,
     member_sheet: Any | None = None,
+    values_by_ws=None,
 ) -> Tuple[Dict[Any, Dict[str, int]], Dict[str, str], Dict[Any, Dict[str, int]], Dict[Any, Dict[str, List[int]]]]:
     member_id_to_nick: Dict[str, str] = {}
     if member_sheet is not None:
-        try:
-            member_names = member_sheet.col_values(1)
-            member_ids = member_sheet.col_values(3)
-            for row_idx, member_id in enumerate(member_ids, start=1):
-                clean_id = str(member_id or "").strip()
-                if not clean_id:
-                    continue
-                name = str(member_names[row_idx - 1] if row_idx - 1 < len(member_names) else "").strip()
-                if name:
-                    member_id_to_nick[clean_id] = name
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
+        member_names = _source_column(member_sheet, 1, values_by_ws)
+        member_ids = _source_column(member_sheet, 3, values_by_ws)
+        _unique_rows(member_names, 2, member_sheet.title)
+        for clean_id, row_idx in _unique_rows(member_ids, 2, member_sheet.title).items():
+            name = str(member_names[row_idx - 1] if row_idx - 1 < len(member_names) else "").strip()
+            if not name:
+                raise ValueError(f"成員名稱表的 Blabla ID {clean_id} 缺少名稱")
+            member_id_to_nick[clean_id] = name
 
     nick_to_row_by_ws: Dict[Any, Dict[str, int]] = {}
     member_id_to_row_by_ws: Dict[Any, Dict[str, int]] = {}
     header_pos: Dict[Any, Dict[str, List[int]]] = {}
     for ws in main_sheets:
-        try:
-            nick_col = ws.col_values(1)
-            nick_to_row_by_ws[ws] = {v.strip(): i for i, v in enumerate(nick_col, start=1) if v.strip()}
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            nick_to_row_by_ws[ws] = {}
+        nick_col = _source_column(ws, 1, values_by_ws)
+        start_row = 3 if ws.title.startswith("角色練度_") else 2
+        nick_to_row_by_ws[ws] = _unique_rows(nick_col, start_row, ws.title)
 
         if member_sheet is None:
-            try:
-                member_id_col = ws.col_values(3)
-                member_id_to_row_by_ws[ws] = {
-                    v.strip(): i for i, v in enumerate(member_id_col, start=1) if v.strip()
-                }
-            except Exception as exc:  # noqa: BLE001
-                log_exc(exc)
-                member_id_to_row_by_ws[ws] = {}
+            member_id_col = _source_column(ws, 3, values_by_ws)
+            member_id_to_row_by_ws[ws] = _unique_rows(member_id_col, start_row, ws.title)
 
-        try:
-            hdrs = ws.row_values(1)
-        except Exception as exc:  # noqa: BLE001
-            log_exc(exc)
-            hdrs = []
+        hdrs = _source_row(ws, 1, values_by_ws)
         pos_map: Dict[str, List[int]] = {}
         for idx, h in enumerate(hdrs, start=1):
             name = normalize_label(h)
@@ -171,10 +144,12 @@ def _build_updates(
 ) -> Tuple[Dict[Any, List[Tuple[int, int, List[Any]]]], List[Tuple[Any, int, int, List[Any], str, str]]]:
     updates_by_ws: Dict[Any, List[Tuple[int, int, List[Any]]]] = {}
     pending_changes: List[Tuple[Any, int, int, List[Any], str, str]] = []
+    member_nick = member_id_to_nick.get(member_id, "") if member_id else ""
     for detail in details:
         name = normalize_label(detail.get("name"))
         if not name:
             continue
+        target_count = 0
         for ws in main_sheets:
             start_cols = header_pos.get(ws, {}).get(name, [])
             if not start_cols:
@@ -183,7 +158,6 @@ def _build_updates(
             member_id_to_row = member_id_to_row_by_ws.get(ws, {})
             row_idx = None
             if member_id:
-                member_nick = member_id_to_nick.get(member_id, "")
                 if member_nick:
                     row_idx = nick_to_row.get(member_nick)
                 if not row_idx:
@@ -191,12 +165,19 @@ def _build_updates(
             if not row_idx:
                 row_idx = nick_to_row.get(nickname)
             if not row_idx:
-                continue
+                raise ValueError(f"{ws.title} 找不到成員 {nickname}（Blabla ID: {member_id or '-'}）")
+            target_count += 1
+            row_nick = next((key for key, value in nick_to_row.items() if value == row_idx), nickname)
+            change_nick = next((candidate for candidate in (member_nick, row_nick, nickname) if candidate in change_nick_to_row), "")
+            if change_sheet and (not change_nick or not change_header_pos.get(name)):
+                raise ValueError(f"變化表找不到 {nickname} 的 {name} 資料位置")
             vals = _build_row_values(detail)
             for start_col in start_cols:
                 updates_by_ws.setdefault(ws, []).append((row_idx, start_col, vals))
                 if change_sheet:
-                    pending_changes.append((ws, row_idx, start_col, vals, nickname, name))
+                    pending_changes.append((ws, row_idx, start_col, vals, change_nick, name))
+        if target_count == 0:
+            raise ValueError(f"找不到角色 {name} 的練度欄位")
 
     return updates_by_ws, pending_changes
 
@@ -207,14 +188,11 @@ def _populate_change_updates(
     change_sheet: Any | None,
     change_nick_to_row: Dict[str, int],
     change_header_pos: Dict[str, List[int]],
+    values_by_ws=None,
 ) -> None:
     if not change_sheet or not pending:
         return
-    try:
-        from gspread.utils import rowcol_to_a1  # type: ignore
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return
+    from gspread.utils import rowcol_to_a1
 
     pending_by_ws: Dict[Any, List[Tuple[int, int, List[Any], str, str]]] = {}
     for ws, row_idx, start_col, vals, nickname, name in pending:
@@ -235,20 +213,11 @@ def _populate_change_updates(
                     f"{rowcol_to_a1(change_row, change_col)}:"
                     f"{rowcol_to_a1(change_row, change_col + len(vals) - 1)}"
                 )
-        try:
-            values = _batch_get_ranges(ws, ranges, 80)
-        except Exception as exc:  # noqa: BLE001
-            log_msg(f"nikke_upload change read failed ws={ws.title} count={len(ranges)}")
-            log_exc(exc)
-            continue
+        values = ([[_source_slice(ws, row, col, len(vals), values_by_ws)] for row, col, vals, _, _ in items]
+                  if values_by_ws is not None else _batch_get_ranges(ws, ranges, 80))
         change_values: List[List[List[str]]] = []
-        if change_ranges:
-            try:
-                change_values = _batch_get_ranges(change_sheet, change_ranges, 80)
-            except Exception as exc:  # noqa: BLE001
-                log_msg(f"nikke_upload change read failed ws={change_sheet.title} count={len(change_ranges)}")
-                log_exc(exc)
-                change_values = []
+        if change_ranges and values_by_ws is None:
+            change_values = _batch_get_ranges(change_sheet, change_ranges, 80)
         for (row_idx, start_col, vals, nickname, name), old_block in zip(items, values):
             old_vals = old_block[0] if old_block else []
             diffs = _build_diff_values_from_slice(old_vals, vals)
@@ -257,9 +226,10 @@ def _populate_change_updates(
             change_row = change_nick_to_row.get(nickname)
             change_cols = change_header_pos.get(name, [])
             if not change_row or not change_cols:
-                continue
+                raise ValueError(f"變化表找不到 {nickname} 的 {name} 資料位置")
             for change_col in change_cols:
-                existing_vals = _get_change_existing(change_values, change_ranges, change_row, change_col, len(vals))
+                existing_vals = (_source_slice(change_sheet, change_row, change_col, len(vals), values_by_ws)
+                                 if values_by_ws is not None else _get_change_existing(change_values, change_ranges, change_row, change_col, len(vals)))
                 merged = _merge_change_values(existing_vals, diffs)
                 if not any(merged):
                     continue
@@ -296,7 +266,10 @@ def _batch_get_ranges(sheet: Any, ranges: List[str], chunk_size: int) -> List[Li
     total = len(ranges)
     for idx in range(0, total, chunk_size):
         chunk = ranges[idx : idx + chunk_size]
-        out.extend(sheet.batch_get(chunk))
+        values = sheet.batch_get(chunk)
+        if len(values) != len(chunk):
+            raise ValueError(f"無法完整讀取 {sheet.title} 的舊資料")
+        out.extend(values)
     return out
 
 
@@ -304,7 +277,7 @@ def _merge_change_values(existing: List[str], diffs: List[Any]) -> List[Any]:
     out: List[Any] = []
     for idx, diff in enumerate(diffs):
         if diff == "":
-            out.append("")
+            out.append(existing[idx] if idx < len(existing) else "")
             continue
         base_val = existing[idx] if idx < len(existing) else ""
         merged = _add_change_values(base_val, diff)
@@ -532,38 +505,153 @@ def _equip_val(tier, lv):
 def _apply_updates(
     updates_by_ws: Dict[Any, List[Tuple[int, int, List[Any]]]]
 ) -> Tuple[bool, List[Dict[str, Any]]]:
-    try:
-        from gspread.utils import rowcol_to_a1  # type: ignore
-    except Exception as exc:  # noqa: BLE001
-        log_exc(exc)
-        return False, []
+    """Commit all training and change cells together; never hide a failed sheet."""
+    from gspread.utils import rowcol_to_a1
 
-    any_written = False
-    notify_items: List[Dict[str, Any]] = []
+    if not any(updates_by_ws.values()):
+        return True, []
+    spreadsheet = next(ws.spreadsheet for ws, items in updates_by_ws.items() if items)
+    cells_by_ws = {}
     for ws, items in updates_by_ws.items():
-        if not items:
-            continue
-        payload = []
+        if ws.spreadsheet.id != spreadsheet.id:
+            raise ValueError("不能在同一批次更新不同試算表")
+        rows = cells_by_ws.setdefault(ws, {})
         for row_idx, start_col, vals in items:
-            end_col = start_col + len(vals) - 1
-            rng = f"{rowcol_to_a1(row_idx, start_col)}:{rowcol_to_a1(row_idx, end_col)}"
-            payload.append({"range": rng, "values": [vals]})
+            if row_idx < 1 or row_idx > ws.row_count or start_col < 1 or start_col + len(vals) - 1 > ws.col_count:
+                raise ValueError(f"{ws.title} 的更新超出既有資料列或欄位")
+            cells = rows.setdefault(row_idx, {})
+            for offset, value in enumerate(vals):
+                column = start_col + offset
+                if column in cells and not _is_same_value(cells[column], value):
+                    raise ValueError(f"{ws.title} 的 {rowcol_to_a1(row_idx, column)} 存在衝突的更新")
+                cells[column] = value
+
+    requests_body, notify_items = [], []
+    for ws, rows in cells_by_ws.items():
+        ranges = []
+        for row_idx, cells in sorted(rows.items()):
+            columns = sorted(cells)
+            index = 0
+            while index < len(columns):
+                start_col = columns[index]
+                values = [cells[start_col]]
+                index += 1
+                while index < len(columns) and columns[index] == start_col + len(values):
+                    values.append(cells[columns[index]])
+                    index += 1
+                requests_body.append({"updateCells": {
+                    "start": {"sheetId": ws.id, "rowIndex": row_idx - 1, "columnIndex": start_col - 1},
+                    "rows": [{"values": [_user_entered_cell(value) for value in values]}],
+                    "fields": "userEnteredValue",
+                }})
+                cell_range = f"{rowcol_to_a1(row_idx, start_col)}:{rowcol_to_a1(row_idx, start_col + len(values) - 1)}"
+                ranges.append(cell_range)
+        if ranges:
+            notify_items.append({"sheet_name": ws.title, "ranges": ranges})
+    try:
+        spreadsheet.batch_update({"requests": requests_body})
+    except Exception as exc:
+        if not _is_uncertain_write_error(exc):
+            raise
+        verified = _read_training_values(spreadsheet, list(cells_by_ws))
+        for ws, rows in cells_by_ws.items():
+            for row, cells in rows.items():
+                actual = _source_row(ws, row, verified)
+                if any(not _is_same_value(actual[column - 1] if column <= len(actual) else "", value) for column, value in cells.items()):
+                    raise ValueError("寫入結果未確認，請重新讀取試算表後再操作") from exc
+    return True, notify_items
+
+
+def _read_training_values(spreadsheet, worksheets):
+    from gspread.utils import rowcol_to_a1
+
+    ranges = [f"'{ws.title.replace(chr(39), chr(39) * 2)}'!A1:{rowcol_to_a1(ws.row_count, ws.col_count)}" for ws in worksheets]
+    response = spreadsheet.values_batch_get(ranges, params={"valueRenderOption": "UNFORMATTED_VALUE"})
+    results = response.get("valueRanges", [])
+    if len(results) != len(worksheets):
+        raise ValueError("無法完整讀取練度、變化與成員名稱資料，停止整批上傳")
+    return {ws: result.get("values", []) for ws, result in zip(worksheets, results)}
+
+
+def _source_row(worksheet, row, values_by_ws):
+    if values_by_ws is None:
+        return worksheet.row_values(row)
+    values = values_by_ws[worksheet]
+    return values[row - 1] if row <= len(values) else []
+
+
+def _source_column(worksheet, column, values_by_ws):
+    if values_by_ws is None:
+        return worksheet.col_values(column)
+    return [row[column - 1] if len(row) >= column else "" for row in values_by_ws[worksheet]]
+
+
+def _source_slice(worksheet, row, column, length, values_by_ws):
+    values = _source_row(worksheet, row, values_by_ws)
+    return values[column - 1:column - 1 + length]
+
+
+def _unique_rows(values, start_row, title):
+    result = {}
+    for row, raw in enumerate(values, 1):
+        value = str(raw or "").strip()
+        if row < start_row or not value:
+            continue
+        if value in result:
+            raise ValueError(f"{title} 包含重複的成員名稱或 Blabla ID：{value}")
+        result[value] = row
+    return result
+
+
+def _filter_unchanged_updates(updates_by_ws, values_by_ws):
+    changed = {}
+    for ws, items in updates_by_ws.items():
+        for row, column, values in items:
+            original = _source_slice(ws, row, column, len(values), values_by_ws)
+            index = 0
+            while index < len(values):
+                old_value = original[index] if index < len(original) else ""
+                if _is_same_value(old_value, values[index]):
+                    index += 1
+                    continue
+                first = index
+                run = []
+                while index < len(values) and not _is_same_value(original[index] if index < len(original) else "", values[index]):
+                    run.append(values[index])
+                    index += 1
+                changed.setdefault(ws, []).append((row, column + first, run))
+    return changed
+
+
+def _is_same_value(first, second):
+    if first in (None, "") or second in (None, ""):
+        return first in (None, "") and second in (None, "")
+    if isinstance(first, bool) or isinstance(second, bool):
+        return type(first) is type(second) and first == second
+    if isinstance(first, (int, float)) or isinstance(second, (int, float)):
         try:
-            if payload:
-                ws.batch_update(payload, value_input_option="RAW")
-                any_written = True
-                notify_items.append(
-                    {"sheet_name": ws.title, "ranges": [item["range"] for item in payload]}
-                )
-        except Exception as exc:  # noqa: BLE001
-            ranges = [item.get("range") for item in payload]
-            sample = [r for r in ranges if r][:5]
-            log_msg(
-                "nikke_upload batch_update failed ws="
-                f"{ws.title} count={len(payload)} sample_ranges={sample}"
-            )
-            log_exc(exc)
-    return any_written, notify_items
+            return float(first) == float(second)
+        except (TypeError, ValueError):
+            return False
+    return first == second
+
+
+def _user_entered_cell(value):
+    if value is None or value == "":
+        return {}
+    if isinstance(value, bool):
+        return {"userEnteredValue": {"boolValue": value}}
+    if isinstance(value, (int, float)):
+        if not math.isfinite(value):
+            raise ValueError("練度資料包含無效數值")
+        return {"userEnteredValue": {"numberValue": value}}
+    return {"userEnteredValue": {"stringValue": str(value)}}
+
+
+def _is_uncertain_write_error(exc):
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        return True
+    return getattr(getattr(exc, "response", None), "status_code", 0) >= 500
 
 
 def _notify_web_app_batch(

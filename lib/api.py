@@ -498,7 +498,7 @@ async def fetch_user_character_details(
         name_codes = [nc for nc, _ in checklist_items if nc]
         if not name_codes:
             return False
-        name_map = {nc: nm for nc, nm in checklist_items if nc}
+        name_map = {str(nc): nm for nc, nm in checklist_items if nc}
         # 去重複 name_code
         unique_codes = list(set(name_codes))
 
@@ -550,10 +550,13 @@ async def fetch_user_character_details(
         cd = data_field.get("character_details")
         if not isinstance(cd, list):
             return False
+        returned_codes = [str(item.get("name_code", "")) for item in cd if isinstance(item, dict)]
+        if len(returned_codes) != len(cd) or len(set(returned_codes)) != len(returned_codes) or set(returned_codes) != {str(code) for code in unique_codes}:
+            return False
         
         for itm in cd:
             name_code = itm.get("name_code")
-            name = name_map.get(name_code, "")
+            name = name_map.get(str(name_code), "")
             user_character = (user_character_lookup or {}).get(str(name_code), {})
             fav_raw = str(itm.get("favorite_item_tid", "") or "")
             fav_first = fav_raw[0] if fav_raw else ""
@@ -621,6 +624,7 @@ async def fetch_user_character_details(
                         "nickname": nickname,
                         "member_id": str(intl_id),
                         "character_details": results,
+                        "expected_name_codes": sorted(str(code) for code in unique_codes),
                         **({"healthcheck_context": healthcheck_context} if healthcheck_context is not None else {}),
                     },
                     ensure_ascii=False,
