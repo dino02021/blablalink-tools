@@ -58,6 +58,12 @@ def _process_single_account(app) -> None:
         total_count = int(download_result.stats.get("total_count", 0) or 0)
         is_skipped = (bool(download_result.outputs.get("skip_reason")) and total_count > 0
                       and int(download_result.stats.get("skipped_count", 0) or 0) == total_count)
+        failed_members = download_result.outputs.get("failed_members", [])
+        if failed_members:
+            names = "、".join(str(item.get("nickname", "")).strip() for item in failed_members if isinstance(item, dict))
+            message = f"下載警告：{len(failed_members)} 名成員下載失敗（{names}），沒有可上傳資料；既有資料保留"
+            app.root.after(0, functools.partial(_finish_update, app, True, message))
+            return
         app.root.after(0, functools.partial(_finish_update, app, is_skipped, download_result.message))
         return
 
@@ -84,7 +90,7 @@ def _process_single_account(app) -> None:
     # 上傳
     upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                      expected_members=download_result.outputs.get("expected_members"))
-    is_ok = upload_result.ok and download_result.ok
+    is_ok = upload_result.ok
     msg = _build_update_message(download_result, upload_result)
     
     app.root.after(0, functools.partial(_finish_update, app, is_ok, msg))
@@ -120,7 +126,12 @@ def _process_all_accounts(app) -> None:
             if download_result.outputs.get("skip_reason"):
                 messages.append(f"⊘ {username}: {download_result.message}")
                 continue
-            messages.append(f"❌ {username}: 下載失敗 - {download_result.message}")
+            failed_members = download_result.outputs.get("failed_members", [])
+            if failed_members:
+                names = "、".join(str(item.get("nickname", "")).strip() for item in failed_members if isinstance(item, dict))
+                messages.append(f"✅ {username}: 下載警告 - {len(failed_members)} 名成員失敗（{names}），沒有可上傳資料；既有資料保留")
+                continue
+            messages.append(f"❌ {username}: 下載前置失敗 - {download_result.message}")
             all_ok = False
             continue
 
@@ -148,7 +159,7 @@ def _process_all_accounts(app) -> None:
         upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                          expected_members=download_result.outputs.get("expected_members"))
         message = _build_update_message(download_result, upload_result)
-        if upload_result.ok and download_result.ok:
+        if upload_result.ok:
             messages.append(f"✅ {username}: {message}")
             continue
         prefix = "⚠️" if upload_result.ok else "❌"

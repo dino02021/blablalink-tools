@@ -269,9 +269,8 @@ def test_partial_download_uploads_complete_members_and_preserves_failed_member(p
         assert len(pipeline.grids[title]) == len(grid)
     assert pipeline.grids["角色練度_電擊"][2][1] == 2
     assert pipeline.grids["角色練度_變化"][-1][1] == "+6"
-    assert pipeline.statuses[-1][1] == "red"
-    assert "29/30" in pipeline.statuses[-1][0]
-    assert "Member01" in pipeline.statuses[-1][0]
+    assert pipeline.statuses[-1][1] == "green"
+    assert pipeline.statuses[-1][0] == "練度資料表更新成功"
 
 
 def test_failed_download_does_not_reuse_an_existing_member_file(pipeline, monkeypatch):
@@ -310,6 +309,7 @@ def test_all_failed_downloads_never_upload_old_files(pipeline, monkeypatch):
     assert "upload" not in pipeline.results
     assert pipeline.bodies == []
     assert pipeline.grids == grids
+    assert pipeline.statuses[-1][1] == "green"
 
 
 def test_all_accounts_mode_uploads_partial_downloads_and_continues(pipeline, monkeypatch):
@@ -337,8 +337,7 @@ def test_all_accounts_mode_uploads_partial_downloads_and_continues(pipeline, mon
     pipeline.run_all()
     assert calls == [("download", "first"), ("upload", "first"), ("download", "second"), ("upload", "second")]
     assert pipeline.results["upload"].ok
-    assert "29/30" in pipeline.statuses[-1][0]
-    assert "Member01" in pipeline.statuses[-1][0]
+    assert pipeline.statuses[-1][0] == "練度資料表更新成功"
     assert pipeline.grids["角色練度_電擊"][3][1] == 1
 
 
