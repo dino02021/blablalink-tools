@@ -117,11 +117,16 @@ async def _batch_download_with_ctx(
         seen_paths.add(output_key)
 
         total_count += 1
-        user_characters = await fetch_user_characters(
-            ctx,
-            intl_open_id=member_id,
-            nikke_area_id=target_nikke_area_id,
-        )
+        try:
+            user_characters = await fetch_user_characters(
+                ctx,
+                intl_open_id=member_id,
+                nikke_area_id=target_nikke_area_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            failed_members.append({"nickname": nickname, "member_id": member_id, "message": f"持有角色查詢失敗：{exc}"})
+            continue
         if not user_characters:
             failed_members.append({"nickname": nickname, "member_id": member_id, "message": "無法取得持有角色資料"})
             continue
@@ -130,20 +135,24 @@ async def _batch_download_with_ctx(
         if not filtered:
             skipped_members.append({"nickname": nickname, "member_id": member_id, "message": "未持有本次檢查角色"})
             continue
-        expected_members.append({"nickname": nickname, "member_id": member_id, "expected_name_codes": [str(code) for code, _ in filtered]})
         user_character_lookup = _build_user_character_lookup(user_characters)
 
-        ok = await fetch_user_character_details(
-            ctx,
-            filtered,
-            nickname,
-            intl_open_id=member_id,
-            nikke_area_id=target_nikke_area_id,
-            function_id_targets=function_id_targets,
-            user_character_lookup=user_character_lookup,
-            healthcheck_context=healthcheck_context,
-        )
-        if not ok:
+        try:
+            is_downloaded = await fetch_user_character_details(
+                ctx,
+                filtered,
+                nickname,
+                intl_open_id=member_id,
+                nikke_area_id=target_nikke_area_id,
+                function_id_targets=function_id_targets,
+                user_character_lookup=user_character_lookup,
+                healthcheck_context=healthcheck_context,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log_exc(exc)
+            failed_members.append({"nickname": nickname, "member_id": member_id, "message": f"角色詳情下載失敗：{exc}"})
+            continue
+        if not is_downloaded:
             failed_members.append({"nickname": nickname, "member_id": member_id, "message": "角色詳情下載失敗或不完整"})
             continue
         outfile = build_character_details_path(nickname)
@@ -152,6 +161,7 @@ async def _batch_download_with_ctx(
             continue
         ok_count += 1
         created_files.append(outfile.name)
+        expected_members.append({"nickname": nickname, "member_id": member_id, "expected_name_codes": [str(code) for code, _ in filtered]})
 
     return {
         "guild_id": guild_id,
@@ -206,7 +216,7 @@ def run_nikke_batch_download(
     skipped_count = len(skipped_members)
     outputs = {"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files,
                "failed_members": failed_members, "skipped_members": skipped_members,
-               "expected_members": result.get("expected_members", [])}
+               "expected_members": result.get("expected_members", []), "is_upload_ready": False}
     stats = {"account": slug, "guild_id": guild_id, "ok_count": ok_count, "total_count": total_count,
              "skipped_count": skipped_count, "failed_count": max(len(failed_members), total_count - ok_count - skipped_count)}
     skip_reason = str(result.get("skip_reason", "") or "").strip()
@@ -229,10 +239,14 @@ def run_nikke_batch_download(
             outputs={"char_details_dir": str(CHAR_DETAILS_DIR), "guild_id": guild_id, "files": files},
         )
 
-    if stats["failed_count"] or len(files) != ok_count:
+    if len(files) != ok_count or len(outputs["expected_members"]) != ok_count:
+        return JobResult(ok=False, message="下載資料清單不一致，停止上傳", stats=stats, outputs=outputs)
+
+    outputs["is_upload_ready"] = ok_count > 0
+    if stats["failed_count"]:
         names = "、".join(str(item.get("nickname", "")) for item in failed_members)
         return JobResult(
-            ok=False, message=f"批次下載不完整 ({ok_count}/{total_count}，略過 {skipped_count})，停止上傳" + (f"：{names}" if names else ""),
+            ok=False, message=f"批次下載不完整 ({ok_count}/{total_count}，失敗 {stats['failed_count']}，正常略過 {skipped_count})" + (f"，失敗成員：{names}" if names else ""),
             stats=stats, outputs=outputs,
         )
 

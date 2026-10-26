@@ -54,7 +54,7 @@ def _process_single_account(app) -> None:
     # 下載
     snapshot = load_healthcheck_snapshot()
     download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
-    if not download_result.ok:
+    if not download_result.ok and not download_result.outputs.get("is_upload_ready"):
         total_count = int(download_result.stats.get("total_count", 0) or 0)
         is_skipped = (bool(download_result.outputs.get("skip_reason")) and total_count > 0
                       and int(download_result.stats.get("skipped_count", 0) or 0) == total_count)
@@ -84,13 +84,10 @@ def _process_single_account(app) -> None:
     # 上傳
     upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                      expected_members=download_result.outputs.get("expected_members"))
-    ok = upload_result.ok
-    msg = upload_result.message
-    skipped_count = int(download_result.stats.get("skipped_count", 0) or 0)
-    if skipped_count:
-        msg += f"；正常略過 {skipped_count} 名未持有檢查角色的成員（共 {download_result.stats.get('total_count', 0)} 人）"
+    is_ok = upload_result.ok and download_result.ok
+    msg = _build_update_message(download_result, upload_result)
     
-    app.root.after(0, functools.partial(_finish_update, app, ok, msg))
+    app.root.after(0, functools.partial(_finish_update, app, is_ok, msg))
 
 
 def _process_all_accounts(app) -> None:
@@ -119,7 +116,7 @@ def _process_all_accounts(app) -> None:
 
         # 下載
         download_result = run_nikke_batch_download(account=username, healthcheck_snapshot=snapshot)
-        if not download_result.ok:
+        if not download_result.ok and not download_result.outputs.get("is_upload_ready"):
             if download_result.outputs.get("skip_reason"):
                 messages.append(f"⊘ {username}: {download_result.message}")
                 continue
@@ -150,14 +147,29 @@ def _process_all_accounts(app) -> None:
         # 上傳
         upload_result = run_nikke_upload(account=username, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                          expected_members=download_result.outputs.get("expected_members"))
-        if upload_result.ok:
-            messages.append(f"✅ {username}: {upload_result.message}，下載 {download_result.stats.get('ok_count', 0)}/{download_result.stats.get('total_count', 0)}，正常略過 {download_result.stats.get('skipped_count', 0)}")
-        else:
-            messages.append(f"❌ {username}: 上傳失敗 - {upload_result.message}")
-            all_ok = False
+        message = _build_update_message(download_result, upload_result)
+        if upload_result.ok and download_result.ok:
+            messages.append(f"✅ {username}: {message}")
+            continue
+        prefix = "⚠️" if upload_result.ok else "❌"
+        messages.append(f"{prefix} {username}: {message}")
+        all_ok = False
 
     final_msg = "\n".join(messages) if messages else "完成"
     app.root.after(0, functools.partial(_finish_update, app, all_ok, final_msg))
+
+
+def _build_update_message(download_result, upload_result) -> str:
+    message = upload_result.message
+    if not download_result.ok:
+        if upload_result.ok:
+            message = (f"練度資料表部分完成（已上傳 {upload_result.stats.get('ok_count', 0)}/"
+                       f"{download_result.stats.get('total_count', 0)} 人）")
+        return message + f"；{download_result.message}；下載失敗成員的既有資料保留"
+    skipped_count = int(download_result.stats.get("skipped_count", 0) or 0)
+    if skipped_count:
+        message += f"；正常略過 {skipped_count} 名未持有檢查角色的成員（共 {download_result.stats.get('total_count', 0)} 人）"
+    return message
 
 
 def _finish_update(app, ok: bool, msg: str) -> None:

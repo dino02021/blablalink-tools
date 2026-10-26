@@ -69,7 +69,8 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
         ]
     )
     assert result.outputs["unions"] == [
-        {"account": "good@example.com", "union_id": "3097", "sheet_name": "月下", "ok_count": 31, "total_count": 32}
+        {"account": "good@example.com", "union_id": "3097", "sheet_name": "月下", "ok_count": 31, "total_count": 32,
+         "download_failed_count": 0, "skipped_count": 0}
     ]
     assert result.outputs["failures"] == [
         {
@@ -117,3 +118,41 @@ def test_unmapped_union_is_skipped_without_upload(monkeypatch):
     assert result.ok
     assert result.stats["skipped_count"] == 1
     assert result.outputs["skipped"] == [{"account": "account", "union_id": "3097", "message": "missing target"}]
+
+
+def test_partial_downloads_upload_successful_members_and_keep_original_totals(monkeypatch):
+    calls = []
+    manifest = [{"nickname": "good", "member_id": "id1", "expected_name_codes": ["1001"]}]
+    failed = [{"nickname": "missing", "member_id": "id2", "message": "download failed"}]
+    monkeypatch.setattr(nikke_pipeline, "_resolve_accounts", lambda *args: ["partial", "complete"])
+    monkeypatch.setattr(nikke_pipeline, "load_healthcheck_snapshot", lambda: object())
+    monkeypatch.setattr(nikke_pipeline, "resolve_character_sheet_target", lambda _: ("sheet", "月下"))
+
+    def download(account=None, **kwargs):
+        calls.append(("download", account))
+        is_complete = account == "complete"
+        return JobResult(ok=is_complete, message="download ok" if is_complete else "下載失敗：missing",
+            stats={"ok_count": 1, "total_count": 1 if is_complete else 3,
+                   "failed_count": 0 if is_complete else 1, "skipped_count": 0 if is_complete else 1},
+            outputs={"guild_id": "3097", "files": ["good.json"], "expected_members": manifest,
+                     "is_upload_ready": True, "failed_members": [] if is_complete else failed})
+
+    def upload(account=None, files=None, expected_members=None, **kwargs):
+        calls.append(("upload", account))
+        assert files == ["good.json"]
+        assert expected_members is manifest
+        return JobResult(ok=True, message="uploaded", stats={"ok_count": 1, "total_count": 1})
+
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", download)
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", upload)
+    result = nikke_pipeline.run_nikke_pipeline(scope="all")
+    assert calls == [("download", "partial"), ("upload", "partial"), ("download", "complete"), ("upload", "complete")]
+    assert not result.ok
+    assert result.stats["ok_count"] == 1
+    assert result.stats["upload_ok_count"] == 2
+    assert result.stats["upload_total_count"] == 4
+    assert result.outputs["unions"][0]["total_count"] == 3
+    assert result.outputs["unions"][0]["download_failed_count"] == 1
+    assert result.outputs["failures"][0]["failed_members"] == failed
+    assert "missing" in result.message
+    assert "正常略過 1" in result.message

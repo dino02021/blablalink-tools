@@ -200,6 +200,7 @@ def pipeline(monkeypatch, tmp_path):
         _set_nikke_status=lambda *args: transport.statuses.append(args), _set_busy=lambda *args: None,
         nikke_status_var=SimpleNamespace(set=lambda msg: None), nikke_status_label=SimpleNamespace(configure=lambda **kwargs: None))
     transport.run = lambda: gui._process_single_account(app)
+    transport.run_all = lambda: gui._process_all_accounts(app)
     return transport
 
 
@@ -239,20 +240,106 @@ def test_same_id_rename_updates_training_and_changes(pipeline):
     assert pipeline.grids["角色練度_變化"][3][1] == "+6"
 
 
-def test_partial_download_stops_before_upload_and_preserves_denominator(pipeline, monkeypatch):
-    original = download.fetch_user_characters
+@pytest.mark.parametrize("kind", ["characters", "details", "characters_exception", "details_exception", "missing_file"])
+def test_partial_download_uploads_complete_members_and_preserves_failed_member(pipeline, monkeypatch, kind):
+    function = "fetch_user_characters" if kind.startswith("characters") else "fetch_user_character_details"
+    original = getattr(download, function)
+    grids = deepcopy(pipeline.grids)
 
     async def unavailable(*args, **kwargs):
-        if kwargs.get("intl_open_id") == "id29":
-            return []
+        if kwargs.get("intl_open_id") == "id01":
+            if kind.endswith("exception"):
+                raise requests.Timeout("member download timed out")
+            return [] if kind == "characters" else kind == "missing_file"
         return await original(*args, **kwargs)
+
+    monkeypatch.setattr(download, function, unavailable)
+    pipeline.run()
+    assert not pipeline.results["download"].ok
+    assert pipeline.results["download"].outputs["is_upload_ready"]
+    assert pipeline.results["download"].stats["total_count"] == 30
+    assert pipeline.results["download"].stats["failed_count"] == 1
+    assert len(pipeline.results["download"].outputs["expected_members"]) == 29
+    assert pipeline.results["upload"].ok
+    assert pipeline.results["upload"].stats["ok_count"] == 29
+    assert len(pipeline.bodies) == 1
+    for title, grid in grids.items():
+        row = 4 if title == "角色練度_變化" else 2 if title == "成員名稱" else 3
+        assert pipeline.grids[title][row] == grid[row]
+        assert len(pipeline.grids[title]) == len(grid)
+    assert pipeline.grids["角色練度_電擊"][2][1] == 2
+    assert pipeline.grids["角色練度_變化"][-1][1] == "+6"
+    assert pipeline.statuses[-1][1] == "red"
+    assert "29/30" in pipeline.statuses[-1][0]
+    assert "Member01" in pipeline.statuses[-1][0]
+
+
+def test_failed_download_does_not_reuse_an_existing_member_file(pipeline, monkeypatch):
+    grids = deepcopy(pipeline.grids)
+    pipeline.run()
+    pipeline.grids = grids
+    pipeline.bodies.clear()
+    original = download.fetch_user_character_details
+
+    async def unavailable(*args, **kwargs):
+        if kwargs.get("intl_open_id") == "id01":
+            return False
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(download, "fetch_user_character_details", unavailable)
+    pipeline.run()
+    assert pipeline.results["upload"].ok
+    assert pipeline.results["upload"].stats["ok_count"] == 29
+    assert pipeline.grids["角色練度_電擊"][3][1] == 1
+    assert pipeline.grids["角色練度_變化"][4][1] == "+5"
+
+
+def test_all_failed_downloads_never_upload_old_files(pipeline, monkeypatch):
+    pipeline.run()
+    pipeline.results.clear()
+    pipeline.bodies.clear()
+    grids = deepcopy(pipeline.grids)
+
+    async def unavailable(*args, **kwargs):
+        return []
 
     monkeypatch.setattr(download, "fetch_user_characters", unavailable)
     pipeline.run()
-    assert not pipeline.results["download"].ok
-    assert pipeline.results["download"].stats["total_count"] == 30
+    assert pipeline.results["download"].stats["failed_count"] == 30
+    assert not pipeline.results["download"].outputs["is_upload_ready"]
     assert "upload" not in pipeline.results
     assert pipeline.bodies == []
+    assert pipeline.grids == grids
+
+
+def test_all_accounts_mode_uploads_partial_downloads_and_continues(pipeline, monkeypatch):
+    original_download, original_upload = gui.run_nikke_batch_download, gui.run_nikke_upload
+    original_characters = download.fetch_user_characters
+    calls = []
+
+    async def unavailable(*args, **kwargs):
+        if kwargs.get("intl_open_id") == "id01":
+            return []
+        return await original_characters(*args, **kwargs)
+
+    def download_account(**kwargs):
+        calls.append(("download", kwargs["account"]))
+        return original_download(**kwargs)
+
+    def upload_account(**kwargs):
+        calls.append(("upload", kwargs["account"]))
+        return original_upload(**kwargs)
+
+    monkeypatch.setattr(gui, "load_union_account_map", lambda: [{"username": "first"}, {"username": "second"}])
+    monkeypatch.setattr(gui, "run_nikke_batch_download", download_account)
+    monkeypatch.setattr(gui, "run_nikke_upload", upload_account)
+    monkeypatch.setattr(download, "fetch_user_characters", unavailable)
+    pipeline.run_all()
+    assert calls == [("download", "first"), ("upload", "first"), ("download", "second"), ("upload", "second")]
+    assert pipeline.results["upload"].ok
+    assert "29/30" in pipeline.statuses[-1][0]
+    assert "Member01" in pipeline.statuses[-1][0]
+    assert pipeline.grids["角色練度_電擊"][3][1] == 1
 
 
 def test_rerun_does_not_write_unchanged_training_or_add_changes_again(pipeline):
