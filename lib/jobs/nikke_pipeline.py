@@ -111,9 +111,17 @@ def _build_pipeline_message(
     skipped: List[Dict[str, Any]],
 ) -> str:
     status = "完成" if failures else "成功"
-    lines = [f"上傳妮姬資料{status} ({upload_ok_count}/{upload_total_count})"]
+    member_skipped_count = sum(int(item.get("skipped_count", 0) or 0) for item in union_summaries)
+    skipped_text = f"，正常略過 {member_skipped_count}" if member_skipped_count else ""
+    lines = [f"上傳妮姬資料{status} ({upload_ok_count}/{upload_total_count}{skipped_text})"]
     for item in union_summaries:
-        lines.append(f"{_union_label(item)}: {item.get('ok_count', 0)}/{item.get('total_count', 0)}")
+        details = []
+        if item.get("download_failed_count"):
+            details.append(f"下載失敗 {item['download_failed_count']}")
+        if item.get("skipped_count"):
+            details.append(f"正常略過 {item['skipped_count']}")
+        suffix = "，" + "，".join(details) if details else ""
+        lines.append(f"{_union_label(item)}: {item.get('ok_count', 0)}/{item.get('total_count', 0)}{suffix}")
     if failures:
         lines.append("失敗:")
         for item in failures:
@@ -155,7 +163,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
     for slug in accounts:
         download_result = run_nikke_batch_download(account=slug, healthcheck_snapshot=snapshot)
 
-        if not download_result.ok:
+        if not download_result.ok and not download_result.outputs.get("is_upload_ready"):
             if download_result.outputs.get("skip_reason"):
                 skipped_count += 1
                 skipped.append({"account": slug, "union_id": download_result.outputs.get("guild_id", ""), "message": download_result.message})
@@ -177,10 +185,17 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             skipped.append({"account": slug, "union_id": guild_id, "message": str(exc)})
             continue
 
+        if not download_result.ok:
+            entry = _failure_entry(slug, "download", download_result)
+            entry.update({"union_id": guild_id, "sheet_name": target_sheet_name,
+                          "failed_members": download_result.outputs.get("failed_members", [])})
+            failures.append(entry)
+
         upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                          expected_members=download_result.outputs.get("expected_members"))
         account_ok_count = int(upload_result.stats.get("ok_count", 0) or 0)
-        account_total_count = int(upload_result.stats.get("total_count", 0) or 0)
+        account_total_count = max(int(upload_result.stats.get("total_count", 0) or 0),
+                                  int(download_result.stats.get("total_count", 0) or 0))
         upload_ok_count += account_ok_count
         upload_total_count += account_total_count
         union_summaries.append(
@@ -190,11 +205,14 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
                 "sheet_name": target_sheet_name,
                 "ok_count": account_ok_count,
                 "total_count": account_total_count,
+                "download_failed_count": int(download_result.stats.get("failed_count", 0) or 0),
+                "skipped_count": int(download_result.stats.get("skipped_count", 0) or 0),
             }
         )
 
         if upload_result.ok:
-            ok_count += 1
+            if download_result.ok:
+                ok_count += 1
             continue
         upload_failures = upload_result.outputs.get("failed_files", []) if upload_result.outputs else []
         if isinstance(upload_failures, list) and upload_failures:

@@ -87,8 +87,9 @@ CLI 入口點：
 完整性規則：
 - API 回傳角色集合必須與該成員持有且本輪選取的角色一致；缺少、多出或重複角色時下載失敗，不覆寫之前的檔案。
 - 成員缺名稱、缺 ID、重複 ID 或檔名碰撞時停止下載。持有角色查詢失敗、角色詳情下載失敗或檔案未產生，記錄於 `failed_members`，不可縮小總人數後回報全部成功。
-- 未持有本輪任何檢查角色屬正常略過，記錄於 `skipped_members`；`ok_count + skipped_count` 必須等於 `total_count`，且成功檔案數必須等於 `ok_count` 才可繼續上傳。
-- 下載回傳 `expected_members`（成員名稱、Blabla ID、預期角色代碼），由 GUI 與 pipeline 原樣交給上傳工作。部分下載失敗即停止該聯盟整批上傳；全部正常略過時無需上傳。GUI 單一模式只有全部成員確定未持有檢查角色時才以成功略過顯示，找不到目標試算表仍回報失敗。
+- 未持有本輪任何檢查角色屬正常略過，記錄於 `skipped_members`；`ok_count + skipped_count + failed_count` 必須等於 `total_count`。成功檔案數及 `expected_members` 人數必須等於 `ok_count`，才可繼續上傳成功成員。
+- 下載回傳成功且完整的 `expected_members`（成員名稱、Blabla ID、預期角色代碼），由 GUI 與 pipeline 原樣交給上傳工作。部分成員下載失敗或拋出例外時，繼續下載後續成員；只要有成功檔案即以 `is_upload_ready=true` 讓流程繼續上傳成功成員。失敗成員不列入上傳清單，其五張練度表與變化表的既有資料保留，不使用暫存目錄舊檔補上。
+- 部分下載失敗仍回傳 `ok=false` 並保留原始聯盟總人數、失敗人數及名單，GUI 與 pipeline 在完成成功成員的上傳後回報部分完成，不顯示全員成功；批次模式繼續下一帳號。全部下載失敗時不進行寫入；全部正常略過時無需上傳。GUI 單一模式只有全部成員確定未持有檢查角色時才以成功略過顯示，找不到目標試算表仍回報失敗。
 
 詞條規則：
 - `function_id_targets` 由共用 `健檢名單` 的詞條1/2/3 依序比對 `function_names.json.function_name`
@@ -135,6 +136,7 @@ Google Sheets 請求控制：
 - 依 `username` 去重複
 - 執行 pipeline 時先建立一次 `HealthcheckSnapshot`，再傳給每個帳號的下載與上傳；GUI 單一及全部模式採相同規則
 - 跳過沒有對應 `CharacterDetails` 試算表的帳號
+- 下載缺人且 `is_upload_ready=true` 時仍上傳成功成員；聯盟與管線摘要保留原始聯盟總人數，另列下載失敗與正常略過的人數。部分成員失敗會列入結果，並繼續後續帳號。
 - 若任何帳號確實失敗則整個管線失敗
 
 ## 同步上傳
