@@ -108,6 +108,7 @@ def _build_pipeline_message(
     upload_total_count: int,
     union_summaries: List[Dict[str, Any]],
     failures: List[Dict[str, Any]],
+    download_warnings: List[Dict[str, Any]],
     skipped: List[Dict[str, Any]],
 ) -> str:
     status = "完成" if failures else "成功"
@@ -122,6 +123,17 @@ def _build_pipeline_message(
             details.append(f"正常略過 {item['skipped_count']}")
         suffix = "，" + "，".join(details) if details else ""
         lines.append(f"{_union_label(item)}: {item.get('ok_count', 0)}/{item.get('total_count', 0)}{suffix}")
+    if download_warnings:
+        lines.append("下載警告:")
+        for item in download_warnings:
+            failed_members = item.get("failed_members", [])
+            names = "、".join(
+                str(member.get("nickname", "")).strip()
+                for member in failed_members
+                if isinstance(member, dict) and str(member.get("nickname", "")).strip()
+            )
+            member_part = f"：{names}" if names else ""
+            lines.append(f"- {_union_label(item)} / {item.get('account', '-')}: {item.get('message', '')}{member_part}")
     if failures:
         lines.append("失敗:")
         for item in failures:
@@ -149,6 +161,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
         return JobResult(ok=False, message="Missing account")
 
     failures: List[Dict[str, Any]] = []
+    download_warnings: List[Dict[str, Any]] = []
     skipped: List[Dict[str, Any]] = []
     union_summaries: List[Dict[str, Any]] = []
     ok_count = 0
@@ -168,6 +181,15 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
                 skipped_count += 1
                 skipped.append({"account": slug, "union_id": download_result.outputs.get("guild_id", ""), "message": download_result.message})
                 continue
+            failed_members = download_result.outputs.get("failed_members", [])
+            if failed_members:
+                download_warnings.append({
+                    "account": slug,
+                    "union_id": download_result.outputs.get("guild_id", ""),
+                    "message": download_result.message,
+                    "failed_members": failed_members,
+                })
+                continue
             failures.append(_failure_entry(slug, "download", download_result))
             continue
 
@@ -186,10 +208,13 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             continue
 
         if not download_result.ok:
-            entry = _failure_entry(slug, "download", download_result)
-            entry.update({"union_id": guild_id, "sheet_name": target_sheet_name,
-                          "failed_members": download_result.outputs.get("failed_members", [])})
-            failures.append(entry)
+            download_warnings.append({
+                "account": slug,
+                "union_id": guild_id,
+                "sheet_name": target_sheet_name,
+                "message": download_result.message,
+                "failed_members": download_result.outputs.get("failed_members", []),
+            })
 
         upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
                                          expected_members=download_result.outputs.get("expected_members"))
@@ -211,8 +236,7 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
         )
 
         if upload_result.ok:
-            if download_result.ok:
-                ok_count += 1
+            ok_count += 1
             continue
         upload_failures = upload_result.outputs.get("failed_files", []) if upload_result.outputs else []
         if isinstance(upload_failures, list) and upload_failures:
@@ -245,12 +269,15 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
         "failed_count": failed_count,
         "upload_ok_count": upload_ok_count,
         "upload_total_count": upload_total_count,
+        "download_warning_count": len(download_warnings),
+        "download_failed_member_count": sum(len(item.get("failed_members", [])) for item in download_warnings),
     }
-    message = _build_pipeline_message(upload_ok_count, upload_total_count, union_summaries, failures, skipped)
+    message = _build_pipeline_message(upload_ok_count, upload_total_count, union_summaries, failures, download_warnings, skipped)
 
     return JobResult(
         ok=failed_count == 0,
         message=message,
         stats=summary,
-        outputs={"_summary_only": True, "unions": union_summaries, "failures": failures, "skipped": skipped},
+        outputs={"_summary_only": True, "unions": union_summaries, "failures": failures,
+                 "download_warnings": download_warnings, "skipped": skipped},
     )

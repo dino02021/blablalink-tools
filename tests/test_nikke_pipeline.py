@@ -5,7 +5,7 @@ from lib.jobs.common import JobResult
 from types import SimpleNamespace
 
 
-def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
+def test_all_scope_continues_but_fails_when_account_cannot_resolve(monkeypatch):
     calls = []
 
     monkeypatch.setattr(
@@ -58,6 +58,8 @@ def test_all_scope_continues_but_fails_when_account_download_fails(monkeypatch):
         "failed_count": 2,
         "upload_ok_count": 31,
         "upload_total_count": 32,
+        "download_warning_count": 0,
+        "download_failed_member_count": 0,
     }
     assert result.message == "\n".join(
         [
@@ -147,12 +149,43 @@ def test_partial_downloads_upload_successful_members_and_keep_original_totals(mo
     monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", upload)
     result = nikke_pipeline.run_nikke_pipeline(scope="all")
     assert calls == [("download", "partial"), ("upload", "partial"), ("download", "complete"), ("upload", "complete")]
-    assert not result.ok
-    assert result.stats["ok_count"] == 1
+    assert result.ok
+    assert result.stats["ok_count"] == 2
+    assert result.stats["failed_count"] == 0
     assert result.stats["upload_ok_count"] == 2
     assert result.stats["upload_total_count"] == 4
+    assert result.stats["download_warning_count"] == 1
+    assert result.stats["download_failed_member_count"] == 1
     assert result.outputs["unions"][0]["total_count"] == 3
     assert result.outputs["unions"][0]["download_failed_count"] == 1
-    assert result.outputs["failures"][0]["failed_members"] == failed
+    assert result.outputs["failures"] == []
+    assert result.outputs["download_warnings"][0]["failed_members"] == failed
     assert "missing" in result.message
     assert "正常略過 1" in result.message
+
+
+def test_all_member_download_failures_are_warnings_without_upload(monkeypatch):
+    failed = [
+        {"nickname": "missing-a", "member_id": "id-a", "message": "download failed"},
+        {"nickname": "missing-b", "member_id": "id-b", "message": "download failed"},
+    ]
+    monkeypatch.setattr(nikke_pipeline, "_resolve_accounts", lambda *args: ["account"])
+    monkeypatch.setattr(nikke_pipeline, "load_healthcheck_snapshot", lambda: object())
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_batch_download", lambda **kwargs: JobResult(
+        ok=False,
+        message="批次下載不完整",
+        stats={"ok_count": 0, "total_count": 2, "failed_count": 2, "skipped_count": 0},
+        outputs={"guild_id": "3097", "files": [], "expected_members": [],
+                 "failed_members": failed, "is_upload_ready": False},
+    ))
+    monkeypatch.setattr(nikke_pipeline, "run_nikke_upload", lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not upload")))
+
+    result = nikke_pipeline.run_nikke_pipeline()
+
+    assert result.ok
+    assert result.stats["failed_count"] == 0
+    assert result.stats["download_warning_count"] == 1
+    assert result.stats["download_failed_member_count"] == 2
+    assert result.outputs["failures"] == []
+    assert result.outputs["download_warnings"][0]["failed_members"] == failed
+    assert "下載警告" in result.message
