@@ -331,6 +331,7 @@
 - Python 端只更新 `健檢名單` 的 A-F 範圍；G 欄以後的既有儲存格不得被覆蓋。
 - `run_healthcheck_upload` 保留呼叫入口，行為改為唯讀核對目前帳號的目標表角色與詞條欄位，不再送出另一份名單覆寫共用來源。
 - 每次下載與上傳共用同一份 `HealthcheckSnapshot`；來源名單與目標表頭內容指紋寫入 `CharacterDetails/*.json.healthcheck_context`。
+- 練度檔另含 `expected_name_codes`，記錄該成員本輪應下載的完整角色集合；API 與檔案內容必須完整且不重複。缺少此欄位的舊檔須重新下載。下載工作回傳本輪 `expected_members`、`failed_members`、`skipped_members`；後續上傳不能因漏檔或下載失敗而縮小預期成員清單，詳見[工作契約](30-headless-jobs-and-actions.md)。
 - JSON 角色資料包含 `name_code`，上傳前核對角色及三個 `function_id` 的順序。
 - 下載前與寫入前檢查角色區塊為 12 欄、分類位置與詞條縮寫，雙屬性角色 `拉毗：小紅帽` 同時核對燃燒及鐵甲表。
 - 名單或表頭已變更、舊檔缺少來源紀錄、檔案屬於其他試算表時，停止上傳並提示重新下載；欄位不一致時提示先執行試算表內的健檢嚴格同步。

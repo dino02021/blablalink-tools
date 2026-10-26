@@ -9,6 +9,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from ..constants import GOOGLE_CRED_FILE, GOOGLE_SCOPES
+from .transport import SheetsSession, get_request_limiter
 
 
 def get_gspread_client(cred_path: Optional[Path] = None) -> gspread.client.Client:
@@ -22,4 +23,5 @@ def get_gspread_client(cred_path: Optional[Path] = None) -> gspread.client.Clien
 
     creds_dict = json.loads(path.read_text(encoding="utf-8"))
     creds = Credentials.from_service_account_info(creds_dict, scopes=GOOGLE_SCOPES)
-    return gspread.authorize(creds)
+    limiter = get_request_limiter(creds.project_id, creds.service_account_email)
+    return gspread.Client(auth=creds, session=SheetsSession(creds, limiter))

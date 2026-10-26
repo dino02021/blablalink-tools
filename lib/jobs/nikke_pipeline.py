@@ -177,7 +177,8 @@ def run_nikke_pipeline(scope: str = "single", account: str | None = None) -> Job
             skipped.append({"account": slug, "union_id": guild_id, "message": str(exc)})
             continue
 
-        upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot)
+        upload_result = run_nikke_upload(account=slug, files=files, sheet_id=target_sheet_id, healthcheck_snapshot=snapshot,
+                                         expected_members=download_result.outputs.get("expected_members"))
         account_ok_count = int(upload_result.stats.get("ok_count", 0) or 0)
         account_total_count = int(upload_result.stats.get("total_count", 0) or 0)
         upload_ok_count += account_ok_count
