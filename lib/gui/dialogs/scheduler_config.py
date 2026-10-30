@@ -33,6 +33,7 @@ from ...log import log_exc, log_msg
 
 
 SCHEDULER_CONFIG_PATH = Path(__file__).parent.parent.parent.parent / ".github" / "runtime" / "scheduler_config.json"
+SCHEDULER_CONFIG_BRANCH = "main"
 GITHUB_API_TIMEOUT_SECONDS = 5
 GITHUB_GIT_TIMEOUT_SECONDS = 3
 GITHUB_TOKEN_TIMEOUT_SECONDS = 2
@@ -276,18 +277,7 @@ def _fetch_scheduler_config_from_github() -> Optional[dict]:
         if not repo:
             return None
 
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=PROJECT_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-                **_subprocess_run_kwargs(),
-            )
-            branch = result.stdout.strip() if result.returncode == 0 else "main"
-        except Exception:
-            branch = "main"
+        branch = SCHEDULER_CONFIG_BRANCH
 
         url = f"https://api.github.com/repos/{repo}/contents/.github/runtime/scheduler_config.json?ref={branch}"
         response = _request_json(url)
@@ -373,19 +363,8 @@ def _push_to_github(rel_path: str, content: str) -> bool:
             log_msg("無法偵測到 GitHub 儲存庫")
             return False
 
-        # 取得主分支名稱
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=PROJECT_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-                **_subprocess_run_kwargs(),
-            )
-            branch = result.stdout.strip() if result.returncode == 0 else "main"
-        except Exception:
-            branch = "main"
+        # 排程器固定從 main 讀取設定；不能使用目前 checkout 的功能分支。
+        branch = SCHEDULER_CONFIG_BRANCH
 
         url = f"https://api.github.com/repos/{repo}/contents/{rel_path}"
         sha = ""
