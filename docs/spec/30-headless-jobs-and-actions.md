@@ -204,6 +204,7 @@ Google Sheets 請求控制：
 設計：
 - Cloudflare Cron Trigger 每分鐘執行一次
 - Worker 從 GitHub 儲存庫載入排程器配置
+- 本地 GUI 發布排程設定固定寫入 `main`；目前 checkout 的功能分支不會成為生產設定來源
 - Worker 以設定的時區評估應執行的工作
 - Worker 使用 `workflow_dispatch` 分派 GitHub 工作流
 
